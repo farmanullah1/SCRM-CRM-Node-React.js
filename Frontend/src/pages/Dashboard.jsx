@@ -7,19 +7,15 @@ import {
   Edit3, 
   RefreshCw, 
   LogOut,
-  Layers, 
+  Users, 
   ShieldCheck, 
-  Activity, 
-  CircleDollarSign,
-  Terminal,
-  Cpu,
-  Mail,
+  Target, 
+  DollarSign, 
   Send,
-  Workflow,
-  Sparkles,
   Database,
   Lock,
-  ChevronRight
+  Zap,
+  HelpCircle
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { getContacts, createContact, updateContact, deleteContact } from "../services/api";
@@ -31,7 +27,7 @@ export default function Dashboard() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  // Contact form quick enquiry state for the closing band
+  // Contact support / message form state
   const [inquiryName, setInquiryName] = useState("");
   const [inquiryEmail, setInquiryEmail] = useState("");
   const [inquiryMessage, setInquiryMessage] = useState("");
@@ -64,7 +60,7 @@ export default function Dashboard() {
       handleCloseModal();
     },
     onError: (err) => {
-      setFormError(err.response?.data?.error || "Failed to create contact");
+      setFormError(err.response?.data?.error || "Failed to create contact.");
     }
   });
 
@@ -75,7 +71,7 @@ export default function Dashboard() {
       handleCloseModal();
     },
     onError: (err) => {
-      setFormError(err.response?.data?.error || "Failed to update contact");
+      setFormError(err.response?.data?.error || "Failed to update contact.");
     }
   });
 
@@ -85,7 +81,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
     },
     onError: (err) => {
-      alert(err.response?.data?.error || "Failed to delete contact");
+      alert(err.response?.data?.error || "Failed to delete contact.");
     }
   });
 
@@ -138,7 +134,7 @@ export default function Dashboard() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Confirm deletion of this record?")) {
+    if (window.confirm("Are you sure you want to delete this contact?")) {
       deleteMutation.mutate(id);
     }
   };
@@ -161,89 +157,89 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* 81px Edge-to-Edge Circuit Navbar per Spec */}
+      {/* 81px Edge-to-Edge Navigation Bar */}
       <nav className="navbar-circuit">
-        {/* Item 1 & 2: Logo and site name SCRM */}
+        {/* Brand */}
         <div className="nav-brand">
           <div className="brand-glyph">
-            <Cpu size={20} color="#00D9FF" />
+            <Zap size={20} color="#00D9FF" />
           </div>
           <span className="brand-title">SCRM</span>
         </div>
 
-        {/* Item 3, 4, 5: Center Nav Links */}
+        {/* Center Links */}
         <div className="nav-center-links">
-          <a href="#pipeline" className="nav-link-circuit">Pipeline</a>
-          <a href="#intelligence" className="nav-link-circuit">Intelligence</a>
-          <a href="#telemetry" className="nav-link-circuit">Telemetry</a>
-          <a href="#dispatch" className="nav-link-circuit">Dispatch</a>
+          <a href="#pipeline" className="nav-link-circuit">Overview</a>
+          <a href="#contacts" className="nav-link-circuit">Contacts</a>
+          <a href="#system" className="nav-link-circuit">Features</a>
+          <a href="#contact-us" className="nav-link-circuit">Support</a>
         </div>
 
-        {/* Item 6: Small CTA/utility control at far right */}
+        {/* Right Actions */}
         <div className="nav-right-items">
           <button 
             className="button-nav-utility"
             onClick={() => handleOpenModal()}
           >
             <UserPlus size={15} />
-            <span>New Entry</span>
+            <span>Add Contact</span>
           </button>
 
           <button 
             className="action-icon-btn delete" 
             onClick={logout} 
-            title="Disconnect Operator"
+            title="Log Out"
           >
             <LogOut size={16} />
           </button>
         </div>
       </nav>
 
-      {/* Main Container: 1280px max-width, section spacing */}
+      {/* Main Container */}
       <main className="crm-layout">
         {/* Hero Section */}
         <header className="crm-hero" id="pipeline">
           <div className="eyebrow">
-            01 // PIPELINE INTELLIGENCE & TELEMETRY
+            CRM DASHBOARD
           </div>
 
           <h1 className="hero-display-stack">
-            DEAL VELOCITY.<br />
-            CONTACT MATRIX.<br />
-            <span className="cyan-text">UNIFIED COMMAND.</span>
+            TRACK DEALS.<br />
+            MANAGE LEADS.<br />
+            <span className="cyan-text">GROW YOUR BUSINESS.</span>
           </h1>
 
           <p className="hero-lead-text">
-            Precision relationship management with real-time Microsoft SQL Server persistence and end-to-end encrypted session telemetry.
+            A simple, fast CRM to organize your customer contacts, follow up on deals, and track pipeline revenue in real time.
           </p>
 
-          {/* Three-Button Row Anchored Center/Left per Spec */}
+          {/* Action Row */}
           <div className="hero-three-button-row">
             <button className="button-primary-hero" onClick={() => handleOpenModal()}>
               <UserPlus size={18} />
-              <span>Deploy Entity</span>
+              <span>Add New Contact</span>
             </button>
             <button className="button-secondary-hero" onClick={() => refetch()}>
               <RefreshCw size={16} className={isFetching ? "spin-icon" : ""} />
-              <span>Sync Network</span>
+              <span>Refresh Data</span>
             </button>
-            <a href="#dispatch" className="button-secondary-hero">
-              <Mail size={16} />
-              <span>Dispatch Brief</span>
+            <a href="#contact-us" className="button-secondary-hero">
+              <HelpCircle size={16} />
+              <span>Contact Support</span>
             </a>
           </div>
         </header>
 
-        {/* Core-Capability Card (×4 in a Single Row, Uniform Card-Grid per Spec) */}
-        <section className="capability-4up-row" id="telemetry">
+        {/* 4 Metrics Cards */}
+        <section className="capability-4up-row">
           <div className="core-capability-card">
             <div className="icon-badge-square">
-              <Layers size={22} />
+              <Users size={22} />
             </div>
             <div className="capability-card-stat">{contacts.length}</div>
-            <h3 className="capability-card-heading">Indexed Entities</h3>
+            <h3 className="capability-card-heading">Total Contacts</h3>
             <p className="capability-card-desc">
-              Total active relationship nodes mapped within the SCRM telemetry graph.
+              All active customer and prospect records saved in your CRM.
             </p>
           </div>
 
@@ -252,45 +248,45 @@ export default function Dashboard() {
               <ShieldCheck size={22} />
             </div>
             <div className="capability-card-stat" style={{ color: "#4ade80" }}>{activeCustomers}</div>
-            <h3 className="capability-card-heading">Retained Clients</h3>
+            <h3 className="capability-card-heading">Active Customers</h3>
             <p className="capability-card-desc">
-              High-confidence accounts committed to ongoing engagement contracts.
+              Clients who have successfully closed a deal or signed up.
             </p>
           </div>
 
           <div className="core-capability-card">
             <div className="icon-badge-square">
-              <Activity size={22} />
+              <Target size={22} />
             </div>
             <div className="capability-card-stat" style={{ color: "#c084fc" }}>{qualifiedLeads}</div>
-            <h3 className="capability-card-heading">Target Qualified</h3>
+            <h3 className="capability-card-heading">Qualified Leads</h3>
             <p className="capability-card-desc">
-              Validated prospects primed for immediate strategic acquisition.
+              Prospects ready for follow-up and deal negotiation.
             </p>
           </div>
 
           <div className="core-capability-card">
             <div className="icon-badge-square">
-              <CircleDollarSign size={22} />
+              <DollarSign size={22} />
             </div>
             <div className="capability-card-stat">
               ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-            <h3 className="capability-card-heading">Pipeline Capital</h3>
+            <h3 className="capability-card-heading">Pipeline Value</h3>
             <p className="capability-card-desc">
-              Aggregate valuation under active negotiation across all operational sectors.
+              Estimated total value of all deals across your pipeline.
             </p>
           </div>
         </section>
 
-        {/* Database Search & Status Controls */}
-        <section className="controls-glass-panel">
+        {/* Search & Filters */}
+        <section className="controls-glass-panel" id="contacts">
           <div className="search-field-wrapper">
             <Search className="search-field-icon" size={16} />
             <input
               type="text"
               className="search-field-input"
-              placeholder="Search across identity, corporate domain, or key identifier..."
+              placeholder="Search by name, company, or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -301,38 +297,38 @@ export default function Dashboard() {
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
           >
-            <option value="All">FILTER: ALL SECTORS</option>
-            <option value="Lead">FILTER: LEAD</option>
-            <option value="Contacted">FILTER: CONTACTED</option>
-            <option value="Qualified">FILTER: QUALIFIED</option>
-            <option value="Customer">FILTER: CUSTOMER</option>
-            <option value="Lost">FILTER: LOST</option>
+            <option value="All">All Statuses</option>
+            <option value="Lead">Status: Lead</option>
+            <option value="Contacted">Status: Contacted</option>
+            <option value="Qualified">Status: Qualified</option>
+            <option value="Customer">Status: Customer</option>
+            <option value="Lost">Status: Lost</option>
           </select>
         </section>
 
-        {/* Contacts Matrix Table */}
+        {/* Contacts Table */}
         <section className="table-glass-card">
           {isLoading ? (
             <div style={{ padding: "4rem", textAlign: "center", color: "var(--text-secondary)" }}>
               <RefreshCw className="spin-icon" size={24} style={{ margin: "0 auto 1rem", color: "var(--accent)" }} />
-              <div>Synchronizing database records from SCRM...</div>
+              <div>Loading your contacts...</div>
             </div>
           ) : isError ? (
             <div style={{ padding: "3rem", textAlign: "center", color: "#f87171" }}>
-              {error?.response?.data?.error || error?.message || "Failed to load database records."}
+              {error?.response?.data?.error || error?.message || "Failed to load contacts."}
             </div>
           ) : contacts.length === 0 ? (
             <div style={{ padding: "4.5rem 2rem", textAlign: "center" }}>
-              <div className="eyebrow" style={{ marginBottom: "0.5rem" }}>02 // EMPTY MATRIX</div>
+              <div className="eyebrow" style={{ marginBottom: "0.5rem" }}>NO CONTACTS YET</div>
               <h3 style={{ fontSize: "1.6rem", fontWeight: 700, marginBottom: "0.5rem" }}>
-                NO RECORDS INDEXED
+                Your Contact List is Empty
               </h3>
               <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1.75rem" }}>
-                Deploy your first deal or contact to begin building the neural customer graph.
+                Add your first customer or deal to start tracking your sales pipeline.
               </p>
               <button className="button-primary-hero" onClick={() => handleOpenModal()}>
                 <UserPlus size={16} />
-                <span>Deploy Entity</span>
+                <span>Add First Contact</span>
               </button>
             </div>
           ) : (
@@ -340,13 +336,13 @@ export default function Dashboard() {
               <table className="circuit-table">
                 <thead>
                   <tr>
-                    <th>Operator / Entity</th>
-                    <th>Organization</th>
-                    <th>Communication Channel</th>
-                    <th>Telemetry Phone</th>
-                    <th>Lifecycle State</th>
-                    <th>Valuation</th>
-                    <th style={{ textAlign: "right" }}>Direct Actions</th>
+                    <th>Contact Name</th>
+                    <th>Company</th>
+                    <th>Email Address</th>
+                    <th>Phone</th>
+                    <th>Status</th>
+                    <th>Deal Value</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -371,7 +367,7 @@ export default function Dashboard() {
                           <button
                             className="action-icon-btn"
                             onClick={() => handleOpenModal(contact)}
-                            title="Edit Record"
+                            title="Edit Contact"
                           >
                             <Edit3 size={15} />
                           </button>
@@ -379,7 +375,7 @@ export default function Dashboard() {
                             className="action-icon-btn delete"
                             onClick={() => handleDelete(contact.id)}
                             disabled={deleteMutation.isPending}
-                            title="Purge Record"
+                            title="Delete Contact"
                           >
                             <Trash2 size={15} />
                           </button>
@@ -393,127 +389,124 @@ export default function Dashboard() {
           )}
         </section>
 
-        {/* Asymmetric 2-Column Grid (Glass Identity Card left & 2×2 Capability Chips right) per Spec */}
-        <section className="crm-section-pad" id="intelligence">
+        {/* User Profile & Features Info */}
+        <section className="crm-section-pad" id="system">
           <div className="eyebrow" style={{ marginBottom: "1rem" }}>
-            02 // SYSTEM CAPABILITY ARCHITECTURE
+            ACCOUNT & SYSTEM INFO
           </div>
           <div className="asymmetric-2up-grid">
-            {/* Glass Identity Card */}
+            {/* User Profile Card */}
             <div className="card-identity-glass">
-              <div className="eyebrow">02.1 // IDENTITY CONTROL</div>
-              <h2 className="identity-headline">OPERATOR: {user?.name || "AUTHENTICATED AGENT"}</h2>
+              <div className="eyebrow">YOUR PROFILE</div>
+              <h2 className="identity-headline">{user?.name || "User Account"}</h2>
               <p className="identity-body">
-                Full-access administrative authority over the SCRM workspace, connected directly to enterprise Microsoft SQL Server infrastructure with low-latency Sequelize synchronization.
+                Signed in as <strong>{user?.email}</strong>. You have full permissions to add, edit, and organize customer data.
               </p>
               <p className="identity-body" style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                Active Session Token ID: <code style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}>SCRM-SEC-{user?.id || 1}-9942</code>
+                Connected to Microsoft SQL Server with safe, encrypted data storage.
               </p>
             </div>
 
-            {/* Capability Chip (×4 in a 2×2 grid, rows [48/48|48/48]) per Spec */}
+            {/* Features 2x2 grid */}
             <div className="capability-chips-grid">
               <div className="card-capability-chip">
                 <Database size={18} color="#00D9FF" />
-                <span className="chip-label">MSSQL Relational Core</span>
+                <span className="chip-label">SQL Server Database</span>
               </div>
               <div className="card-capability-chip">
                 <Lock size={18} color="#00D9FF" />
-                <span className="chip-label">Bcrypt + JWT Encryption</span>
+                <span className="chip-label">Secure Authentication</span>
               </div>
               <div className="card-capability-chip">
-                <Workflow size={18} color="#00D9FF" />
-                <span className="chip-label">Reactive Query Telemetry</span>
+                <Zap size={18} color="#00D9FF" />
+                <span className="chip-label">Real-Time Updates</span>
               </div>
               <div className="card-capability-chip">
-                <Sparkles size={18} color="#00D9FF" />
-                <span className="chip-label">Halftone Circuit Interface</span>
+                <DollarSign size={18} color="#00D9FF" />
+                <span className="chip-label">Deal Value Tracking</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* Contact Band per Spec: 2-Column Split (Form right, contact details left) with 76px Cyan CTA */}
-        <section className="crm-section-pad" id="dispatch" style={{ paddingBottom: "120px" }}>
+        {/* Contact Support Section */}
+        <section className="crm-section-pad" id="contact-us" style={{ paddingBottom: "120px" }}>
           <div className="eyebrow" style={{ marginBottom: "1rem" }}>
-            03 // DIRECT DISPATCH & INQUIRY
+            SUPPORT & FEEDBACK
           </div>
           <div className="contact-band-split">
-            {/* Contact details left */}
+            {/* Left text */}
             <div className="contact-details-col">
               <h2 style={{ fontSize: "2.4rem", fontWeight: 900, textTransform: "uppercase", marginBottom: "1.25rem", lineHeight: 1.1 }}>
-                SECURE DISPATCH <br />
-                <span style={{ color: "var(--accent)" }}>TERMINAL</span>
+                HAVE QUESTIONS? <br />
+                <span style={{ color: "var(--accent)" }}>WE'RE HERE TO HELP.</span>
               </h2>
               <p style={{ color: "var(--text-secondary)", fontSize: "1rem", lineHeight: 1.6, marginBottom: "2rem" }}>
-                Transmit immediate protocol alerts, pipeline delegations, or custom CRM schema requests directly to operational management.
+                Send us a message if you need assistance, want to suggest a new CRM feature, or have feedback about your experience.
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                  <Terminal size={16} color="#00D9FF" />
-                  <span>SCRM Node: <strong style={{ color: "#FFF" }}>Production Cluster 01</strong></span>
+                  <span>Support Email: <strong style={{ color: "#FFF" }}>support@scrm.com</strong></span>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "1rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                  <Mail size={16} color="#00D9FF" />
-                  <span>Encrypted Gateway: <strong style={{ color: "#FFF" }}>dispatch@scrm.network</strong></span>
+                  <span>Response Time: <strong style={{ color: "#FFF" }}>Within 24 hours</strong></span>
                 </div>
               </div>
             </div>
 
-            {/* Contact form module right capped by 76px Cyan CTA button */}
+            {/* Right Form */}
             <div className="contact-form-module">
               {inquirySent ? (
                 <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--accent)" }}>
-                  <Sparkles size={32} style={{ margin: "0 auto 1rem" }} />
+                  <ShieldCheck size={32} style={{ margin: "0 auto 1rem" }} />
                   <h3 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.5rem", color: "#FFF" }}>
-                    DISPATCH TRANSMITTED
+                    Message Sent!
                   </h3>
                   <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                    Your message has been encrypted and queued into the operator backlog.
+                    Thank you for reaching out. We will get back to you shortly.
                   </p>
                 </div>
               ) : (
                 <form onSubmit={handleInquirySubmit}>
                   <div className="circuit-form-group">
-                    <label className="circuit-label">Operator / Sender Name</label>
+                    <label className="circuit-label">Your Name</label>
                     <input
                       type="text"
                       required
                       className="circuit-input"
-                      placeholder="e.g. Commander Shepard"
+                      placeholder="e.g. Sarah Connor"
                       value={inquiryName}
                       onChange={(e) => setInquiryName(e.target.value)}
                     />
                   </div>
 
                   <div className="circuit-form-group">
-                    <label className="circuit-label">Return Communication Coordinates</label>
+                    <label className="circuit-label">Email Address</label>
                     <input
                       type="email"
                       required
                       className="circuit-input"
-                      placeholder="shepard@alliance.org"
+                      placeholder="sarah@company.com"
                       value={inquiryEmail}
                       onChange={(e) => setInquiryEmail(e.target.value)}
                     />
                   </div>
 
                   <div className="circuit-form-group" style={{ marginBottom: "2rem" }}>
-                    <label className="circuit-label">Dispatch Payload / Message</label>
+                    <label className="circuit-label">Message</label>
                     <textarea
                       required
                       rows={4}
                       className="circuit-input"
                       style={{ resize: "vertical" }}
-                      placeholder="Enter tactical request or pipeline status notes..."
+                      placeholder="How can we help you?"
                       value={inquiryMessage}
                       onChange={(e) => setInquiryMessage(e.target.value)}
                     />
                   </div>
 
-                  {/* Final CTA Button per Spec: 76px height, 16px radius, #00D9FF */}
                   <button type="submit" className="button-cta-final">
-                    <span>TRANSMIT DISPATCH</span>
+                    <span>SEND MESSAGE</span>
                     <Send size={20} />
                   </button>
                 </form>
@@ -523,13 +516,13 @@ export default function Dashboard() {
         </section>
       </main>
 
-      {/* Footer per Spec: transparent background, small copyright left, tracked tagline right */}
+      {/* Footer */}
       <footer className="footer-circuit">
         <div>
           © {new Date().getFullYear()} SCRM. All rights reserved.
         </div>
         <div className="footer-tagline">
-          PRECISION CRM // ZERO COMPROMISE
+          SIMPLE CRM // FAST, RELIABLE & SECURE
         </div>
       </footer>
 
@@ -539,10 +532,10 @@ export default function Dashboard() {
           <div className="modal-card-circuit" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-circuit">
               <div className="eyebrow" style={{ marginBottom: "0.25rem" }}>
-                {editingContact ? "04 // MODIFY RECORD" : "04 // NEW IDENTITY ENTRY"}
+                {editingContact ? "UPDATE CONTACT" : "NEW CONTACT"}
               </div>
               <h3 className="modal-title-circuit">
-                {editingContact ? "Edit Entity Details" : "Provision Contact"}
+                {editingContact ? "Edit Contact Details" : "Add New Contact"}
               </h3>
             </div>
 
@@ -554,46 +547,46 @@ export default function Dashboard() {
 
             <form onSubmit={handleSubmit}>
               <div className="circuit-form-group">
-                <label className="circuit-label">Entity Full Name *</label>
+                <label className="circuit-label">Full Name *</label>
                 <input
                   type="text"
                   required
                   className="circuit-input"
-                  placeholder="e.g. Elena Rostova"
+                  placeholder="e.g. John Doe"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
 
               <div className="circuit-form-group">
-                <label className="circuit-label">Email Coordinate *</label>
+                <label className="circuit-label">Email Address *</label>
                 <input
                   type="email"
                   required
                   className="circuit-input"
-                  placeholder="elena@rostova-dynamics.io"
+                  placeholder="john@example.com"
                   value={formData.email}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
               </div>
 
               <div className="circuit-form-group">
-                <label className="circuit-label">Organization / Domain</label>
+                <label className="circuit-label">Company Name</label>
                 <input
                   type="text"
                   className="circuit-input"
-                  placeholder="Rostova Dynamics Corp"
+                  placeholder="e.g. Acme Corporation"
                   value={formData.company}
                   onChange={(e) => setFormData({ ...formData, company: e.target.value })}
                 />
               </div>
 
               <div className="circuit-form-group">
-                <label className="circuit-label">Telephone Terminal</label>
+                <label className="circuit-label">Phone Number</label>
                 <input
                   type="tel"
                   className="circuit-input"
-                  placeholder="+1 (800) 555-0199"
+                  placeholder="+1 (555) 019-2834"
                   value={formData.phone}
                   onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 />
@@ -601,7 +594,7 @@ export default function Dashboard() {
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "2rem" }}>
                 <div className="circuit-form-group" style={{ marginBottom: 0 }}>
-                  <label className="circuit-label">Pipeline Stage</label>
+                  <label className="circuit-label">Lead Status</label>
                   <select
                     className="circuit-input"
                     value={formData.status}
@@ -616,12 +609,13 @@ export default function Dashboard() {
                 </div>
 
                 <div className="circuit-form-group" style={{ marginBottom: 0 }}>
-                  <label className="circuit-label">Contract Value ($)</label>
+                  <label className="circuit-label">Deal Value ($)</label>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     className="circuit-input"
+                    placeholder="0"
                     value={formData.value}
                     onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                   />
@@ -636,7 +630,7 @@ export default function Dashboard() {
                   onClick={handleCloseModal}
                   disabled={isSaving}
                 >
-                  Dismiss
+                  Cancel
                 </button>
                 <button 
                   type="submit" 
@@ -644,7 +638,7 @@ export default function Dashboard() {
                   style={{ width: "auto", height: "46px", padding: "0 28px", fontSize: "0.9375rem" }}
                   disabled={isSaving}
                 >
-                  {isSaving ? "Persisting..." : editingContact ? "Commit Changes" : "Create Record"}
+                  {isSaving ? "Saving..." : editingContact ? "Save Changes" : "Save Contact"}
                 </button>
               </div>
             </form>

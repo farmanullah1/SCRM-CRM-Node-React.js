@@ -11,7 +11,7 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        {/* Fixed interactive Halftone Background Canvas Engine */}
+        {/* Interactive Halftone Background Canvas Engine */}
         <HalftoneBackground />
 
         {/* UI Content Layer */}
