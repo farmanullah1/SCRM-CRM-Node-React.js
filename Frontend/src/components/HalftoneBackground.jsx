@@ -19,13 +19,13 @@ export default function HalftoneBackground() {
       y: -1000,
       targetX: -1000,
       targetY: -1000,
-      radius: 220, // Radial influence zone R ~ 180px - 250px
-      maxShift: 24, // Maximum displacement shift in pixels
+      radius: 200, // Radial influence zone in px
+      maxShift: 18, // Max displacement in px
       active: false
     };
 
-    // Grid configuration
-    const spacing = 24; // Pixel gap between dots
+    // Grid configuration: High-density matrix (15px gap)
+    const spacing = 15;
     let dots = [];
 
     const initDots = () => {
@@ -50,8 +50,13 @@ export default function HalftoneBackground() {
             originY,
             currentX: originX,
             currentY: originY,
-            currentRadius: 1.4,
-            currentAlpha: 0.18
+            currentRadius: 1.1,
+            // Subtle harmonic phase for breathing animation
+            phase: (c * 0.15 + r * 0.15) % (Math.PI * 2),
+            currentR: 48,
+            currentG: 48,
+            currentB: 24,
+            currentAlpha: 0.35
           });
         }
       }
@@ -89,17 +94,21 @@ export default function HalftoneBackground() {
     window.addEventListener("mouseleave", handleMouseLeave, { passive: true });
     window.addEventListener("resize", handleResize, { passive: true });
 
+    let time = 0;
+
     // Render loop
     const render = () => {
+      time += 0.025;
+
       // Smooth lerp mouse tracking
       mouse.x += (mouse.targetX - mouse.x) * 0.15;
       mouse.y += (mouse.targetY - mouse.y) * 0.15;
 
-      // Clear with deep obsidian black
-      ctx.fillStyle = "#05090C";
+      // Base background: #181818
+      ctx.fillStyle = "#181818";
       ctx.fillRect(0, 0, width, height);
 
-      // Render dots
+      // Render dense dot matrix
       const count = dots.length;
       for (let i = 0; i < count; i++) {
         const dot = dots[i];
@@ -110,38 +119,50 @@ export default function HalftoneBackground() {
 
         let targetX = dot.originX;
         let targetY = dot.originY;
-        let targetRadius = 1.4;
-        let targetAlpha = 0.18;
+
+        // Base idle state with gentle harmonic pulse
+        const pulse = Math.sin(time + dot.phase) * 0.2;
+        let targetRadius = 1.1 + pulse;
+        let targetR = 48; // #303018 tone
+        let targetG = 48;
+        let targetB = 24;
+        let targetAlpha = 0.32;
 
         if (dist < mouse.radius && mouse.active) {
           // Normalized proximity factor (1 at center, 0 at border)
           const factor = 1 - dist / mouse.radius;
           const quadFactor = factor * factor;
 
-          // Radial displacement away from cursor (bulge/lens distortion)
+          // Radial displacement away from cursor (bulge / lens field effect)
           const angle = Math.atan2(dy, dx);
           const shift = quadFactor * mouse.maxShift;
 
           targetX = dot.originX + Math.cos(angle) * shift;
           targetY = dot.originY + Math.sin(angle) * shift;
 
-          // Scaling: 1.4px -> 3.8px
-          targetRadius = 1.4 + quadFactor * 2.6;
+          // Dot scale expansion on hover: 1.1px -> 3.2px
+          targetRadius = 1.2 + quadFactor * 2.2;
 
-          // Opacity transition: 0.18 -> 0.95
-          targetAlpha = 0.18 + quadFactor * 0.77;
+          // Transition color dynamically to glowing electric yellow #F0FF60 / #FAFF69 (240, 255, 96)
+          targetR = 48 + quadFactor * (240 - 48);
+          targetG = 48 + quadFactor * (255 - 48);
+          targetB = 24 + quadFactor * (96 - 24);
+          targetAlpha = 0.35 + quadFactor * 0.6;
         }
 
-        // Spring lerp physics for organic response
-        dot.currentX += (targetX - dot.currentX) * 0.12;
-        dot.currentY += (targetY - dot.currentY) * 0.12;
-        dot.currentRadius += (targetRadius - dot.currentRadius) * 0.12;
-        dot.currentAlpha += (targetAlpha - dot.currentAlpha) * 0.12;
+        // Spring lerp physics for organic transition
+        dot.currentX += (targetX - dot.currentX) * 0.14;
+        dot.currentY += (targetY - dot.currentY) * 0.14;
+        dot.currentRadius += (targetRadius - dot.currentRadius) * 0.14;
+        dot.currentR += (targetR - dot.currentR) * 0.14;
+        dot.currentG += (targetG - dot.currentG) * 0.14;
+        dot.currentB += (targetB - dot.currentB) * 0.14;
+        dot.currentAlpha += (targetAlpha - dot.currentAlpha) * 0.14;
 
-        // Draw dot with dynamic cyan color and opacity
+        // Draw dot
         ctx.beginPath();
-        ctx.arc(dot.currentX, dot.currentY, dot.currentRadius, 0, Math.PI * 2);
-        ctx.fillStyle = `rgba(0, 217, 255, ${dot.currentAlpha})`;
+        ctx.arc(dot.currentX, dot.currentY, Math.max(0.6, dot.currentRadius), 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(${Math.round(dot.currentR)}, ${Math.round(dot.currentG)}, ${Math.round(dot.currentB)}, ${dot.currentAlpha})`;
         ctx.fill();
       }
 

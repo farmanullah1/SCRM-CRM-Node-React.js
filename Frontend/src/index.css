@@ -1,28 +1,61 @@
 :root {
-  --bg-black: #05090C;
-  --surface: rgba(9, 9, 11, 0.72);
-  --surface-glass: rgba(5, 9, 12, 0.75);
-  --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-accent: rgba(0, 217, 255, 0.35);
-  --text-primary: #FFFFFF;
-  --text-secondary: #A1A1AA;
-  --accent: #00D9FF;
-  --accent-hover: #00B8D9;
-  --accent-glow: rgba(0, 217, 255, 0.15);
-  --accent-glow-strong: rgba(0, 217, 255, 0.3);
+  /* Color Palette */
+  --bg-dark: #181818;
+  --bg-section-transition: #303018;
+  --bg-section-muted: #242424;
+  --surface: rgba(24, 24, 24, 0.85);
+  --surface-raised: #202020;
+  --surface-inverted: #F0FF60;
 
-  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  /* Accent Colors */
+  --accent: #F0FF60;
+  --accent-bright: #FAFF69;
+  --accent-glow: rgba(240, 255, 96, 0.2);
+  --accent-glow-strong: rgba(250, 255, 105, 0.45);
+
+  /* Typography Colors */
+  --text-primary: #FFFFFF;
+  --text-heading: #F9F9F9;
+  --text-body: #DFDFDF;
+  --text-muted: #9E9E9E;
+  --text-inverted: #151515;
+
+  /* Borders */
+  --border-hairline: #414141;
+  --border-subtle: rgba(255, 255, 255, 0.08);
+  --border-yellow-adjacent: #4F5101;
+  --border-accent: rgba(240, 255, 96, 0.4);
+
+  /* Semantic Tokens strictly for status/indicators */
+  --semantic-error: #FB2C36;
+  --semantic-error-surface: rgba(251, 44, 54, 0.12);
+  --semantic-error-border: rgba(251, 44, 54, 0.35);
+
+  --semantic-warning: #E17100;
+  --semantic-warning-surface: rgba(225, 113, 0, 0.12);
+  --semantic-warning-border: rgba(225, 113, 0, 0.35);
+
+  --semantic-success: #22C55E;
+  --semantic-success-surface: rgba(34, 197, 94, 0.12);
+  --semantic-success-border: rgba(34, 197, 94, 0.35);
+
+  --semantic-info: #38BDF8;
+  --semantic-info-surface: rgba(56, 189, 248, 0.12);
+  --semantic-info-border: rgba(56, 189, 248, 0.35);
+
+  /* Typography Fonts */
+  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
-  --radius-control: 16px;
-  --radius-card: 24px;
-  --radius-card-lg: 40px;
+  /* Sizing and Radii */
+  --radius-sm: 8px;
+  --radius-control: 12px;
+  --radius-card: 18px;
   --radius-pill: 9999px;
-  
-  --spacing-section: 160px;
+
+  /* Transitions */
   --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-  --transition-slow: 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-smooth: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -36,10 +69,10 @@ html {
 }
 
 body {
-  background-color: var(--bg-black);
-  color: var(--text-primary);
-  font-family: var(--font-body);
-  font-size: 16px;
+  background-color: var(--bg-dark);
+  color: var(--text-body);
+  font-family: var(--font-family);
+  font-size: 15px;
   line-height: 1.5;
   min-height: 100vh;
   position: relative;
@@ -57,10 +90,10 @@ button, input, select, textarea {
   color: inherit;
 }
 
-/* Eyebrow Label Utility per spec */
+/* Eyebrow Label Utility */
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.18em;

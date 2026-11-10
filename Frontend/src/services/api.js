@@ -19,12 +19,11 @@ API.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor to handle 401/403
+// Response interceptor to handle expired sessions
 API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && (error.response.status === 401 || error.response.status === 403)) {
-      // If unauthorized, clear storage if expired
       if (localStorage.getItem("crm_token") && !window.location.pathname.includes("/login")) {
         localStorage.removeItem("crm_token");
         localStorage.removeItem("crm_user");
@@ -35,7 +34,23 @@ API.interceptors.response.use(
   }
 );
 
-// Contacts API
+// Auth Endpoints
+export const loginUser = async (credentials) => {
+  const res = await API.post("/auth/login", credentials);
+  return res.data;
+};
+
+export const signupUser = async (userData) => {
+  const res = await API.post("/auth/signup", userData);
+  return res.data;
+};
+
+export const getCurrentUser = async () => {
+  const res = await API.get("/auth/me");
+  return res.data;
+};
+
+// Contacts & Leads API
 export const getContacts = async ({ search = "", status = "All" } = {}) => {
   const params = {};
   if (search) params.search = search;
@@ -64,21 +79,25 @@ export const deleteContact = async (id) => {
   return res.data;
 };
 
-// Auth API
-export const loginUser = async (credentials) => {
-  const res = await API.post("/auth/login", credentials);
+// Tasks & Activities Scheduling API
+export const getTasks = async (params = {}) => {
+  const res = await API.get("/tasks", { params });
   return res.data;
 };
 
-export const signupUser = async (userData) => {
-  const res = await API.post("/auth/signup", userData);
+export const createTask = async (data) => {
+  const res = await API.post("/tasks", data);
   return res.data;
 };
 
-export const getCurrentUser = async () => {
-  const res = await API.get("/auth/me");
+export const updateTask = async ({ id, data }) => {
+  const res = await API.put(`/tasks/${id}`, data);
+  return res.data;
+};
+
+export const deleteTask = async (id) => {
+  const res = await API.delete(`/tasks/${id}`);
   return res.data;
 };
 
 export default API;
-

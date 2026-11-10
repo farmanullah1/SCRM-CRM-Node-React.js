@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight, Zap } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -31,11 +31,16 @@ export default function Login() {
     <div className="auth-circuit-page">
       <div className="auth-circuit-card">
         <div className="auth-circuit-header">
-          <div className="eyebrow" style={{ marginBottom: "0.5rem" }}>
-            ACCOUNT ACCESS
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
+            <div className="brand-glyph">
+              <Zap size={20} color="#F0FF60" />
+            </div>
+          </div>
+          <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
+            SCRM ACCESS
           </div>
           <h2 className="auth-circuit-title">Sign In</h2>
-          <p className="auth-circuit-sub">Welcome back. Enter your credentials to view your CRM dashboard.</p>
+          <p className="auth-circuit-sub">Enter your credentials to access your CRM workspace.</p>
         </div>
 
         {error && (
@@ -70,9 +75,9 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" className="button-cta-final" disabled={loading}>
-            <span>{loading ? "Signing In..." : "Sign In to CRM"}</span>
-            {!loading && <ArrowRight size={20} />}
+          <button type="submit" className="btn-primary-yellow" style={{ width: "100%", height: "48px", justifyContent: "center" }} disabled={loading}>
+            <span>{loading ? "Signing In..." : "Sign In to SCRM"}</span>
+            {!loading && <ArrowRight size={18} />}
           </button>
         </form>
 

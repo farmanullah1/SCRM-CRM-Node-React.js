@@ -34,7 +34,7 @@ export const sequelize = new Sequelize(dbName, dbUser, dbPassword, {
   }
 });
 
-// Define User Model for Auth
+// User Model for Authentication
 export const User = sequelize.define(
   "User",
   {
@@ -70,7 +70,7 @@ export const User = sequelize.define(
   }
 );
 
-// Define Contact Model (each contact belongs to a user)
+// Contact / Lead Model
 export const Contact = sequelize.define(
   "Contact",
   {
@@ -122,9 +122,67 @@ export const Contact = sequelize.define(
   }
 );
 
+// Task Model for Scheduling & Activity Management
+export const Task = sequelize.define(
+  "Task",
+  {
+    id: {
+      type: DataTypes.INTEGER,
+      autoIncrement: true,
+      primaryKey: true
+    },
+    userId: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      references: {
+        model: "users",
+        key: "id"
+      }
+    },
+    contactId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: "contacts",
+        key: "id"
+      }
+    },
+    title: {
+      type: DataTypes.STRING(200),
+      allowNull: false
+    },
+    description: {
+      type: DataTypes.TEXT,
+      allowNull: true
+    },
+    dueDate: {
+      type: DataTypes.DATE,
+      allowNull: true
+    },
+    priority: {
+      type: DataTypes.ENUM("Low", "Medium", "High", "Urgent"),
+      defaultValue: "Medium"
+    },
+    status: {
+      type: DataTypes.ENUM("Pending", "In Progress", "Completed", "Cancelled"),
+      defaultValue: "Pending"
+    }
+  },
+  {
+    tableName: "tasks",
+    timestamps: true
+  }
+);
+
 // Define Associations
 User.hasMany(Contact, { foreignKey: "userId", onDelete: "CASCADE" });
 Contact.belongsTo(User, { foreignKey: "userId" });
+
+User.hasMany(Task, { foreignKey: "userId", onDelete: "CASCADE" });
+Task.belongsTo(User, { foreignKey: "userId" });
+
+Contact.hasMany(Task, { foreignKey: "contactId", onDelete: "SET NULL" });
+Task.belongsTo(Contact, { foreignKey: "contactId" });
 
 // Database connection & sync helper
 export async function connectDB() {

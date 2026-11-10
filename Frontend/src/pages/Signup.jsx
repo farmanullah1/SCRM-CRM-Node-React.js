@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight, Zap } from "lucide-react";
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -19,12 +19,12 @@ export default function Signup() {
     setError("");
 
     if (password !== confirmPassword) {
-      setError("Passwords do not match. Please re-enter.");
+      setError("Passwords do not match. Please verify.");
       return;
     }
 
     if (password.length < 6) {
-      setError("Password must be at least 6 characters long.");
+      setError("Password must contain at least 6 characters.");
       return;
     }
 
@@ -33,7 +33,7 @@ export default function Signup() {
       await signup(name, email, password);
       navigate("/");
     } catch (err) {
-      setError(err.response?.data?.error || "Unable to create account. Please try again.");
+      setError(err.response?.data?.error || "Unable to register account. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -43,11 +43,16 @@ export default function Signup() {
     <div className="auth-circuit-page">
       <div className="auth-circuit-card">
         <div className="auth-circuit-header">
-          <div className="eyebrow" style={{ marginBottom: "0.5rem" }}>
-            GET STARTED
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
+            <div className="brand-glyph">
+              <Zap size={20} color="#F0FF60" />
+            </div>
+          </div>
+          <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
+            GET STARTED WITH SCRM
           </div>
           <h2 className="auth-circuit-title">Create Account</h2>
-          <p className="auth-circuit-sub">Sign up in seconds to start managing your leads and contacts.</p>
+          <p className="auth-circuit-sub">Start managing contacts, pipeline deals, and scheduled tasks.</p>
         </div>
 
         {error && (
@@ -89,7 +94,7 @@ export default function Signup() {
               required
               minLength={6}
               className="circuit-input"
-              placeholder="At least 6 characters"
+              placeholder="Minimum 6 characters"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -101,22 +106,22 @@ export default function Signup() {
               type="password"
               required
               className="circuit-input"
-              placeholder="Re-type your password"
+              placeholder="Re-enter password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
           </div>
 
-          <button type="submit" className="button-cta-final" disabled={loading}>
-            <span>{loading ? "Creating Account..." : "Create Account"}</span>
-            {!loading && <ArrowRight size={20} />}
+          <button type="submit" className="btn-primary-yellow" style={{ width: "100%", height: "48px", justifyContent: "center" }} disabled={loading}>
+            <span>{loading ? "Creating Account..." : "Create SCRM Account"}</span>
+            {!loading && <ArrowRight size={18} />}
           </button>
         </form>
 
         <p className="auth-switch-text">
-          Already have an account?
+          Already registered?
           <Link to="/login" className="auth-cyan-link">
-            Sign In
+            Sign In Here
           </Link>
         </p>
       </div>

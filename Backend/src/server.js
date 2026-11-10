@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import { connectDB } from "./db.js";
 import authRouter from "./routes/auth.js";
 import contactsRouter from "./routes/contacts.js";
+import tasksRouter from "./routes/tasks.js";
 
 dotenv.config();
 
@@ -16,9 +17,10 @@ app.use(express.json());
 // API Routes
 app.use("/api/auth", authRouter);
 app.use("/api/contacts", contactsRouter);
+app.use("/api/tasks", tasksRouter);
 
 app.get("/health", (req, res) => {
-  res.status(200).json({ status: "ok", message: "CRM Backend API running with SQL Server & Auth" });
+  res.status(200).json({ status: "ok", message: "SCRM Backend API running with SQL Server, Auth, Contacts & Tasks" });
 });
 
 // Centralized error handling

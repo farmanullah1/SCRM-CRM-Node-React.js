@@ -11,32 +11,53 @@ import {
   ShieldCheck, 
   Target, 
   DollarSign, 
-  Send,
-  Database,
-  Lock,
+  Calendar,
+  CheckCircle2,
+  Clock,
+  Plus,
+  ArrowRight,
+  TrendingUp,
+  Filter,
+  Check,
   Zap,
-  HelpCircle
+  Briefcase,
+  Layers,
+  ChevronRight
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { getContacts, createContact, updateContact, deleteContact } from "../services/api";
+import { 
+  getContacts, 
+  createContact, 
+  updateContact, 
+  deleteContact,
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask 
+} from "../services/api";
 import "../App.css";
+
+const STAGES = ["Lead", "Contacted", "Qualified", "Customer", "Lost"];
 
 export default function Dashboard() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
+
+  // Navigation Tabs: 'dashboard' | 'contacts' | 'pipeline' | 'tasks'
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Search & Filter state for contacts
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
 
-  // Contact support / message form state
-  const [inquiryName, setInquiryName] = useState("");
-  const [inquiryEmail, setInquiryEmail] = useState("");
-  const [inquiryMessage, setInquiryMessage] = useState("");
-  const [inquirySent, setInquirySent] = useState(false);
+  // Task Filter state
+  const [taskStatusFilter, setTaskStatusFilter] = useState("All");
+  const [taskPriorityFilter, setTaskPriorityFilter] = useState("All");
 
-  // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  // Contact Modal State
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
   const [editingContact, setEditingContact] = useState(null);
-  const [formData, setFormData] = useState({
+  const [contactFormData, setContactFormData] = useState({
     name: "",
     email: "",
     phone: "",
@@ -44,52 +65,116 @@ export default function Dashboard() {
     status: "Lead",
     value: 0
   });
-  const [formError, setFormError] = useState("");
+  const [contactFormError, setContactFormError] = useState("");
+
+  // Task Modal State
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState(null);
+  const [taskFormData, setTaskFormData] = useState({
+    title: "",
+    description: "",
+    dueDate: "",
+    priority: "Medium",
+    status: "Pending",
+    contactId: ""
+  });
+  const [taskFormError, setTaskFormError] = useState("");
 
   // Contacts Query
-  const { data: contacts = [], isLoading, isError, error, refetch, isFetching } = useQuery({
+  const { 
+    data: contacts = [], 
+    isLoading: isContactsLoading, 
+    refetch: refetchContacts, 
+    isFetching: isContactsFetching 
+  } = useQuery({
     queryKey: ["contacts", { search: searchTerm, status: statusFilter }],
     queryFn: () => getContacts({ search: searchTerm, status: statusFilter })
   });
 
-  // Mutations
-  const createMutation = useMutation({
+  // Tasks Query
+  const { 
+    data: tasks = [], 
+    isLoading: isTasksLoading, 
+    refetch: refetchTasks, 
+    isFetching: isTasksFetching 
+  } = useQuery({
+    queryKey: ["tasks", { status: taskStatusFilter, priority: taskPriorityFilter }],
+    queryFn: () => getTasks({ status: taskStatusFilter, priority: taskPriorityFilter })
+  });
+
+  // Contact Mutations
+  const createContactMutation = useMutation({
     mutationFn: createContact,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      handleCloseModal();
+      handleCloseContactModal();
     },
     onError: (err) => {
-      setFormError(err.response?.data?.error || "Failed to create contact.");
+      setContactFormError(err.response?.data?.error || "Failed to create contact.");
     }
   });
 
-  const updateMutation = useMutation({
+  const updateContactMutation = useMutation({
     mutationFn: updateContact,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
-      handleCloseModal();
+      handleCloseContactModal();
     },
     onError: (err) => {
-      setFormError(err.response?.data?.error || "Failed to update contact.");
+      setContactFormError(err.response?.data?.error || "Failed to update contact.");
     }
   });
 
-  const deleteMutation = useMutation({
+  const deleteContactMutation = useMutation({
     mutationFn: deleteContact,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
     },
     onError: (err) => {
       alert(err.response?.data?.error || "Failed to delete contact.");
     }
   });
 
-  const handleOpenModal = (contact = null) => {
-    setFormError("");
+  // Task Mutations
+  const createTaskMutation = useMutation({
+    mutationFn: createTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      handleCloseTaskModal();
+    },
+    onError: (err) => {
+      setTaskFormError(err.response?.data?.error || "Failed to create task.");
+    }
+  });
+
+  const updateTaskMutation = useMutation({
+    mutationFn: updateTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      handleCloseTaskModal();
+    },
+    onError: (err) => {
+      setTaskFormError(err.response?.data?.error || "Failed to update task.");
+    }
+  });
+
+  const deleteTaskMutation = useMutation({
+    mutationFn: deleteTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    },
+    onError: (err) => {
+      alert(err.response?.data?.error || "Failed to delete task.");
+    }
+  });
+
+  // Handlers for Contacts
+  const handleOpenContactModal = (contact = null) => {
+    setContactFormError("");
     if (contact) {
       setEditingContact(contact);
-      setFormData({
+      setContactFormData({
         name: contact.name,
         email: contact.email,
         phone: contact.phone || "",
@@ -99,7 +184,7 @@ export default function Dashboard() {
       });
     } else {
       setEditingContact(null);
-      setFormData({
+      setContactFormData({
         name: "",
         email: "",
         phone: "",
@@ -108,80 +193,168 @@ export default function Dashboard() {
         value: 0
       });
     }
-    setIsModalOpen(true);
+    setIsContactModalOpen(true);
   };
 
-  const handleCloseModal = () => {
-    setIsModalOpen(false);
+  const handleCloseContactModal = () => {
+    setIsContactModalOpen(false);
     setEditingContact(null);
-    setFormError("");
+    setContactFormError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleContactSubmit = (e) => {
     e.preventDefault();
-    setFormError("");
+    setContactFormError("");
 
-    if (!formData.name.trim() || !formData.email.trim()) {
-      setFormError("Name and Email are required fields.");
+    if (!contactFormData.name.trim() || !contactFormData.email.trim()) {
+      setContactFormError("Name and Email are required fields.");
       return;
     }
 
     if (editingContact) {
-      updateMutation.mutate({ id: editingContact.id, data: formData });
+      updateContactMutation.mutate({ id: editingContact.id, data: contactFormData });
     } else {
-      createMutation.mutate(formData);
+      createContactMutation.mutate(contactFormData);
     }
   };
 
-  const handleDelete = (id) => {
+  const handleDeleteContact = (id) => {
     if (window.confirm("Are you sure you want to delete this contact?")) {
-      deleteMutation.mutate(id);
+      deleteContactMutation.mutate(id);
     }
   };
 
-  const handleInquirySubmit = (e) => {
-    e.preventDefault();
-    setInquirySent(true);
-    setTimeout(() => {
-      setInquiryName("");
-      setInquiryEmail("");
-      setInquiryMessage("");
-      setInquirySent(false);
-    }, 4000);
+  // Handlers for Tasks
+  const handleOpenTaskModal = (task = null, defaultContactId = "") => {
+    setTaskFormError("");
+    if (task) {
+      setEditingTask(task);
+      setTaskFormData({
+        title: task.title,
+        description: task.description || "",
+        dueDate: task.dueDate ? task.dueDate.substring(0, 10) : "",
+        priority: task.priority || "Medium",
+        status: task.status || "Pending",
+        contactId: task.contactId || ""
+      });
+    } else {
+      setEditingTask(null);
+      setTaskFormData({
+        title: "",
+        description: "",
+        dueDate: new Date().toISOString().substring(0, 10),
+        priority: "Medium",
+        status: "Pending",
+        contactId: defaultContactId
+      });
+    }
+    setIsTaskModalOpen(true);
   };
 
+  const handleCloseTaskModal = () => {
+    setIsTaskModalOpen(false);
+    setEditingTask(null);
+    setTaskFormError("");
+  };
+
+  const handleTaskSubmit = (e) => {
+    e.preventDefault();
+    setTaskFormError("");
+
+    if (!taskFormData.title.trim()) {
+      setTaskFormError("Task title is required.");
+      return;
+    }
+
+    if (editingTask) {
+      updateTaskMutation.mutate({ id: editingTask.id, data: taskFormData });
+    } else {
+      createTaskMutation.mutate(taskFormData);
+    }
+  };
+
+  const handleToggleTaskStatus = (task) => {
+    const nextStatus = task.status === "Completed" ? "Pending" : "Completed";
+    updateTaskMutation.mutate({
+      id: task.id,
+      data: { status: nextStatus }
+    });
+  };
+
+  const handleDeleteTask = (id) => {
+    if (window.confirm("Are you sure you want to delete this task?")) {
+      deleteTaskMutation.mutate(id);
+    }
+  };
+
+  // Drag / Click to update stage in Kanban
+  const handleMoveStage = (contactId, newStatus) => {
+    updateContactMutation.mutate({
+      id: contactId,
+      data: { status: newStatus }
+    });
+  };
+
+  // Metrics Calculations
   const totalValue = contacts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
   const activeCustomers = contacts.filter((c) => c.status === "Customer").length;
   const qualifiedLeads = contacts.filter((c) => c.status === "Qualified").length;
-  const isSaving = createMutation.isPending || updateMutation.isPending;
+  const pendingTasksCount = tasks.filter((t) => t.status !== "Completed" && t.status !== "Cancelled").length;
+
+  const isContactSaving = createContactMutation.isPending || updateContactMutation.isPending;
+  const isTaskSaving = createTaskMutation.isPending || updateTaskMutation.isPending;
 
   return (
     <>
-      {/* 81px Edge-to-Edge Navigation Bar */}
+      {/* 74px Sticky Top Navbar */}
       <nav className="navbar-circuit">
         {/* Brand */}
-        <div className="nav-brand">
+        <div className="nav-brand" onClick={() => setActiveTab("dashboard")}>
           <div className="brand-glyph">
-            <Zap size={20} color="#00D9FF" />
+            <Zap size={20} color="#F0FF60" />
           </div>
           <span className="brand-title">SCRM</span>
         </div>
 
-        {/* Center Links */}
-        <div className="nav-center-links">
-          <a href="#pipeline" className="nav-link-circuit">Overview</a>
-          <a href="#contacts" className="nav-link-circuit">Contacts</a>
-          <a href="#system" className="nav-link-circuit">Features</a>
-          <a href="#contact-us" className="nav-link-circuit">Support</a>
+        {/* Center Tabs */}
+        <div className="nav-tab-links">
+          <button 
+            className={`nav-tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
+            onClick={() => setActiveTab("dashboard")}
+          >
+            <TrendingUp size={15} />
+            <span>Dashboard</span>
+          </button>
+          <button 
+            className={`nav-tab-btn ${activeTab === "contacts" ? "active" : ""}`}
+            onClick={() => setActiveTab("contacts")}
+          >
+            <Users size={15} />
+            <span>Contacts ({contacts.length})</span>
+          </button>
+          <button 
+            className={`nav-tab-btn ${activeTab === "pipeline" ? "active" : ""}`}
+            onClick={() => setActiveTab("pipeline")}
+          >
+            <Layers size={15} />
+            <span>Pipeline Stages</span>
+          </button>
+          <button 
+            className={`nav-tab-btn ${activeTab === "tasks" ? "active" : ""}`}
+            onClick={() => setActiveTab("tasks")}
+          >
+            <Calendar size={15} />
+            <span>Tasks ({pendingTasksCount})</span>
+          </button>
         </div>
 
         {/* Right Actions */}
         <div className="nav-right-items">
           <button 
-            className="button-nav-utility"
-            onClick={() => handleOpenModal()}
+            className="btn-primary-yellow"
+            onClick={() => handleOpenContactModal()}
           >
-            <UserPlus size={15} />
+            <UserPlus size={16} />
             <span>Add Contact</span>
           </button>
 
@@ -195,357 +368,719 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      {/* Main Container */}
+      {/* Main CRM Layout */}
       <main className="crm-layout">
-        {/* Hero Section */}
-        <header className="crm-hero" id="pipeline">
+        
+        {/* Top Hero Overview Banner */}
+        <header className="crm-hero">
           <div className="eyebrow">
-            CRM DASHBOARD
+            WELCOME, {user?.name || "OPERATOR"}
           </div>
 
           <h1 className="hero-display-stack">
-            TRACK DEALS.<br />
-            MANAGE LEADS.<br />
-            <span className="cyan-text">GROW YOUR BUSINESS.</span>
+            DRIVE SALES.<br />
+            ORGANIZE LEADS.<br />
+            <span className="yellow-text">STREAMLINE DEALS.</span>
           </h1>
 
           <p className="hero-lead-text">
-            A simple, fast CRM to organize your customer contacts, follow up on deals, and track pipeline revenue in real time.
+            Enterprise customer relationship management with Microsoft SQL Server persistence, real-time pipeline monitoring, and automated task scheduling.
           </p>
 
-          {/* Action Row */}
           <div className="hero-three-button-row">
-            <button className="button-primary-hero" onClick={() => handleOpenModal()}>
-              <UserPlus size={18} />
-              <span>Add New Contact</span>
+            <button className="btn-primary-yellow" onClick={() => handleOpenContactModal()}>
+              <UserPlus size={17} />
+              <span>New Contact</span>
             </button>
-            <button className="button-secondary-hero" onClick={() => refetch()}>
-              <RefreshCw size={16} className={isFetching ? "spin-icon" : ""} />
-              <span>Refresh Data</span>
+            <button className="btn-ghost-dark" onClick={() => handleOpenTaskModal()}>
+              <Plus size={17} color="#F0FF60" />
+              <span>Schedule Task</span>
             </button>
-            <a href="#contact-us" className="button-secondary-hero">
-              <HelpCircle size={16} />
-              <span>Contact Support</span>
-            </a>
+            <button 
+              className="btn-ghost-dark" 
+              onClick={() => { refetchContacts(); refetchTasks(); }}
+              disabled={isContactsFetching || isTasksFetching}
+            >
+              <RefreshCw size={15} className={isContactsFetching || isTasksFetching ? "spin-icon" : ""} />
+              <span>Refresh CRM</span>
+            </button>
           </div>
         </header>
 
-        {/* 4 Metrics Cards */}
-        <section className="capability-4up-row">
-          <div className="core-capability-card">
-            <div className="icon-badge-square">
+        {/* 4-Up High Impact Metrics Cards */}
+        <section className="metrics-4up-grid">
+          <div className="metric-card-circuit" onClick={() => setActiveTab("contacts")} style={{ cursor: "pointer" }}>
+            <div className="metric-icon-badge">
               <Users size={22} />
             </div>
-            <div className="capability-card-stat">{contacts.length}</div>
-            <h3 className="capability-card-heading">Total Contacts</h3>
-            <p className="capability-card-desc">
-              All active customer and prospect records saved in your CRM.
-            </p>
+            <div className="metric-val">{contacts.length}</div>
+            <div className="metric-lbl">Total Contacts</div>
+            <div className="metric-sub">Across all pipeline stages</div>
           </div>
 
-          <div className="core-capability-card">
-            <div className="icon-badge-square">
+          <div className="metric-card-circuit" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
+            <div className="metric-icon-badge">
               <ShieldCheck size={22} />
             </div>
-            <div className="capability-card-stat" style={{ color: "#4ade80" }}>{activeCustomers}</div>
-            <h3 className="capability-card-heading">Active Customers</h3>
-            <p className="capability-card-desc">
-              Clients who have successfully closed a deal or signed up.
-            </p>
+            <div className="metric-val" style={{ color: "var(--semantic-success)" }}>{activeCustomers}</div>
+            <div className="metric-lbl">Active Customers</div>
+            <div className="metric-sub">Closed won contracts</div>
           </div>
 
-          <div className="core-capability-card">
-            <div className="icon-badge-square">
+          <div className="metric-card-circuit" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
+            <div className="metric-icon-badge">
               <Target size={22} />
             </div>
-            <div className="capability-card-stat" style={{ color: "#c084fc" }}>{qualifiedLeads}</div>
-            <h3 className="capability-card-heading">Qualified Leads</h3>
-            <p className="capability-card-desc">
-              Prospects ready for follow-up and deal negotiation.
-            </p>
+            <div className="metric-val" style={{ color: "#c084fc" }}>{qualifiedLeads}</div>
+            <div className="metric-lbl">Qualified Leads</div>
+            <div className="metric-sub">Ready for proposal</div>
           </div>
 
-          <div className="core-capability-card">
-            <div className="icon-badge-square">
+          <div className="metric-card-circuit">
+            <div className="metric-icon-badge">
               <DollarSign size={22} />
             </div>
-            <div className="capability-card-stat">
+            <div className="metric-val" style={{ color: "var(--accent)" }}>
               ${totalValue.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
             </div>
-            <h3 className="capability-card-heading">Pipeline Value</h3>
-            <p className="capability-card-desc">
-              Estimated total value of all deals across your pipeline.
-            </p>
+            <div className="metric-lbl">Pipeline Value</div>
+            <div className="metric-sub">Total expected revenue</div>
           </div>
         </section>
 
-        {/* Search & Filters */}
-        <section className="controls-glass-panel" id="contacts">
-          <div className="search-field-wrapper">
-            <Search className="search-field-icon" size={16} />
-            <input
-              type="text"
-              className="search-field-input"
-              placeholder="Search by name, company, or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <select
-            className="filter-select-circuit"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-          >
-            <option value="All">All Statuses</option>
-            <option value="Lead">Status: Lead</option>
-            <option value="Contacted">Status: Contacted</option>
-            <option value="Qualified">Status: Qualified</option>
-            <option value="Customer">Status: Customer</option>
-            <option value="Lost">Status: Lost</option>
-          </select>
-        </section>
-
-        {/* Contacts Table */}
-        <section className="table-glass-card">
-          {isLoading ? (
-            <div style={{ padding: "4rem", textAlign: "center", color: "var(--text-secondary)" }}>
-              <RefreshCw className="spin-icon" size={24} style={{ margin: "0 auto 1rem", color: "var(--accent)" }} />
-              <div>Loading your contacts...</div>
-            </div>
-          ) : isError ? (
-            <div style={{ padding: "3rem", textAlign: "center", color: "#f87171" }}>
-              {error?.response?.data?.error || error?.message || "Failed to load contacts."}
-            </div>
-          ) : contacts.length === 0 ? (
-            <div style={{ padding: "4.5rem 2rem", textAlign: "center" }}>
-              <div className="eyebrow" style={{ marginBottom: "0.5rem" }}>NO CONTACTS YET</div>
-              <h3 style={{ fontSize: "1.6rem", fontWeight: 700, marginBottom: "0.5rem" }}>
-                Your Contact List is Empty
-              </h3>
-              <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem", marginBottom: "1.75rem" }}>
-                Add your first customer or deal to start tracking your sales pipeline.
+        {/* Inverted Card Section featuring #F0FF60 */}
+        <section className="card-inverted-yellow">
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+            <div>
+              <div className="eyebrow" style={{ color: "#4F5101", marginBottom: "0.25rem" }}>
+                PIPELINE VELOCITY ACCELERATOR
+              </div>
+              <h3>Empower Your Sales Operations with SCRM</h3>
+              <p>
+                Keep track of every lead conversation, schedule upcoming meetings, and close deals faster with our unified CRM platform.
               </p>
-              <button className="button-primary-hero" onClick={() => handleOpenModal()}>
-                <UserPlus size={16} />
-                <span>Add First Contact</span>
+              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
+                <button className="btn-inverted-dark" onClick={() => setActiveTab("pipeline")}>
+                  <span>View Pipeline Board</span>
+                  <ArrowRight size={16} />
+                </button>
+                <button 
+                  className="btn-inverted-dark" 
+                  style={{ background: "transparent", color: "var(--text-inverted)", border: "1px solid #4F5101" }}
+                  onClick={() => handleOpenTaskModal()}
+                >
+                  <Calendar size={16} />
+                  <span>Schedule Action Item</span>
+                </button>
+              </div>
+            </div>
+
+            <div style={{ background: "rgba(0, 0, 0, 0.08)", padding: "1rem 1.25rem", borderRadius: "14px", border: "1px solid #4F5101", minWidth: "220px" }}>
+              <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#3B3D01" }}>
+                Task Telemetry
+              </div>
+              <div style={{ fontSize: "2rem", fontWeight: 900, color: "var(--text-inverted)", margin: "0.25rem 0" }}>
+                {pendingTasksCount}
+              </div>
+              <div style={{ fontSize: "0.8125rem", color: "#2B2D01" }}>
+                Pending tasks requiring action
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* =========================================================================
+            TAB 1: DASHBOARD OVERVIEW & COMBINED VIEW
+           ========================================================================= */}
+        {activeTab === "dashboard" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-heading)" }}>
+                  Recent Contacts & Leads
+                </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  Most recently updated customer contacts in your database.
+                </p>
+              </div>
+              <button 
+                className="btn-ghost-dark" 
+                style={{ height: "38px", fontSize: "0.8125rem" }}
+                onClick={() => setActiveTab("contacts")}
+              >
+                <span>View Full Contacts List</span>
+                <ChevronRight size={16} />
               </button>
             </div>
-          ) : (
-            <div style={{ overflowX: "auto" }}>
-              <table className="circuit-table">
-                <thead>
-                  <tr>
-                    <th>Contact Name</th>
-                    <th>Company</th>
-                    <th>Email Address</th>
-                    <th>Phone</th>
-                    <th>Status</th>
-                    <th>Deal Value</th>
-                    <th style={{ textAlign: "right" }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {contacts.map((contact) => (
-                    <tr key={contact.id}>
-                      <td style={{ fontWeight: 600, color: "#FFFFFF" }}>{contact.name}</td>
-                      <td>{contact.company || "—"}</td>
-                      <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-secondary)" }}>
-                        {contact.email}
-                      </td>
-                      <td style={{ color: "var(--text-secondary)" }}>{contact.phone || "—"}</td>
-                      <td>
-                        <span className={`status-badge-chip status-${(contact.status || "lead").toLowerCase()}`}>
-                          {contact.status}
-                        </span>
-                      </td>
-                      <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent)" }}>
-                        ${Number(contact.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "inline-flex", gap: "0.5rem" }}>
-                          <button
-                            className="action-icon-btn"
-                            onClick={() => handleOpenModal(contact)}
-                            title="Edit Contact"
-                          >
-                            <Edit3 size={15} />
-                          </button>
-                          <button
-                            className="action-icon-btn delete"
-                            onClick={() => handleDelete(contact.id)}
-                            disabled={deleteMutation.isPending}
-                            title="Delete Contact"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
 
-        {/* User Profile & Features Info */}
-        <section className="crm-section-pad" id="system">
-          <div className="eyebrow" style={{ marginBottom: "1rem" }}>
-            ACCOUNT & SYSTEM INFO
-          </div>
-          <div className="asymmetric-2up-grid">
-            {/* User Profile Card */}
-            <div className="card-identity-glass">
-              <div className="eyebrow">YOUR PROFILE</div>
-              <h2 className="identity-headline">{user?.name || "User Account"}</h2>
-              <p className="identity-body">
-                Signed in as <strong>{user?.email}</strong>. You have full permissions to add, edit, and organize customer data.
-              </p>
-              <p className="identity-body" style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                Connected to Microsoft SQL Server with safe, encrypted data storage.
-              </p>
-            </div>
-
-            {/* Features 2x2 grid */}
-            <div className="capability-chips-grid">
-              <div className="card-capability-chip">
-                <Database size={18} color="#00D9FF" />
-                <span className="chip-label">SQL Server Database</span>
-              </div>
-              <div className="card-capability-chip">
-                <Lock size={18} color="#00D9FF" />
-                <span className="chip-label">Secure Authentication</span>
-              </div>
-              <div className="card-capability-chip">
-                <Zap size={18} color="#00D9FF" />
-                <span className="chip-label">Real-Time Updates</span>
-              </div>
-              <div className="card-capability-chip">
-                <DollarSign size={18} color="#00D9FF" />
-                <span className="chip-label">Deal Value Tracking</span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Contact Support Section */}
-        <section className="crm-section-pad" id="contact-us" style={{ paddingBottom: "120px" }}>
-          <div className="eyebrow" style={{ marginBottom: "1rem" }}>
-            SUPPORT & FEEDBACK
-          </div>
-          <div className="contact-band-split">
-            {/* Left text */}
-            <div className="contact-details-col">
-              <h2 style={{ fontSize: "2.4rem", fontWeight: 900, textTransform: "uppercase", marginBottom: "1.25rem", lineHeight: 1.1 }}>
-                HAVE QUESTIONS? <br />
-                <span style={{ color: "var(--accent)" }}>WE'RE HERE TO HELP.</span>
-              </h2>
-              <p style={{ color: "var(--text-secondary)", fontSize: "1rem", lineHeight: 1.6, marginBottom: "2rem" }}>
-                Send us a message if you need assistance, want to suggest a new CRM feature, or have feedback about your experience.
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                  <span>Support Email: <strong style={{ color: "#FFF" }}>support@scrm.com</strong></span>
+            {/* Quick Contacts Table */}
+            <div className="table-glass-card">
+              {isContactsLoading ? (
+                <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  <RefreshCw className="spin-icon" size={24} style={{ margin: "0 auto 1rem", color: "var(--accent)" }} />
+                  <div>Loading contacts from database...</div>
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: "1rem", color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                  <span>Response Time: <strong style={{ color: "#FFF" }}>Within 24 hours</strong></span>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Form */}
-            <div className="contact-form-module">
-              {inquirySent ? (
-                <div style={{ textAlign: "center", padding: "2rem 1rem", color: "var(--accent)" }}>
-                  <ShieldCheck size={32} style={{ margin: "0 auto 1rem" }} />
-                  <h3 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.5rem", color: "#FFF" }}>
-                    Message Sent!
+              ) : contacts.length === 0 ? (
+                <div style={{ padding: "3.5rem 2rem", textAlign: "center" }}>
+                  <Users size={36} color="#F0FF60" style={{ margin: "0 auto 1rem" }} />
+                  <h3 style={{ fontSize: "1.3rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+                    No contacts recorded yet
                   </h3>
-                  <p style={{ color: "var(--text-secondary)", fontSize: "0.875rem" }}>
-                    Thank you for reaching out. We will get back to you shortly.
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
+                    Add your first contact to start building your pipeline.
                   </p>
+                  <button className="btn-primary-yellow" onClick={() => handleOpenContactModal()}>
+                    <UserPlus size={16} />
+                    <span>Add First Contact</span>
+                  </button>
                 </div>
               ) : (
-                <form onSubmit={handleInquirySubmit}>
-                  <div className="circuit-form-group">
-                    <label className="circuit-label">Your Name</label>
-                    <input
-                      type="text"
-                      required
-                      className="circuit-input"
-                      placeholder="e.g. Sarah Connor"
-                      value={inquiryName}
-                      onChange={(e) => setInquiryName(e.target.value)}
-                    />
-                  </div>
+                <div style={{ overflowX: "auto" }}>
+                  <table className="circuit-table">
+                    <thead>
+                      <tr>
+                        <th>Contact Name</th>
+                        <th>Company</th>
+                        <th>Email</th>
+                        <th>Phone</th>
+                        <th>Stage</th>
+                        <th>Deal Value</th>
+                        <th style={{ textAlign: "right" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contacts.slice(0, 6).map((contact) => (
+                        <tr key={contact.id}>
+                          <td style={{ fontWeight: 700, color: "var(--text-heading)" }}>{contact.name}</td>
+                          <td>{contact.company || "—"}</td>
+                          <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                            {contact.email}
+                          </td>
+                          <td style={{ color: "var(--text-muted)" }}>{contact.phone || "—"}</td>
+                          <td>
+                            <span className={`status-badge-chip status-${(contact.status || "lead").toLowerCase()}`}>
+                              {contact.status}
+                            </span>
+                          </td>
+                          <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent)" }}>
+                            ${Number(contact.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "0.5rem" }}>
+                              <button
+                                className="action-icon-btn"
+                                onClick={() => handleOpenContactModal(contact)}
+                                title="Edit Contact"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button
+                                className="action-icon-btn"
+                                onClick={() => handleOpenTaskModal(null, contact.id)}
+                                title="Schedule Task for Contact"
+                              >
+                                <Calendar size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
 
-                  <div className="circuit-form-group">
-                    <label className="circuit-label">Email Address</label>
-                    <input
-                      type="email"
-                      required
-                      className="circuit-input"
-                      placeholder="sarah@company.com"
-                      value={inquiryEmail}
-                      onChange={(e) => setInquiryEmail(e.target.value)}
-                    />
-                  </div>
+            {/* Quick Scheduled Tasks Section */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.25rem", marginTop: "2rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.5rem", fontWeight: 800, color: "var(--text-heading)" }}>
+                  Scheduled Tasks & Follow-ups
+                </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  Active reminders and customer follow-up actions.
+                </p>
+              </div>
+              <button 
+                className="btn-primary-yellow" 
+                style={{ height: "38px", fontSize: "0.8125rem" }}
+                onClick={() => handleOpenTaskModal()}
+              >
+                <Plus size={16} />
+                <span>New Task</span>
+              </button>
+            </div>
 
-                  <div className="circuit-form-group" style={{ marginBottom: "2rem" }}>
-                    <label className="circuit-label">Message</label>
-                    <textarea
-                      required
-                      rows={4}
-                      className="circuit-input"
-                      style={{ resize: "vertical" }}
-                      placeholder="How can we help you?"
-                      value={inquiryMessage}
-                      onChange={(e) => setInquiryMessage(e.target.value)}
-                    />
-                  </div>
-
-                  <button type="submit" className="button-cta-final">
-                    <span>SEND MESSAGE</span>
-                    <Send size={20} />
+            <div className="tasks-container">
+              {isTasksLoading ? (
+                <div style={{ padding: "2.5rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  Loading tasks...
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="table-glass-card" style={{ padding: "3rem", textAlign: "center" }}>
+                  <Calendar size={36} color="#F0FF60" style={{ margin: "0 auto 1rem" }} />
+                  <h3 style={{ fontSize: "1.25rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+                    No Scheduled Tasks
+                  </h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginBottom: "1.25rem" }}>
+                    Create action items and deadlines linked directly to your contacts.
+                  </p>
+                  <button className="btn-primary-yellow" onClick={() => handleOpenTaskModal()}>
+                    <Plus size={16} />
+                    <span>Create a Task</span>
                   </button>
-                </form>
+                </div>
+              ) : (
+                tasks.slice(0, 5).map((task) => (
+                  <div key={task.id} className="task-item-card">
+                    <div className="task-left-section">
+                      <button
+                        className={`task-checkbox-btn ${task.status === "Completed" ? "completed" : ""}`}
+                        onClick={() => handleToggleTaskStatus(task)}
+                        title="Mark complete / incomplete"
+                      >
+                        {task.status === "Completed" && <Check size={16} />}
+                      </button>
+                      <div>
+                        <div className={`task-title ${task.status === "Completed" ? "completed" : ""}`}>
+                          {task.title}
+                        </div>
+                        <div className="task-meta">
+                          {task.dueDate && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                              <Clock size={12} color="#F0FF60" />
+                              {new Date(task.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.Contact && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", color: "var(--text-primary)" }}>
+                              <Users size={12} />
+                              {task.Contact.name} ({task.Contact.company || "Company"})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <span className={`priority-chip priority-${(task.priority || "medium").toLowerCase()}`}>
+                        {task.priority}
+                      </span>
+                      <button
+                        className="action-icon-btn"
+                        onClick={() => handleOpenTaskModal(task)}
+                        title="Edit Task"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button
+                        className="action-icon-btn delete"
+                        onClick={() => handleDeleteTask(task.id)}
+                        title="Delete Task"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))
               )}
             </div>
           </div>
-        </section>
+        )}
+
+        {/* =========================================================================
+            TAB 2: FULL CONTACTS TABLE WITH SEARCH & FILTER
+           ========================================================================= */}
+        {activeTab === "contacts" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>
+                  Customer Contacts ({contacts.length})
+                </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  Search, filter, and edit all customer contact profiles and deals.
+                </p>
+              </div>
+
+              <button className="btn-primary-yellow" onClick={() => handleOpenContactModal()}>
+                <UserPlus size={16} />
+                <span>Add Contact</span>
+              </button>
+            </div>
+
+            {/* Filter controls */}
+            <div className="controls-glass-panel">
+              <div className="search-field-wrapper">
+                <Search className="search-field-icon" size={16} />
+                <input
+                  type="text"
+                  className="search-field-input"
+                  placeholder="Search by name, company, or email address..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <select
+                className="filter-select-circuit"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="All">All Stages</option>
+                <option value="Lead">Status: Lead</option>
+                <option value="Contacted">Status: Contacted</option>
+                <option value="Qualified">Status: Qualified</option>
+                <option value="Customer">Status: Customer</option>
+                <option value="Lost">Status: Lost</option>
+              </select>
+            </div>
+
+            {/* Main Full Table */}
+            <div className="table-glass-card">
+              {isContactsLoading ? (
+                <div style={{ padding: "4rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  <RefreshCw className="spin-icon" size={24} style={{ margin: "0 auto 1rem", color: "var(--accent)" }} />
+                  <div>Loading contacts...</div>
+                </div>
+              ) : contacts.length === 0 ? (
+                <div style={{ padding: "4rem 2rem", textAlign: "center" }}>
+                  <Users size={40} color="#F0FF60" style={{ margin: "0 auto 1rem" }} />
+                  <h3 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+                    No matching contacts found
+                  </h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
+                    Try modifying your search or stage filter to find records.
+                  </p>
+                  <button className="btn-primary-yellow" onClick={() => handleOpenContactModal()}>
+                    <UserPlus size={16} />
+                    <span>Create Contact</span>
+                  </button>
+                </div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table className="circuit-table">
+                    <thead>
+                      <tr>
+                        <th>Contact Name</th>
+                        <th>Organization</th>
+                        <th>Email Address</th>
+                        <th>Phone</th>
+                        <th>Stage</th>
+                        <th>Deal Value</th>
+                        <th style={{ textAlign: "right" }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {contacts.map((contact) => (
+                        <tr key={contact.id}>
+                          <td style={{ fontWeight: 700, color: "var(--text-heading)" }}>{contact.name}</td>
+                          <td>{contact.company || "—"}</td>
+                          <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-muted)" }}>
+                            {contact.email}
+                          </td>
+                          <td style={{ color: "var(--text-muted)" }}>{contact.phone || "—"}</td>
+                          <td>
+                            <span className={`status-badge-chip status-${(contact.status || "lead").toLowerCase()}`}>
+                              {contact.status}
+                            </span>
+                          </td>
+                          <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent)" }}>
+                            ${Number(contact.value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "0.5rem" }}>
+                              <button
+                                className="action-icon-btn"
+                                onClick={() => handleOpenContactModal(contact)}
+                                title="Edit Contact"
+                              >
+                                <Edit3 size={15} />
+                              </button>
+                              <button
+                                className="action-icon-btn"
+                                onClick={() => handleOpenTaskModal(null, contact.id)}
+                                title="Schedule Task"
+                              >
+                                <Calendar size={15} />
+                              </button>
+                              <button
+                                className="action-icon-btn delete"
+                                onClick={() => handleDeleteContact(contact.id)}
+                                title="Delete Contact"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            TAB 3: INTERACTIVE PIPELINE KANBAN BOARD
+           ========================================================================= */}
+        {activeTab === "pipeline" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>
+                  Pipeline Stages Board
+                </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  Visual deal pipeline stages. Click any contact to advance stage or edit contract values.
+                </p>
+              </div>
+
+              <button className="btn-primary-yellow" onClick={() => handleOpenContactModal()}>
+                <UserPlus size={16} />
+                <span>Add Contact to Pipeline</span>
+              </button>
+            </div>
+
+            <div className="pipeline-board">
+              {STAGES.map((stage) => {
+                const stageContacts = contacts.filter((c) => (c.status || "Lead") === stage);
+                const stageTotalValue = stageContacts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
+
+                return (
+                  <div key={stage} className="pipeline-col">
+                    <div className="pipeline-col-header">
+                      <div className="pipeline-col-title">
+                        <span>{stage}</span>
+                      </div>
+                      <span className="pipeline-col-count">{stageContacts.length}</span>
+                    </div>
+
+                    <div style={{ fontSize: "0.75rem", color: "var(--accent)", fontFamily: "var(--font-mono)", marginBottom: "0.75rem", fontWeight: 700 }}>
+                      ${stageTotalValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                    </div>
+
+                    <div className="pipeline-cards-stack">
+                      {stageContacts.length === 0 ? (
+                        <div style={{ padding: "2rem 0.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.8125rem", border: "1px dashed var(--border-hairline)", borderRadius: "10px" }}>
+                          No deals in this stage
+                        </div>
+                      ) : (
+                        stageContacts.map((contact) => (
+                          <div 
+                            key={contact.id} 
+                            className="pipeline-item-card"
+                            onClick={() => handleOpenContactModal(contact)}
+                          >
+                            <div className="pipeline-item-name">{contact.name}</div>
+                            <div className="pipeline-item-company">{contact.company || "Independent"}</div>
+                            
+                            <div className="pipeline-item-footer">
+                              <span className="pipeline-item-value">
+                                ${Number(contact.value || 0).toLocaleString()}
+                              </span>
+
+                              <div style={{ display: "flex", gap: "0.25rem" }}>
+                                {stage !== "Customer" && (
+                                  <button
+                                    className="action-icon-btn"
+                                    style={{ width: "26px", height: "26px" }}
+                                    title="Advance stage"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const nextIndex = STAGES.indexOf(stage) + 1;
+                                      if (nextIndex < STAGES.length) {
+                                        handleMoveStage(contact.id, STAGES[nextIndex]);
+                                      }
+                                    }}
+                                  >
+                                    <ChevronRight size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* =========================================================================
+            TAB 4: TASK SCHEDULING & ACTIVITIES
+           ========================================================================= */}
+        {activeTab === "tasks" && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
+              <div>
+                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>
+                  Task Scheduling & Follow-ups
+                </h2>
+                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
+                  Schedule meetings, log follow-up calls, and track actionable tasks.
+                </p>
+              </div>
+
+              <button className="btn-primary-yellow" onClick={() => handleOpenTaskModal()}>
+                <Plus size={16} />
+                <span>Schedule New Task</span>
+              </button>
+            </div>
+
+            {/* Task Filters */}
+            <div className="controls-glass-panel">
+              <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", width: "100%" }}>
+                <select
+                  className="filter-select-circuit"
+                  value={taskStatusFilter}
+                  onChange={(e) => setTaskStatusFilter(e.target.value)}
+                >
+                  <option value="All">All Task Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+
+                <select
+                  className="filter-select-circuit"
+                  value={taskPriorityFilter}
+                  onChange={(e) => setTaskPriorityFilter(e.target.value)}
+                >
+                  <option value="All">All Priorities</option>
+                  <option value="Urgent">Priority: Urgent</option>
+                  <option value="High">Priority: High</option>
+                  <option value="Medium">Priority: Medium</option>
+                  <option value="Low">Priority: Low</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="tasks-container">
+              {isTasksLoading ? (
+                <div style={{ padding: "3rem", textAlign: "center", color: "var(--text-muted)" }}>
+                  Loading tasks...
+                </div>
+              ) : tasks.length === 0 ? (
+                <div className="table-glass-card" style={{ padding: "4rem 2rem", textAlign: "center" }}>
+                  <Calendar size={44} color="#F0FF60" style={{ margin: "0 auto 1.25rem" }} />
+                  <h3 style={{ fontSize: "1.4rem", fontWeight: 700, marginBottom: "0.5rem" }}>
+                    No Scheduled Tasks
+                  </h3>
+                  <p style={{ color: "var(--text-muted)", fontSize: "0.875rem", marginBottom: "1.5rem" }}>
+                    Schedule follow-up phone calls, contract reviews, and meetings.
+                  </p>
+                  <button className="btn-primary-yellow" onClick={() => handleOpenTaskModal()}>
+                    <Plus size={16} />
+                    <span>Schedule Task</span>
+                  </button>
+                </div>
+              ) : (
+                tasks.map((task) => (
+                  <div key={task.id} className="task-item-card">
+                    <div className="task-left-section">
+                      <button
+                        className={`task-checkbox-btn ${task.status === "Completed" ? "completed" : ""}`}
+                        onClick={() => handleToggleTaskStatus(task)}
+                        title="Mark complete / incomplete"
+                      >
+                        {task.status === "Completed" && <Check size={16} />}
+                      </button>
+                      <div>
+                        <div className={`task-title ${task.status === "Completed" ? "completed" : ""}`}>
+                          {task.title}
+                        </div>
+                        {task.description && (
+                          <div style={{ fontSize: "0.8125rem", color: "var(--text-body)", marginTop: "0.2rem" }}>
+                            {task.description}
+                          </div>
+                        )}
+                        <div className="task-meta">
+                          {task.dueDate && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+                              <Clock size={12} color="#F0FF60" />
+                              Due: {new Date(task.dueDate).toLocaleDateString()}
+                            </span>
+                          )}
+                          {task.Contact && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", color: "var(--accent)" }}>
+                              <Users size={12} />
+                              {task.Contact.name} ({task.Contact.company || "Contact"})
+                            </span>
+                          )}
+                          <span style={{ color: "var(--text-muted)" }}>
+                            Status: <strong>{task.status}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <span className={`priority-chip priority-${(task.priority || "medium").toLowerCase()}`}>
+                        {task.priority}
+                      </span>
+                      <button
+                        className="action-icon-btn"
+                        onClick={() => handleOpenTaskModal(task)}
+                        title="Edit Task"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button
+                        className="action-icon-btn delete"
+                        onClick={() => handleDeleteTask(task.id)}
+                        title="Delete Task"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
       </main>
 
       {/* Footer */}
       <footer className="footer-circuit">
         <div>
-          © {new Date().getFullYear()} SCRM. All rights reserved.
+          © {new Date().getFullYear()} SCRM. High Performance Relationship Engine.
         </div>
         <div className="footer-tagline">
-          SIMPLE CRM // FAST, RELIABLE & SECURE
+          SCRM // OBSIDIAN & ELECTRIC YELLOW ARCHITECTURE
         </div>
       </footer>
 
-      {/* Add / Edit Contact Modal Card */}
-      {isModalOpen && (
-        <div className="modal-overlay-circuit" onClick={handleCloseModal}>
+      {/* =========================================================================
+          CONTACT MODAL (CREATE / EDIT)
+         ========================================================================= */}
+      {isContactModalOpen && (
+        <div className="modal-overlay-circuit" onClick={handleCloseContactModal}>
           <div className="modal-card-circuit" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header-circuit">
               <div className="eyebrow" style={{ marginBottom: "0.25rem" }}>
-                {editingContact ? "UPDATE CONTACT" : "NEW CONTACT"}
+                {editingContact ? "UPDATE CONTACT RECORD" : "PROVISION NEW CONTACT"}
               </div>
               <h3 className="modal-title-circuit">
-                {editingContact ? "Edit Contact Details" : "Add New Contact"}
+                {editingContact ? "Edit Contact Details" : "Add Contact to SCRM"}
               </h3>
             </div>
 
-            {formError && (
+            {contactFormError && (
               <div className="auth-error-banner" style={{ marginBottom: "1.25rem" }}>
-                <span>{formError}</span>
+                <span>{contactFormError}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleContactSubmit}>
               <div className="circuit-form-group">
                 <label className="circuit-label">Full Name *</label>
                 <input
@@ -553,8 +1088,8 @@ export default function Dashboard() {
                   required
                   className="circuit-input"
                   placeholder="e.g. John Doe"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  value={contactFormData.name}
+                  onChange={(e) => setContactFormData({ ...contactFormData, name: e.target.value })}
                 />
               </div>
 
@@ -565,46 +1100,44 @@ export default function Dashboard() {
                   required
                   className="circuit-input"
                   placeholder="john@example.com"
-                  value={formData.email}
-                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  value={contactFormData.email}
+                  onChange={(e) => setContactFormData({ ...contactFormData, email: e.target.value })}
                 />
               </div>
 
               <div className="circuit-form-group">
-                <label className="circuit-label">Company Name</label>
+                <label className="circuit-label">Organization / Company</label>
                 <input
                   type="text"
                   className="circuit-input"
-                  placeholder="e.g. Acme Corporation"
-                  value={formData.company}
-                  onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+                  placeholder="Acme Corp"
+                  value={contactFormData.company}
+                  onChange={(e) => setContactFormData({ ...contactFormData, company: e.target.value })}
                 />
               </div>
 
               <div className="circuit-form-group">
-                <label className="circuit-label">Phone Number</label>
+                <label className="circuit-label">Telephone</label>
                 <input
                   type="tel"
                   className="circuit-input"
                   placeholder="+1 (555) 019-2834"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  value={contactFormData.phone}
+                  onChange={(e) => setContactFormData({ ...contactFormData, phone: e.target.value })}
                 />
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "2rem" }}>
                 <div className="circuit-form-group" style={{ marginBottom: 0 }}>
-                  <label className="circuit-label">Lead Status</label>
+                  <label className="circuit-label">Pipeline Stage</label>
                   <select
                     className="circuit-input"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                    value={contactFormData.status}
+                    onChange={(e) => setContactFormData({ ...contactFormData, status: e.target.value })}
                   >
-                    <option value="Lead">Lead</option>
-                    <option value="Contacted">Contacted</option>
-                    <option value="Qualified">Qualified</option>
-                    <option value="Customer">Customer</option>
-                    <option value="Lost">Lost</option>
+                    {STAGES.map((stg) => (
+                      <option key={stg} value={stg}>{stg}</option>
+                    ))}
                   </select>
                 </div>
 
@@ -616,8 +1149,8 @@ export default function Dashboard() {
                     step="0.01"
                     className="circuit-input"
                     placeholder="0"
-                    value={formData.value}
-                    onChange={(e) => setFormData({ ...formData, value: e.target.value })}
+                    value={contactFormData.value}
+                    onChange={(e) => setContactFormData({ ...contactFormData, value: e.target.value })}
                   />
                 </div>
               </div>
@@ -625,20 +1158,140 @@ export default function Dashboard() {
               <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
                 <button 
                   type="button" 
-                  className="button-secondary-hero" 
-                  style={{ height: "46px" }}
-                  onClick={handleCloseModal}
-                  disabled={isSaving}
+                  className="btn-ghost-dark" 
+                  onClick={handleCloseContactModal}
+                  disabled={isContactSaving}
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  className="button-cta-final" 
-                  style={{ width: "auto", height: "46px", padding: "0 28px", fontSize: "0.9375rem" }}
-                  disabled={isSaving}
+                  className="btn-primary-yellow" 
+                  disabled={isContactSaving}
                 >
-                  {isSaving ? "Saving..." : editingContact ? "Save Changes" : "Save Contact"}
+                  {isContactSaving ? "Saving..." : editingContact ? "Save Changes" : "Create Contact"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          TASK MODAL (CREATE / EDIT)
+         ========================================================================= */}
+      {isTaskModalOpen && (
+        <div className="modal-overlay-circuit" onClick={handleCloseTaskModal}>
+          <div className="modal-card-circuit" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header-circuit">
+              <div className="eyebrow" style={{ marginBottom: "0.25rem" }}>
+                {editingTask ? "UPDATE ACTION ITEM" : "SCHEDULE NEW TASK"}
+              </div>
+              <h3 className="modal-title-circuit">
+                {editingTask ? "Edit Task Details" : "Schedule Activity"}
+              </h3>
+            </div>
+
+            {taskFormError && (
+              <div className="auth-error-banner" style={{ marginBottom: "1.25rem" }}>
+                <span>{taskFormError}</span>
+              </div>
+            )}
+
+            <form onSubmit={handleTaskSubmit}>
+              <div className="circuit-form-group">
+                <label className="circuit-label">Task Title *</label>
+                <input
+                  type="text"
+                  required
+                  className="circuit-input"
+                  placeholder="e.g. Follow-up demo call"
+                  value={taskFormData.title}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, title: e.target.value })}
+                />
+              </div>
+
+              <div className="circuit-form-group">
+                <label className="circuit-label">Associated Contact</label>
+                <select
+                  className="circuit-input"
+                  value={taskFormData.contactId}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, contactId: e.target.value })}
+                >
+                  <option value="">None / General Task</option>
+                  {contacts.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.company || "Contact"})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
+                <div className="circuit-form-group">
+                  <label className="circuit-label">Due Date</label>
+                  <input
+                    type="date"
+                    className="circuit-input"
+                    value={taskFormData.dueDate}
+                    onChange={(e) => setTaskFormData({ ...taskFormData, dueDate: e.target.value })}
+                  />
+                </div>
+
+                <div className="circuit-form-group">
+                  <label className="circuit-label">Priority</label>
+                  <select
+                    className="circuit-input"
+                    value={taskFormData.priority}
+                    onChange={(e) => setTaskFormData({ ...taskFormData, priority: e.target.value })}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="circuit-form-group">
+                <label className="circuit-label">Task Status</label>
+                <select
+                  className="circuit-input"
+                  value={taskFormData.status}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, status: e.target.value })}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
+              </div>
+
+              <div className="circuit-form-group" style={{ marginBottom: "2rem" }}>
+                <label className="circuit-label">Notes & Description</label>
+                <textarea
+                  rows={3}
+                  className="circuit-input"
+                  style={{ resize: "vertical" }}
+                  placeholder="Enter details or notes regarding this task..."
+                  value={taskFormData.description}
+                  onChange={(e) => setTaskFormData({ ...taskFormData, description: e.target.value })}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+                <button 
+                  type="button" 
+                  className="btn-ghost-dark" 
+                  onClick={handleCloseTaskModal}
+                  disabled={isTaskSaving}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn-primary-yellow" 
+                  disabled={isTaskSaving}
+                >
+                  {isTaskSaving ? "Saving..." : editingTask ? "Save Changes" : "Schedule Task"}
                 </button>
               </div>
             </form>
