@@ -119,6 +119,16 @@ export async function ensureDatabaseAndSchema() {
           ALTER TABLE [users] ADD [role_id] INT NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'refresh_token')
           ALTER TABLE [users] ADD [refresh_token] NVARCHAR(500) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_enabled')
+          ALTER TABLE [users] ADD [two_factor_enabled] BIT DEFAULT 0;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_code')
+          ALTER TABLE [users] ADD [two_factor_code] NVARCHAR(10) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_expires')
+          ALTER TABLE [users] ADD [two_factor_expires] DATETIMEOFFSET NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'reset_password_token')
+          ALTER TABLE [users] ADD [reset_password_token] NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'reset_password_expires')
+          ALTER TABLE [users] ADD [reset_password_expires] DATETIMEOFFSET NULL;
       END
     `);
 

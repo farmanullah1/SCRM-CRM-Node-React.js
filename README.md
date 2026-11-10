@@ -61,9 +61,14 @@ Despite its lightweight footprint ("Small"), **SCRM** delivers full enterprise c
 - **Due Date Tracking & Overdue Warnings**: Visual badges for overdue items, items due today, and completed action items.
 - **Record Linking**: Tasks linked directly to users, contacts, and deal opportunities.
 
-### 4. ✉️ Email Outbox & Pixel Open Tracking
-- **Built-in Dispatcher**: Native email dispatch engine with SMTP support and simulated delivery fallback for local dev.
-- **Reusable Templates**: Pre-configured templates for Welcome/Intro, Deal Follow-Up, Formal Proposal Submission, and Support Resolution.
+### 4. ✉️ SMTP Communications Framework & Automated Triggers
+- **Environment-Driven SMTP**: Robust Nodemailer engine powered by `dotenv` configuration with automated fallback for simulated delivery when credentials are not configured.
+- **Visual Identity Branded Templates**: HTML emails featuring dark obsidian headers, warm-olive accents, and high-voltage `#F0FF60` CTA buttons.
+- **Automated System Triggers**:
+  - **Account Welcome Workflow**: Dispatched automatically upon user registration with getting started tips.
+  - **Security Alerts**: Dispatched when profiles, credentials, or 2FA settings are modified.
+  - **Password Reset**: Secure 1-hour verification token workflow with direct recovery links.
+  - **Two-Factor Authentication (2FA)**: Time-limited 6-digit numeric OTP verification codes.
 - **Transparent Tracking Pixel (`1x1 GIF`)**: Embedded zero-cache tracking pixel (`/api/emails/track/:pixelId`) that captures open timestamps and updates UI badges to `✓ Opened (hh:mm)`.
 
 ### 5. 📄 Commercial Quotes & Invoices
@@ -303,155 +308,15 @@ node tests/api.test.js
 ### 🔐 Authentication & Access Control
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/signup` | Public | Register user account with 12-round bcrypt hash |
-| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT + refresh token |
+| `POST` | `/api/auth/signup` | Public | Register user account with 12-round bcrypt hash & trigger Welcome Email |
+| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT or trigger 2FA OTP challenge |
+| `POST` | `/api/auth/2fa/verify` | Public | Verify 6-digit OTP code sent to user email |
+| `POST` | `/api/auth/2fa/toggle` | Authenticated | Enable or disable Two-Factor Authentication |
+| `POST` | `/api/auth/forgot-password`| Public | Request password reset token via email |
+| `POST` | `/api/auth/reset-password` | Public | Complete password reset using verified token |
+| `PUT` | `/api/auth/profile` | Authenticated | Update user name or change password with security alert |
 | `POST` | `/api/auth/refresh` | Public | Rotate refresh token & issue new access token |
-| `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile & permissions |
-| `GET` | `/api/auth/users` | Authenticated | List team users for task & deal assignments |
-| `GET` | `/api/auth/roles` | Authenticated | Inspect system RBAC role definitions |
-
-### 👥 Contacts & Companies
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/contacts` | Authenticated | List contacts with search indexing & tag filters |
-| `POST` | `/api/contacts` | Authenticated | Create new contact record |
-| `PUT` | `/api/contacts/:id` | Authenticated | Update contact details or status |
-| `DELETE` | `/api/contacts/:id` | Admin | Delete contact record |
-| `GET` | `/api/contacts/duplicates`| Authenticated | Automated duplicate detection (email/phone) |
-| `POST` | `/api/contacts/merge` | Authenticated | Merge two duplicate contact records |
-| `POST` | `/api/contacts/:id/convert`| Authenticated | **1-Click Convert Lead** to Contact + Deal |
-| `POST` | `/api/contacts/bulk` | Authenticated | Bulk import contacts via CSV |
-| `GET` | `/api/contacts/export` | Authenticated | Export contacts in CSV or JSON |
-| `GET` | `/api/companies` | Authenticated | List all client companies |
-| `POST` | `/api/companies` | Authenticated | Create company record |
-
-### 📊 Pipeline & Deals
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/deals` | Authenticated | List pipeline deals & stage value totals |
-| `GET` | `/api/deals/stages` | Authenticated | Get pipeline stages (`New` $\rightarrow$ `Won/Lost`) |
-| `GET` | `/api/deals/metrics` | Authenticated | Calculate pipeline velocity & win rates |
-| `POST` | `/api/deals` | Authenticated | Create new pipeline deal |
-| `PUT` | `/api/deals/:id` | Authenticated | Transition deal stage & trigger audit log |
-| `DELETE` | `/api/deals/:id` | Admin | Delete deal record |
-
-### 📅 Tasks & Activities
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/tasks` | Authenticated | List tasks with overdue & due date filters |
-| `POST` | `/api/tasks` | Authenticated | Schedule follow-up task |
-| `PUT` | `/api/tasks/:id` | Authenticated | Update task status (`Pending` $\rightarrow$ `Completed`) |
-| `DELETE` | `/api/tasks/:id` | Authenticated | Delete task |
-| `GET` | `/api/activities` | Authenticated | Retrieve chronological audit trail stream |
-| `POST` | `/api/activities` | Authenticated | Log interaction (call, meeting, note) |
-
-### ✉️ Email Outbox & Tracking
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/emails/templates` | Authenticated | Retrieve reusable message templates |
-| `GET` | `/api/emails` | Authenticated | Sent history with open tracking statuses |
-| `POST` | `/api/emails/send` | Authenticated | Dispatch email & generate tracking pixel |
-| `GET` | `/api/emails/track/:pixelId` | **Public** | **Tracking pixel: logs open timestamp & serves 1x1 GIF** |
-
-### 🔒 Enterprise Safety & Attachments
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET` | `/api/backup/download` | Admin | Download full database JSON dump |
-| `POST` | `/api/backup/snapshot` | Admin | Trigger manual server storage snapshot |
-| `GET` | `/api/backup/history` | Admin | List recent server snapshots |
-| `POST` | `/api/attachments/upload`| Authenticated | Upload document/contract via Multer |
-| `GET` | `/api/attachments/:type/:id`| Authenticated | List attachments for entity |
-
----
-
-## 🔮 Scalability Modules
-
-- **Workflow Automations** (`/api/integrations/automations`): Round-robin lead routing, proposal stage alerts, and won-deal invoice drafts.
-- **Calendar Synchronization** (`/api/integrations/calendar/sync`): Google Calendar and Microsoft Outlook event sync hooks.
-- **Webhooks** (`/api/integrations/webhooks`): Slack outbound notifications and Zapier integration receivers.
-
----
-
-## 📄 License
-
-This project is licensed under the **MIT License**.
-
-Built with precision for small teams requiring enterprise-level capability. **SCRM — Small CRM, Massive Impact.**
-
-
-# Install root, backend, and frontend dependencies in one command
-npm run install:all
-```
-
----
-
-### ⚙️ 2. Environment Configuration
-
-Create or verify `Backend/.env`:
-
-```env
-PORT=5000
-NODE_ENV=development
-
-# Microsoft SQL Server Configuration
-DB_NAME=SCRM
-DB_USER=sa
-DB_PASSWORD=YourPassword123!
-DB_SERVER=localhost
-DB_PORT=1433
-DB_ENCRYPT=true
-DB_TRUST_SERVER_CERTIFICATE=true
-
-# Authentication Secrets
-JWT_SECRET=scrm_enterprise_production_jwt_secret_key_2026
-JWT_EXPIRES_IN=2h
-
-# Optional SMTP for Email Dispatch
-SMTP_HOST=smtp.mailgun.org
-SMTP_PORT=587
-SMTP_USER=postmaster@yourdomain.com
-SMTP_PASS=your_smtp_password
-SMTP_FROM="SCRM Team" <noreply@scrm.enterprise>
-```
-
-> **Note:** If SMTP credentials are not provided, SCRM automatically operates in simulated dispatch mode without throwing errors.
-
----
-
-### 💻 3. Run Development Servers
-
-Start both Backend and Frontend concurrently with a single command:
-
-```bash
-npm run dev
-```
-
-- **Backend API**: `http://localhost:5000`
-- **Frontend Dashboard**: `http://localhost:5173`
-- **Healthcheck & Diagnostics**: `http://localhost:5000/health`
-
----
-
-### 🧪 4. Automated Verification Suite
-
-Run the built-in end-to-end integration test suite:
-
-```bash
-cd Backend
-node tests/api.test.js
-```
-
----
-
-## 📡 Complete API Reference
-
-### 🔐 Authentication & Access Control
-| Method | Endpoint | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/signup` | Public | Register user account with 12-round bcrypt hash |
-| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT + refresh token |
-| `POST` | `/api/auth/refresh` | Public | Rotate refresh token & issue new access token |
-| `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile & permissions |
+| `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile, 2FA status & permissions |
 | `GET` | `/api/auth/users` | Authenticated | List team users for task & deal assignments |
 | `GET` | `/api/auth/roles` | Authenticated | Inspect system RBAC role definitions |
 

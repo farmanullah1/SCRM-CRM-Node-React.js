@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { loginUser, signupUser, getCurrentUser } from "../services/api";
+import { loginUser, signupUser, getCurrentUser, verify2FALogin } from "../services/api";
 
 const AuthContext = createContext(null);
 
@@ -32,7 +32,25 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const data = await loginUser({ email, password });
+    if (data.twoFactorRequired) {
+      return data; // Requires 2FA verification step
+    }
     localStorage.setItem("crm_token", data.token);
+    if (data.refreshToken) {
+      localStorage.setItem("crm_refresh_token", data.refreshToken);
+    }
+    localStorage.setItem("crm_user", JSON.stringify(data.user));
+    setToken(data.token);
+    setUser(data.user);
+    return data;
+  };
+
+  const complete2FA = async (tempToken, otpCode) => {
+    const data = await verify2FALogin({ tempToken, otpCode });
+    localStorage.setItem("crm_token", data.token);
+    if (data.refreshToken) {
+      localStorage.setItem("crm_refresh_token", data.refreshToken);
+    }
     localStorage.setItem("crm_user", JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
@@ -42,21 +60,48 @@ export const AuthProvider = ({ children }) => {
   const signup = async (name, email, password) => {
     const data = await signupUser({ name, email, password });
     localStorage.setItem("crm_token", data.token);
+    if (data.refreshToken) {
+      localStorage.setItem("crm_refresh_token", data.refreshToken);
+    }
     localStorage.setItem("crm_user", JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
     return data;
   };
 
+  const refreshUser = async () => {
+    try {
+      const data = await getCurrentUser();
+      setUser(data.user);
+      localStorage.setItem("crm_user", JSON.stringify(data.user));
+      return data.user;
+    } catch (e) {
+      return null;
+    }
+  };
+
   const logout = () => {
     localStorage.removeItem("crm_token");
+    localStorage.removeItem("crm_refresh_token");
     localStorage.removeItem("crm_user");
     setToken(null);
     setUser(null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, signup, logout, loading, isAuthenticated: !!token }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        login,
+        complete2FA,
+        signup,
+        refreshUser,
+        logout,
+        loading,
+        isAuthenticated: !!token
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
@@ -69,4 +114,3 @@ export const useAuth = () => {
   }
   return context;
 };
-

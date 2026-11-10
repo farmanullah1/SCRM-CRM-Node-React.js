@@ -55,7 +55,12 @@ export const User = sequelize.define(
     password: { type: DataTypes.STRING(255), allowNull: false },
     role: { type: DataTypes.STRING(50), defaultValue: "admin" },
     role_id: { type: DataTypes.INTEGER, allowNull: true },
-    refresh_token: { type: DataTypes.STRING(500), allowNull: true }
+    refresh_token: { type: DataTypes.STRING(500), allowNull: true },
+    two_factor_enabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+    two_factor_code: { type: DataTypes.STRING(10), allowNull: true },
+    two_factor_expires: { type: DataTypes.DATE, allowNull: true },
+    reset_password_token: { type: DataTypes.STRING(100), allowNull: true },
+    reset_password_expires: { type: DataTypes.DATE, allowNull: true }
   },
   { tableName: "users", timestamps: true }
 );

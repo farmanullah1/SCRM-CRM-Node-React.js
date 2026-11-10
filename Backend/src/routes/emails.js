@@ -1,9 +1,9 @@
 import express from "express";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
 import { EmailLog, Contact, ActivityLog } from "../db.js";
 import { authenticateToken, logAudit } from "../middleware/auth.js";
 import { sanitizeString, isValidEmail } from "../middleware/security.js";
+import emailService, { buildBrandedEmailHtml } from "../services/emailService.js";
 
 const router = express.Router();
 
@@ -48,7 +48,7 @@ router.get("/track/:pixelId", async (req, res) => {
   res.end(TRANSPARENT_PIXEL);
 });
 
-// Standard Email Templates
+// Standard Email Templates with SCRM visual branding
 const TEMPLATES = [
   {
     id: "welcome",
@@ -96,7 +96,7 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/emails/send - send, track, and log an email
+// POST /api/emails/send - send, track, and log an email with branded HTML
 router.post("/send", async (req, res) => {
   try {
     let { contactId, recipientEmail, subject, body, templateName } = req.body;
@@ -114,52 +114,31 @@ router.post("/send", async (req, res) => {
 
     const trackingPixelId = crypto.randomUUID();
 
-    // Check for SMTP configuration in env
-    const hasSmtp = Boolean(process.env.SMTP_HOST && process.env.SMTP_USER);
-    let deliveryStatus = "Sent";
+    // Render into branded SCRM HTML layout
+    const formattedBodyHtml = body
+      .split("\n")
+      .map(line => `<p style="margin: 0 0 12px 0;">${line}</p>`)
+      .join("");
 
-    if (hasSmtp) {
-      try {
-        const transporter = nodemailer.createTransport({
-          host: process.env.SMTP_HOST,
-          port: parseInt(process.env.SMTP_PORT || "587", 10),
-          secure: process.env.SMTP_SECURE === "true",
-          auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS
-          }
-        });
+    const brandedHtml = buildBrandedEmailHtml({
+      title: subject,
+      bodyHtml: formattedBodyHtml,
+      trackingPixelId
+    });
 
-        const trackingHtml = `${body.replace(/\n/g, "<br>")}<br><br><img src="${process.env.APP_URL || "http://localhost:5000"}/api/emails/track/${trackingPixelId}" width="1" height="1" alt="" />`;
-
-        await transporter.sendMail({
-          from: process.env.SMTP_FROM || `"SCRM Team" <noreply@scrm.enterprise>`,
-          to: recipientEmail,
-          subject,
-          text: body,
-          html: trackingHtml
-        });
-      } catch (smtpErr) {
-        console.warn("[SMTP Notice] Direct dispatch failed, marked as simulated sent:", smtpErr.message);
-        deliveryStatus = "Sent (Simulated)";
-      }
-    } else {
-      deliveryStatus = "Sent (Simulated)";
-    }
-
-    const emailLog = await EmailLog.create({
-      user_id: req.user.id,
-      contact_id: contactId ? parseInt(contactId, 10) : null,
-      template_name: templateName || "Custom",
-      recipient_email: recipientEmail,
+    const dispatchResult = await emailService.sendEmail({
+      to: recipientEmail,
       subject,
-      body,
-      tracking_pixel_id: trackingPixelId,
-      status: deliveryStatus
+      html: brandedHtml,
+      text: body,
+      userId: req.user.id,
+      contactId: contactId ? parseInt(contactId, 10) : null,
+      templateName: templateName || "Custom",
+      trackingPixelId
     });
 
     // Auto-record interaction in ActivityLog
-    await logAudit(req.user.id, "SEND_EMAIL", "Email", emailLog.id, {
+    await logAudit(req.user.id, "SEND_EMAIL", "Email", dispatchResult.logId || null, {
       recipient: recipientEmail,
       subject,
       contactId,
@@ -168,7 +147,8 @@ router.post("/send", async (req, res) => {
 
     res.status(201).json({
       message: `Email dispatched successfully to ${recipientEmail}`,
-      emailLog
+      status: dispatchResult.status,
+      trackingPixelId
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to send email", details: err.message });

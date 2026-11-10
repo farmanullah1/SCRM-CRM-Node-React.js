@@ -83,19 +83,27 @@ import {
   getAutomations,
   testAutomationRule,
   getCalendarSync,
-  triggerCalendarSync
+  triggerCalendarSync,
+  toggle2FA,
+  updateProfile
 } from "../services/api";
 import "../App.css";
 
 const STAGES = ["New", "Contacted", "Qualified", "Proposal", "Won", "Lost"];
 
 export default function Dashboard() {
-  const { user, logout } = useAuth();
+  const { user, logout, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
   // Navigation Tabs: 'dashboard' | 'contacts' | 'pipeline' | 'companies' | 'tasks' | 'activities' | 'invoices' | 'tickets' | 'emails' | 'security'
   const [activeTab, setActiveTab] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Profile & 2FA Settings State
+  const [profileName, setProfileName] = useState(user?.name || "");
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [profileMessage, setProfileMessage] = useState("");
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -391,6 +399,26 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["backupHistory"] });
       alert("Snapshot successfully created in server storage!");
     }
+  });
+
+  const toggle2FAMutation = useMutation({
+    mutationFn: toggle2FA,
+    onSuccess: (data) => {
+      alert(data.message);
+      if (refreshUser) refreshUser();
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed to toggle 2FA")
+  });
+
+  const updateProfileMutation = useMutation({
+    mutationFn: updateProfile,
+    onSuccess: (data) => {
+      setProfileMessage(data.message || "Profile successfully updated!");
+      setCurrentPassword("");
+      setNewPassword("");
+      if (refreshUser) refreshUser();
+    },
+    onError: (err) => setProfileMessage(err.response?.data?.error || "Failed to update profile.")
   });
 
   // Export to CSV
@@ -1368,6 +1396,85 @@ export default function Dashboard() {
                     <div>
                       <strong>Security Headers (Helmet):</strong> Frameguard, HSTS, NoSniff, and strict CORS policies active.
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* User Security & 2FA Configuration Card */}
+              <div className="card-circuit interactive-lift" style={{ gridColumn: "1 / -1", marginTop: "20px" }}>
+                <div className="card-header-bar">
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <ShieldCheck size={18} color="#F0FF60" />
+                    <span className="card-title">User Account & Two-Factor Authentication (2FA)</span>
+                  </div>
+                  <span className={`status-badge ${user?.twoFactorEnabled ? "won" : "in-progress"}`}>
+                    {user?.twoFactorEnabled ? "2FA Active (Protected)" : "2FA Disabled"}
+                  </span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px", marginTop: "16px" }}>
+                  <div>
+                    <h4 style={{ color: "#F0FF60", fontSize: "14px", marginBottom: "8px" }}>Two-Step Verification (Email OTP)</h4>
+                    <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6" }}>
+                      When enabled, logging into SCRM requires a 6-digit one-time verification code dispatched to your registered email (<code>{user?.email}</code>).
+                    </p>
+                    <button
+                      className={user?.twoFactorEnabled ? "btn-ghost-dark" : "btn-primary-yellow"}
+                      style={{ marginTop: "14px" }}
+                      onClick={() => toggle2FAMutation.mutate()}
+                    >
+                      <ShieldCheck size={16} />
+                      <span>{user?.twoFactorEnabled ? "Disable Two-Factor Auth" : "Enable Two-Factor Auth"}</span>
+                    </button>
+                  </div>
+
+                  <div>
+                    <h4 style={{ color: "#F0FF60", fontSize: "14px", marginBottom: "8px" }}>Update Profile & Credentials</h4>
+                    {profileMessage && (
+                      <div style={{ padding: "8px 12px", background: "rgba(240, 255, 96, 0.1)", border: "1px solid var(--border-yellow-adjacent)", borderRadius: "6px", color: "var(--accent)", fontSize: "12px", marginBottom: "10px" }}>
+                        {profileMessage}
+                      </div>
+                    )}
+                    <form onSubmit={(e) => {
+                      e.preventDefault();
+                      setProfileMessage("");
+                      updateProfileMutation.mutate({
+                        name: profileName,
+                        currentPassword: currentPassword || undefined,
+                        newPassword: newPassword || undefined
+                      });
+                    }}>
+                      <div className="form-group-circuit" style={{ marginBottom: "10px" }}>
+                        <label style={{ fontSize: "12px" }}>Full Name</label>
+                        <input
+                          type="text"
+                          value={profileName}
+                          onChange={(e) => setProfileName(e.target.value)}
+                        />
+                      </div>
+                      <div className="form-row-2col">
+                        <div className="form-group-circuit">
+                          <label style={{ fontSize: "12px" }}>Current Password</label>
+                          <input
+                            type="password"
+                            placeholder="Required for password change"
+                            value={currentPassword}
+                            onChange={(e) => setCurrentPassword(e.target.value)}
+                          />
+                        </div>
+                        <div className="form-group-circuit">
+                          <label style={{ fontSize: "12px" }}>New Password</label>
+                          <input
+                            type="password"
+                            placeholder="Min 8 chars"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      <button type="submit" className="btn-primary-yellow small" style={{ marginTop: "10px" }}>
+                        Save Profile Changes
+                      </button>
+                    </form>
                   </div>
                 </div>
               </div>

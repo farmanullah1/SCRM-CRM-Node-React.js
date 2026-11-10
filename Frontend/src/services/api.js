@@ -56,6 +56,11 @@ API.interceptors.response.use(
 
 // Auth & Users
 export const loginUser = async (credentials) => (await API.post("/auth/login", credentials)).data;
+export const verify2FALogin = async (data) => (await API.post("/auth/2fa/verify", data)).data;
+export const toggle2FA = async () => (await API.post("/auth/2fa/toggle")).data;
+export const forgotPassword = async (data) => (await API.post("/auth/forgot-password", data)).data;
+export const resetPassword = async (data) => (await API.post("/auth/reset-password", data)).data;
+export const updateProfile = async (data) => (await API.put("/auth/profile", data)).data;
 export const signupUser = async (userData) => (await API.post("/auth/signup", userData)).data;
 export const getCurrentUser = async () => (await API.get("/auth/me")).data;
 export const getUsers = async () => (await API.get("/auth/users")).data;

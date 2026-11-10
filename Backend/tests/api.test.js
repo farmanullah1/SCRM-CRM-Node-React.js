@@ -7,7 +7,7 @@ async function runTests() {
   const health = await healthRes.json();
   console.log("✓ Healthcheck passed:", health.status, health.platform);
 
-  // 2. Register Admin User
+  // 2. Register Admin User (Triggers Welcome Email)
   const adminUser = {
     name: "System Admin",
     email: `admin_${Date.now()}@scrm.enterprise`,
@@ -22,7 +22,7 @@ async function runTests() {
   });
   const signupData = await signupRes.json();
   if (!signupRes.ok) throw new Error(JSON.stringify(signupData));
-  console.log("✓ Admin User registered:", signupData.user.email, "Role:", signupData.user.role);
+  console.log("✓ Admin User registered (Welcome Email triggered):", signupData.user.email);
   const token = signupData.token;
 
   const authHeaders = {
@@ -30,7 +30,39 @@ async function runTests() {
     Authorization: `Bearer ${token}`
   };
 
-  // 3. Create Contact
+  // 3. Test 2FA Toggle (Enable 2FA)
+  const toggle2FARes = await fetch(`${base}/auth/2fa/toggle`, {
+    method: "POST",
+    headers: authHeaders
+  });
+  const toggle2FAData = await toggle2FARes.json();
+  console.log("✓ 2FA Toggle tested:", toggle2FAData.message);
+
+  // 4. Test Login with 2FA Challenge
+  const login2FARes = await fetch(`${base}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email: adminUser.email,
+      password: adminUser.password
+    })
+  });
+  const login2FAData = await login2FARes.json();
+  if (!login2FAData.twoFactorRequired) {
+    throw new Error("Expected twoFactorRequired to be true");
+  }
+  console.log("✓ 2FA Login challenge triggered:", login2FAData.message);
+
+  // 5. Test Password Reset Request
+  const forgotRes = await fetch(`${base}/auth/forgot-password`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email: adminUser.email })
+  });
+  const forgotData = await forgotRes.json();
+  console.log("✓ Forgot password trigger tested:", forgotData.message);
+
+  // 6. Create Contact
   const contactRes = await fetch(`${base}/contacts`, {
     method: "POST",
     headers: authHeaders,
@@ -49,7 +81,7 @@ async function runTests() {
   if (!contactRes.ok) throw new Error(JSON.stringify(contactData));
   console.log("✓ Contact created:", contactData.name, "Value: $" + contactData.value);
 
-  // 4. Test 1-click Convert Lead to Deal
+  // 7. Test 1-click Convert Lead to Deal
   const convertRes = await fetch(`${base}/contacts/${contactData.id}/convert`, {
     method: "POST",
     headers: authHeaders,
@@ -62,17 +94,17 @@ async function runTests() {
   if (!convertRes.ok) throw new Error(JSON.stringify(convertData));
   console.log("✓ Lead converted to Deal:", convertData.deal.title, "Value: $" + convertData.deal.value);
 
-  // 5. Test Duplicate Detection
+  // 8. Test Duplicate Detection
   const dupRes = await fetch(`${base}/contacts/duplicates`, { headers: authHeaders });
   const dupData = await dupRes.json();
   console.log("✓ Duplicate detector ran:", dupData.count, "duplicates flagged");
 
-  // 6. Test Deal Pipeline Metrics
+  // 9. Test Deal Pipeline Metrics
   const metricsRes = await fetch(`${base}/deals/metrics`, { headers: authHeaders });
   const metricsData = await metricsRes.json();
   console.log("✓ Deal Pipeline Metrics:", metricsData);
 
-  // 7. Test Admin Database Backup
+  // 10. Test Admin Database Backup Snapshot
   const backupRes = await fetch(`${base}/backup/snapshot`, {
     method: "POST",
     headers: authHeaders
