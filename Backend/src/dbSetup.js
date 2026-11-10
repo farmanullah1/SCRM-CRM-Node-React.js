@@ -333,3 +333,4 @@ export async function ensureDatabaseAndSchema() {
     await crmSequelize.close().catch(() => {});
   }
 }
+

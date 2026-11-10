@@ -48,3 +48,4 @@ export function validatePasswordStrength(password) {
   }
   return { valid: true };
 }
+

@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/ProtectedRoute";
 import HalftoneBackground from "./components/HalftoneBackground";
+import CustomCursor from "./components/CustomCursor";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -11,6 +12,9 @@ function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
+        {/* Sleek Custom Dynamic Expanding Cursor */}
+        <CustomCursor />
+
         {/* Interactive Halftone Background Canvas Engine */}
         <HalftoneBackground />
 

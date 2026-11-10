@@ -33,7 +33,16 @@ import {
   Phone,
   MessageSquare,
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  Database,
+  Lock,
+  Building,
+  Sparkles,
+  Eye,
+  Sliders,
+  ExternalLink,
+  Menu,
+  X
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { 
@@ -43,6 +52,8 @@ import {
   deleteContact,
   bulkImportContacts,
   mergeContacts,
+  getContactDuplicates,
+  convertLeadToDeal,
   getTasks,
   createTask,
   updateTask,
@@ -59,7 +70,20 @@ import {
   deleteTicket,
   getEmailTemplates,
   getEmailLogs,
-  sendEmail
+  sendEmail,
+  getCompanies,
+  createCompany,
+  getDeals,
+  getDealMetrics,
+  createDeal,
+  updateDeal,
+  deleteDeal,
+  createDatabaseSnapshot,
+  getBackupHistory,
+  getAutomations,
+  testAutomationRule,
+  getCalendarSync,
+  triggerCalendarSync
 } from "../services/api";
 import "../App.css";
 
@@ -69,8 +93,9 @@ export default function Dashboard() {
   const { user, logout } = useAuth();
   const queryClient = useQueryClient();
 
-  // Navigation Tabs: 'dashboard' | 'contacts' | 'pipeline' | 'tasks' | 'activities' | 'invoices' | 'tickets' | 'emails'
+  // Navigation Tabs: 'dashboard' | 'contacts' | 'pipeline' | 'companies' | 'tasks' | 'activities' | 'invoices' | 'tickets' | 'emails' | 'security'
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -94,6 +119,21 @@ export default function Dashboard() {
     expectedCloseDate: ""
   });
   const [contactFormError, setContactFormError] = useState("");
+
+  // Convert Lead Modal State
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [convertingContact, setConvertingContact] = useState(null);
+  const [convertDealTitle, setConvertDealTitle] = useState("");
+  const [convertDealValue, setConvertDealValue] = useState(5000);
+
+  // Company Modal State
+  const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [companyFormData, setCompanyFormData] = useState({
+    name: "",
+    domain: "",
+    phone: "",
+    address: ""
+  });
 
   // Task Modal State
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -147,6 +187,10 @@ export default function Dashboard() {
     body: ""
   });
 
+  // Duplicate Merging Modal
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [selectedDuplicate, setSelectedDuplicate] = useState(null);
+
   // CSV Import State
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [csvText, setCsvText] = useState("");
@@ -157,10 +201,33 @@ export default function Dashboard() {
     queryFn: () => getContacts({ search: searchTerm, status: statusFilter, leadSource: leadSourceFilter })
   });
 
-  const { data: tasks = [], isLoading: isTasksLoading, refetch: refetchTasks } = useQuery({
+  const { data: companies = [], refetch: refetchCompanies } = useQuery({
+    queryKey: ["companies"],
+    queryFn: getCompanies
+  });
+
+  const { data: dealsData = { deals: [], totalsByStage: {}, totalPipelineValue: 0 }, refetch: refetchDeals } = useQuery({
+    queryKey: ["deals"],
+    queryFn: () => getDeals({})
+  });
+
+  const { data: dealMetrics = {}, refetch: refetchMetrics } = useQuery({
+    queryKey: ["dealMetrics"],
+    queryFn: getDealMetrics
+  });
+
+  const { data: duplicatesData = { count: 0, duplicates: [] }, refetch: refetchDuplicates } = useQuery({
+    queryKey: ["duplicates"],
+    queryFn: getContactDuplicates
+  });
+
+  const { data: tasksData = { tasks: [], stats: { total: 0, overdue: 0, dueToday: 0, pending: 0 } }, refetch: refetchTasks } = useQuery({
     queryKey: ["tasks", { status: taskStatusFilter }],
     queryFn: () => getTasks({ status: taskStatusFilter })
   });
+
+  const tasks = Array.isArray(tasksData) ? tasksData : (tasksData.tasks || []);
+  const taskStats = tasksData.stats || { total: tasks.length, overdue: 0, dueToday: 0, pending: 0 };
 
   const { data: activities = [], refetch: refetchActivities } = useQuery({
     queryKey: ["activities"],
@@ -187,11 +254,28 @@ export default function Dashboard() {
     queryFn: getEmailLogs
   });
 
+  const { data: backupHistory = { snapshots: [] }, refetch: refetchBackups } = useQuery({
+    queryKey: ["backupHistory"],
+    queryFn: getBackupHistory,
+    enabled: user?.role === "admin"
+  });
+
+  const { data: automationsData = { automations: [] } } = useQuery({
+    queryKey: ["automations"],
+    queryFn: getAutomations
+  });
+
+  const { data: calendarSyncData = { status: "connected", scheduledEventsCount: 0 } } = useQuery({
+    queryKey: ["calendarSync"],
+    queryFn: getCalendarSync
+  });
+
   // Mutations
   const createContactMutation = useMutation({
     mutationFn: createContact,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsContactModalOpen(false);
     },
@@ -202,6 +286,7 @@ export default function Dashboard() {
     mutationFn: updateContact,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsContactModalOpen(false);
     },
@@ -210,7 +295,31 @@ export default function Dashboard() {
 
   const deleteContactMutation = useMutation({
     mutationFn: deleteContact,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["contacts"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["duplicates"] });
+    }
+  });
+
+  const convertLeadMutation = useMutation({
+    mutationFn: convertLeadToDeal,
+    onSuccess: (res) => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsConvertModalOpen(false);
+      alert(res.message || "Lead converted successfully!");
+    },
+    onError: (err) => alert("Conversion failed: " + (err.response?.data?.error || err.message))
+  });
+
+  const createCompanyMutation = useMutation({
+    mutationFn: createCompany,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      setIsCompanyModalOpen(false);
+    }
   });
 
   const createTaskMutation = useMutation({
@@ -261,7 +370,26 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["emailLogs"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsEmailModalOpen(false);
-      alert("Email sent and recorded in activity log!");
+      alert("Email dispatched and tracking pixel attached!");
+    }
+  });
+
+  const mergeContactsMutation = useMutation({
+    mutationFn: mergeContacts,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["duplicates"] });
+      setIsDuplicateModalOpen(false);
+      setSelectedDuplicate(null);
+      alert("Contacts merged cleanly!");
+    }
+  });
+
+  const createSnapshotMutation = useMutation({
+    mutationFn: createDatabaseSnapshot,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["backupHistory"] });
+      alert("Snapshot successfully created in server storage!");
     }
   });
 
@@ -300,7 +428,6 @@ export default function Dashboard() {
       const lines = csvText.trim().split("\n");
       const parsedContacts = [];
       for (let i = 0; i < lines.length; i++) {
-        // Skip header if contains 'name' or 'email'
         if (i === 0 && (lines[i].toLowerCase().includes("name") || lines[i].toLowerCase().includes("email"))) continue;
         const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
         if (cols[0] && cols[1]) {
@@ -311,7 +438,7 @@ export default function Dashboard() {
             company: cols[3] || "",
             status: cols[4] || "New",
             value: Number(cols[5]) || 0,
-            leadSource: cols[6] || "Import",
+            leadSource: cols[6] || "CSV Import",
             tags: cols[7] || "Imported"
           });
         }
@@ -323,6 +450,7 @@ export default function Dashboard() {
       const res = await bulkImportContacts(parsedContacts);
       alert(res.message);
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       setIsImportModalOpen(false);
       setCsvText("");
     } catch (e) {
@@ -338,6 +466,14 @@ export default function Dashboard() {
     });
   };
 
+  // Convert Lead Handler
+  const openConvertModal = (contact) => {
+    setConvertingContact(contact);
+    setConvertDealTitle(`${contact.company || contact.name} - Enterprise Solution`);
+    setConvertDealValue(contact.value || 10000);
+    setIsConvertModalOpen(true);
+  };
+
   // Metrics
   const totalPipelineValue = contacts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
   const wonValue = contacts.filter(c => c.status === "Won").reduce((sum, c) => sum + (Number(c.value) || 0), 0);
@@ -348,16 +484,16 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* 74px Sticky Top Navbar */}
+      {/* 74px Sticky Top Navbar with Responsive Mobile Controls */}
       <nav className="navbar-circuit">
-        <div className="nav-brand" onClick={() => setActiveTab("dashboard")}>
+        <div className="nav-brand" onClick={() => setActiveTab("dashboard")} style={{ cursor: "pointer" }}>
           <div className="brand-glyph">
             <Zap size={20} color="#F0FF60" />
           </div>
           <span className="brand-title">SCRM</span>
         </div>
 
-        {/* Dynamic CRM Tabs */}
+        {/* Desktop Navigation Links */}
         <div className="nav-tab-links">
           <button 
             className={`nav-tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
@@ -372,6 +508,11 @@ export default function Dashboard() {
           >
             <Users size={15} />
             <span>Contacts ({contacts.length})</span>
+            {duplicatesData.count > 0 && (
+              <span className="badge-alert" title="Duplicates Detected">
+                {duplicatesData.count}
+              </span>
+            )}
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "pipeline" ? "active" : ""}`}
@@ -381,11 +522,23 @@ export default function Dashboard() {
             <span>Pipeline</span>
           </button>
           <button 
+            className={`nav-tab-btn ${activeTab === "companies" ? "active" : ""}`}
+            onClick={() => setActiveTab("companies")}
+          >
+            <Building size={15} />
+            <span>Companies ({companies.length})</span>
+          </button>
+          <button 
             className={`nav-tab-btn ${activeTab === "tasks" ? "active" : ""}`}
             onClick={() => setActiveTab("tasks")}
           >
             <Calendar size={15} />
             <span>Tasks ({pendingTasks.length})</span>
+            {taskStats.overdue > 0 && (
+              <span className="badge-overdue" title="Overdue Tasks">
+                !
+              </span>
+            )}
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "activities" ? "active" : ""}`}
@@ -399,7 +552,7 @@ export default function Dashboard() {
             onClick={() => setActiveTab("invoices")}
           >
             <FileText size={15} />
-            <span>Quotes & Invoices</span>
+            <span>Invoices</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "tickets" ? "active" : ""}`}
@@ -408,6 +561,22 @@ export default function Dashboard() {
             <LifeBuoy size={15} />
             <span>Tickets ({openTickets.length})</span>
           </button>
+          <button 
+            className={`nav-tab-btn ${activeTab === "emails" ? "active" : ""}`}
+            onClick={() => setActiveTab("emails")}
+          >
+            <Mail size={15} />
+            <span>Outbox</span>
+          </button>
+          {user?.role === "admin" && (
+            <button 
+              className={`nav-tab-btn ${activeTab === "security" ? "active" : ""}`}
+              onClick={() => setActiveTab("security")}
+            >
+              <ShieldCheck size={15} color="#F0FF60" />
+              <span>Security & Backup</span>
+            </button>
+          )}
         </div>
 
         {/* Right Action Bar */}
@@ -419,44 +588,66 @@ export default function Dashboard() {
           <button className="action-icon-btn delete" onClick={logout} title="Sign Out">
             <LogOut size={16} />
           </button>
+          {/* Mobile Menu Hamburger */}
+          <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
+          </button>
         </div>
       </nav>
+
+      {/* Mobile Drawer Menu */}
+      {mobileMenuOpen && (
+        <div className="mobile-nav-drawer">
+          <button onClick={() => { setActiveTab("dashboard"); setMobileMenuOpen(false); }}>Dashboard</button>
+          <button onClick={() => { setActiveTab("contacts"); setMobileMenuOpen(false); }}>Contacts ({contacts.length})</button>
+          <button onClick={() => { setActiveTab("pipeline"); setMobileMenuOpen(false); }}>Pipeline Kanban</button>
+          <button onClick={() => { setActiveTab("companies"); setMobileMenuOpen(false); }}>Companies ({companies.length})</button>
+          <button onClick={() => { setActiveTab("tasks"); setMobileMenuOpen(false); }}>Tasks ({pendingTasks.length})</button>
+          <button onClick={() => { setActiveTab("activities"); setMobileMenuOpen(false); }}>Activity Log</button>
+          <button onClick={() => { setActiveTab("invoices"); setMobileMenuOpen(false); }}>Invoices & Quotes</button>
+          <button onClick={() => { setActiveTab("tickets"); setMobileMenuOpen(false); }}>Support Tickets ({openTickets.length})</button>
+          <button onClick={() => { setActiveTab("emails"); setMobileMenuOpen(false); }}>Outbox</button>
+          {user?.role === "admin" && (
+            <button onClick={() => { setActiveTab("security"); setMobileMenuOpen(false); }}>Security & Backup</button>
+          )}
+        </div>
+      )}
 
       <main className="crm-layout">
         {/* Top Hero Section */}
         <header className="crm-hero">
-          <div className="eyebrow">ENTERPRISE CRM // OPERATOR: {user?.name || "ADMIN"}</div>
+          <div className="eyebrow">ENTERPRISE CRM // OPERATOR: {user?.name || "ADMIN"} ({user?.role?.toUpperCase() || "ADMIN"})</div>
           <h1 className="hero-display-stack">
             DRIVE DEALS.<br />
             AUTOMATE TASKS.<br />
             <span className="yellow-text">COMPLETE VISIBILITY.</span>
           </h1>
           <p className="hero-lead-text">
-            Comprehensive CRM suite for contact relationships, pipeline stages, automated activities, invoicing, and customer ticketing backed by Microsoft SQL Server.
+            Enterprise CRM platform with idempotent SQL migrations, RBAC access control, lead-to-deal conversion, email open tracking, automated duplicate detection, and automated database snapshots.
           </p>
 
           <div className="hero-three-button-row">
-            <button className="btn-primary-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
+            <button className="btn-primary-yellow interactive-lift" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
               <UserPlus size={17} />
               <span>Create Lead</span>
             </button>
-            <button className="btn-ghost-dark" onClick={() => setIsTaskModalOpen(true)}>
+            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsTaskModalOpen(true)}>
               <Plus size={17} color="#F0FF60" />
-              <span>Schedule Follow-Up</span>
+              <span>Schedule Task</span>
             </button>
-            <button className="btn-ghost-dark" onClick={() => setIsActivityModalOpen(true)}>
+            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsActivityModalOpen(true)}>
               <Phone size={16} color="#F0FF60" />
-              <span>Log Call / Meeting</span>
+              <span>Log Interaction</span>
             </button>
-            <button className="btn-ghost-dark" onClick={() => setIsEmailModalOpen(true)}>
+            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsEmailModalOpen(true)}>
               <Mail size={16} color="#F0FF60" />
-              <span>Send Email</span>
+              <span>Compose Email</span>
             </button>
-            <button className="btn-ghost-dark" onClick={handleExportCSV}>
+            <button className="btn-ghost-dark interactive-lift" onClick={handleExportCSV}>
               <Download size={16} />
               <span>Export CSV</span>
             </button>
-            <button className="btn-ghost-dark" onClick={() => setIsImportModalOpen(true)}>
+            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsImportModalOpen(true)}>
               <Upload size={16} />
               <span>Import CSV</span>
             </button>
@@ -465,14 +656,14 @@ export default function Dashboard() {
 
         {/* 4-Up High Impact Telemetry Grid */}
         <section className="metrics-4up-grid">
-          <div className="metric-card-circuit" onClick={() => setActiveTab("contacts")} style={{ cursor: "pointer" }}>
+          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("contacts")} style={{ cursor: "pointer" }}>
             <div className="metric-icon-badge"><Users size={22} /></div>
             <div className="metric-val">{contacts.length}</div>
             <div className="metric-lbl">Total Contacts & Leads</div>
             <div className="metric-sub">Across all pipeline stages</div>
           </div>
 
-          <div className="metric-card-circuit" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
+          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
             <div className="metric-icon-badge"><DollarSign size={22} /></div>
             <div className="metric-val" style={{ color: "var(--accent)" }}>
               ${totalPipelineValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
@@ -481,257 +672,167 @@ export default function Dashboard() {
             <div className="metric-sub">{proposalCount} deals in Proposal stage</div>
           </div>
 
-          <div className="metric-card-circuit" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
+          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
             <div className="metric-icon-badge"><ShieldCheck size={22} /></div>
             <div className="metric-val" style={{ color: "var(--semantic-success)" }}>
               ${wonValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
             </div>
             <div className="metric-lbl">Won Deals Revenue</div>
-            <div className="metric-sub">{wonCount} closed won contracts</div>
+            <div className="metric-sub">{wonCount} closed won contracts ({dealMetrics.winRate || "0%"})</div>
           </div>
 
-          <div className="metric-card-circuit" onClick={() => setActiveTab("tasks")} style={{ cursor: "pointer" }}>
+          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("tasks")} style={{ cursor: "pointer" }}>
             <div className="metric-icon-badge"><Calendar size={22} /></div>
-            <div className="metric-val" style={{ color: pendingTasks.length > 0 ? "var(--accent-bright)" : "var(--text-muted)" }}>
+            <div className="metric-val" style={{ color: taskStats.overdue > 0 ? "var(--semantic-error)" : "var(--accent-bright)" }}>
               {pendingTasks.length}
             </div>
-            <div className="metric-lbl">Pending Reminders</div>
-            <div className="metric-sub">{openTickets.length} open support tickets</div>
+            <div className="metric-lbl">Pending Tasks</div>
+            <div className="metric-sub">{taskStats.overdue > 0 ? `${taskStats.overdue} overdue alerts!` : `${openTickets.length} open tickets`}</div>
           </div>
         </section>
 
-        {/* Inverted Yellow Card */}
-        <section className="card-inverted-yellow">
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1.5rem" }}>
-            <div>
-              <div className="eyebrow" style={{ color: "#4F5101", marginBottom: "0.25rem" }}>
-                PIPELINE OPERATIONS ACCELERATOR
-              </div>
-              <h3>Automated Lead Capture & Deal Tracking</h3>
-              <p>
-                Capture website inquiries, log customer interactions automatically, generate quotes, and manage tickets in one unified dark workspace.
-              </p>
-              <div style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap" }}>
-                <button className="btn-inverted-dark" onClick={() => setActiveTab("pipeline")}>
-                  <span>Pipeline Kanban</span>
-                  <ArrowRight size={16} />
-                </button>
-                <button className="btn-inverted-dark" onClick={() => setActiveTab("invoices")}>
-                  <FileText size={16} />
-                  <span>Create Quote / Invoice</span>
-                </button>
+        {/* Duplicate Contacts Alert Banner */}
+        {duplicatesData.count > 0 && (
+          <div className="duplicate-alert-banner">
+            <div className="banner-left">
+              <AlertCircle size={20} color="#F0FF60" />
+              <div>
+                <strong>Automated Duplicate Detection:</strong> {duplicatesData.count} potential duplicate contacts identified by matching email or phone.
               </div>
             </div>
-
-            <div style={{ background: "rgba(0, 0, 0, 0.08)", padding: "1.25rem 1.5rem", borderRadius: "14px", border: "1px solid #4F5101" }}>
-              <div style={{ fontSize: "0.75rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "#3B3D01" }}>
-                CRM Database Health
-              </div>
-              <div style={{ fontSize: "1.75rem", fontWeight: 900, color: "var(--text-inverted)", margin: "0.25rem 0" }}>
-                MS SQL SERVER
-              </div>
-              <div style={{ fontSize: "0.8125rem", color: "#2B2D01" }}>
-                Encrypted Session · Role: {user?.role || "Admin"}
-              </div>
-            </div>
+            <button className="btn-primary-yellow" onClick={() => setIsDuplicateModalOpen(true)}>
+              <GitMerge size={16} />
+              <span>Review & Merge Duplicates</span>
+            </button>
           </div>
-        </section>
+        )}
 
-        {/* =========================================================================
-            TAB 1: DASHBOARD OVERVIEW
-           ========================================================================= */}
+        {/* TAB 1: DASHBOARD OVERVIEW */}
         {activeTab === "dashboard" && (
-          <div>
-            <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "1.5rem", marginBottom: "2rem" }}>
-              {/* Recent Deals */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-heading)" }}>Recent Leads & Contacts</h3>
-                  <button className="btn-ghost-dark" style={{ height: "34px", fontSize: "0.8125rem" }} onClick={() => setActiveTab("contacts")}>
-                    View All ({contacts.length})
-                  </button>
+          <div className="dashboard-view-stack">
+            <div className="asymmetric-2up-grid">
+              {/* Pipeline Overview Card */}
+              <div className="card-circuit interactive-lift">
+                <div className="card-header-bar">
+                  <span className="card-title">Deal Pipeline Distribution</span>
+                  <button className="btn-ghost-dark small" onClick={() => setActiveTab("pipeline")}>View Board</button>
                 </div>
-                <div className="table-glass-card" style={{ marginBottom: 0 }}>
-                  <table className="circuit-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>Company</th>
-                        <th>Stage</th>
-                        <th>Value</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {contacts.slice(0, 5).map(c => (
-                        <tr key={c.id} onClick={() => { setEditingContact(c); setIsContactModalOpen(true); }} style={{ cursor: "pointer" }}>
-                          <td style={{ fontWeight: 700, color: "#FFF" }}>{c.name}</td>
-                          <td>{c.company || "—"}</td>
-                          <td><span className={`status-badge-chip status-${(c.status || "new").toLowerCase()}`}>{c.status}</span></td>
-                          <td style={{ color: "var(--accent)", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
-                            ${Number(c.value || 0).toLocaleString()}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Actionable Follow-ups */}
-              <div>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                  <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-heading)" }}>Upcoming Tasks & Calls</h3>
-                  <button className="btn-primary-yellow" style={{ height: "34px", fontSize: "0.8125rem" }} onClick={() => setIsTaskModalOpen(true)}>
-                    <Plus size={14} />
-                    <span>New Task</span>
-                  </button>
-                </div>
-                <div className="tasks-container">
-                  {pendingTasks.slice(0, 4).map(t => (
-                    <div key={t.id} className="task-item-card" style={{ padding: "0.85rem 1.15rem" }}>
-                      <div className="task-left-section">
-                        <button className="task-checkbox-btn" onClick={() => updateTaskMutation.mutate({ id: t.id, data: { status: "Completed" } })}>
-                          <Check size={14} />
-                        </button>
-                        <div>
-                          <div className="task-title" style={{ fontSize: "0.875rem" }}>{t.title}</div>
-                          <div className="task-meta">
-                            {t.dueDate && <span>Due: {new Date(t.dueDate).toLocaleDateString()}</span>}
-                            {t.Contact && <span style={{ color: "var(--accent)" }}>{t.Contact.name}</span>}
-                          </div>
+                <div className="pipeline-progress-stack">
+                  {STAGES.map(stg => {
+                    const stageContacts = contacts.filter(c => c.status === stg);
+                    const stageVal = stageContacts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
+                    const pct = totalPipelineValue > 0 ? Math.round((stageVal / totalPipelineValue) * 100) : 0;
+                    return (
+                      <div key={stg} className="stage-progress-row">
+                        <div className="stage-meta">
+                          <span className="stage-title">{stg} ({stageContacts.length})</span>
+                          <span className="stage-val">${stageVal.toLocaleString()}</span>
+                        </div>
+                        <div className="progress-track">
+                          <div className="progress-bar" style={{ width: `${Math.max(pct, 4)}%` }} />
                         </div>
                       </div>
-                      <span className={`priority-chip priority-${(t.priority || "medium").toLowerCase()}`}>{t.priority}</span>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Quick Actions & Recent Tasks */}
+              <div className="card-circuit interactive-lift">
+                <div className="card-header-bar">
+                  <span className="card-title">Urgent Tasks & Action Items</span>
+                  <button className="btn-ghost-dark small" onClick={() => setIsTaskModalOpen(true)}>+ Task</button>
+                </div>
+                <div className="tasks-mini-list">
+                  {pendingTasks.slice(0, 5).map(t => (
+                    <div key={t.id} className="task-mini-item">
+                      <div className="task-check" onClick={() => updateTaskMutation.mutate({ id: t.id, data: { status: "Completed" } })}>
+                        <Check size={14} />
+                      </div>
+                      <div className="task-info">
+                        <div className="task-title">{t.title}</div>
+                        <div className="task-meta">
+                          <span>Due: {t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "No date"}</span>
+                          <span className={`priority-tag ${t.priority.toLowerCase()}`}>{t.priority}</span>
+                        </div>
+                      </div>
                     </div>
                   ))}
                   {pendingTasks.length === 0 && (
-                    <div style={{ padding: "2rem", textAlign: "center", color: "var(--text-muted)", border: "1px dashed var(--border-hairline)", borderRadius: "14px" }}>
-                      No pending tasks! All caught up.
-                    </div>
+                    <div className="empty-state-notice">All tasks complete! You are clear for the day.</div>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Recent Activity Timeline */}
-            <div>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
-                <h3 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-heading)" }}>Live Interaction & Activity Timeline</h3>
-                <button className="btn-ghost-dark" style={{ height: "34px", fontSize: "0.8125rem" }} onClick={() => setIsActivityModalOpen(true)}>
-                  <Plus size={14} />
-                  <span>Log Activity</span>
-                </button>
-              </div>
-              <div className="table-glass-card">
-                <table className="circuit-table">
-                  <thead>
-                    <tr>
-                      <th>Type</th>
-                      <th>Activity Subject</th>
-                      <th>Associated Contact</th>
-                      <th>Outcome / Note</th>
-                      <th>Timestamp</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {activities.slice(0, 6).map(a => (
-                      <tr key={a.id}>
-                        <td>
-                          <span className="eyebrow" style={{ color: a.type === "Call" ? "var(--accent)" : a.type === "Email" ? "var(--semantic-info)" : "#FFF" }}>
-                            {a.type}
-                          </span>
-                        </td>
-                        <td style={{ fontWeight: 600, color: "#FFF" }}>{a.title}</td>
-                        <td>{a.Contact ? a.Contact.name : "General"}</td>
-                        <td style={{ color: "var(--text-muted)" }}>{a.outcome || a.description || "—"}</td>
-                        <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                          {new Date(a.createdAt).toLocaleString()}
-                        </td>
-                      </tr>
-                    ))}
-                    {activities.length === 0 && (
-                      <tr>
-                        <td colSpan={5} style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>
-                          No activities logged yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            {/* Inverted Card Section */}
+            <div className="card-inverted-yellow interactive-lift" style={{ marginTop: "24px" }}>
+              <div className="inverted-inner">
+                <div className="inverted-copy">
+                  <h3 className="inverted-title">ENTERPRISE CRM WORKFLOW AUTOMATION</h3>
+                  <p className="inverted-desc">
+                    Round-robin lead routing, automated duplicate resolution, tracking pixels, and instant Lead-to-Deal conversions with Microsoft SQL Server integrity.
+                  </p>
+                </div>
+                <div className="inverted-actions">
+                  <button className="btn-dark-on-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
+                    Add Record
+                  </button>
+                  <button className="btn-outline-on-yellow" onClick={() => setActiveTab("security")}>
+                    Security Audit
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 2: CONTACTS & LEADS MANAGEMENT
-           ========================================================================= */}
+        {/* TAB 2: CONTACTS & LEADS DIRECTORY */}
         {activeTab === "contacts" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem", flexWrap: "wrap", gap: "1rem" }}>
-              <div>
-                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>
-                  Contact Directory ({contacts.length})
-                </h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>
-                  Manage leads, companies, communication channels, tags, and custom fields.
-                </p>
+          <div className="contacts-view-stack">
+            <div className="toolbar-circuit">
+              <div className="search-box">
+                <Search size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Search name, email, company, or tags..." 
+                  value={searchTerm} 
+                  onChange={e => setSearchTerm(e.target.value)} 
+                />
               </div>
-              <div style={{ display: "flex", gap: "0.75rem" }}>
-                <button className="btn-ghost-dark" onClick={handleExportCSV}>
-                  <Download size={15} />
-                  <span>Export</span>
-                </button>
-                <button className="btn-ghost-dark" onClick={() => setIsImportModalOpen(true)}>
-                  <Upload size={15} />
-                  <span>Import</span>
-                </button>
+
+              <div className="filters-row">
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                  <option value="All">All Stages</option>
+                  {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+
+                <select value={leadSourceFilter} onChange={e => setLeadSourceFilter(e.target.value)}>
+                  <option value="All">All Sources</option>
+                  <option value="Website">Website</option>
+                  <option value="Referral">Referral</option>
+                  <option value="LinkedIn">LinkedIn</option>
+                  <option value="Outbound">Outbound</option>
+                  <option value="Import">Import</option>
+                </select>
+
                 <button className="btn-primary-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
-                  <UserPlus size={16} />
+                  <Plus size={16} />
                   <span>Add Contact</span>
                 </button>
               </div>
             </div>
 
-            {/* Controls */}
-            <div className="controls-glass-panel">
-              <div className="search-field-wrapper">
-                <Search className="search-field-icon" size={16} />
-                <input
-                  type="text"
-                  className="search-field-input"
-                  placeholder="Search by name, email, company, or tags..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-
-              <select className="filter-select-circuit" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                <option value="All">All Stages</option>
-                {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-
-              <select className="filter-select-circuit" value={leadSourceFilter} onChange={(e) => setLeadSourceFilter(e.target.value)}>
-                <option value="All">All Lead Sources</option>
-                <option value="Website">Website</option>
-                <option value="LinkedIn">LinkedIn</option>
-                <option value="Referral">Referral</option>
-                <option value="Cold Outreach">Cold Outreach</option>
-                <option value="Import">Import</option>
-              </select>
-            </div>
-
-            {/* Table */}
-            <div className="table-glass-card">
-              <table className="circuit-table">
+            <div className="table-container-circuit">
+              <table className="crm-table">
                 <thead>
                   <tr>
-                    <th>Contact & Company</th>
-                    <th>Email & Phone</th>
-                    <th>Stage</th>
-                    <th>Source</th>
+                    <th>Contact</th>
+                    <th>Company</th>
+                    <th>Status / Stage</th>
+                    <th>Deal Value</th>
                     <th>Tags</th>
-                    <th>Value</th>
+                    <th>Lead Source</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
@@ -739,236 +840,333 @@ export default function Dashboard() {
                   {contacts.map(c => (
                     <tr key={c.id}>
                       <td>
-                        <div style={{ fontWeight: 700, color: "#FFF" }}>{c.name}</div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{c.company || "Independent"}</div>
+                        <div className="contact-cell">
+                          <span className="contact-name">{c.name}</span>
+                          <span className="contact-email">{c.email}</span>
+                          {c.phone && <span className="contact-phone">{c.phone}</span>}
+                        </div>
                       </td>
+                      <td>{c.company || "—"}</td>
                       <td>
-                        <div style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", color: "var(--text-body)" }}>{c.email}</div>
-                        <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>{c.phone || "—"}</div>
+                        <select 
+                          className="stage-select-pill"
+                          value={c.status}
+                          onChange={e => handleMoveStage(c.id, e.target.value)}
+                        >
+                          {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                        </select>
                       </td>
+                      <td className="value-cell">${(Number(c.value) || 0).toLocaleString()}</td>
                       <td>
-                        <span className={`status-badge-chip status-${(c.status || "new").toLowerCase()}`}>{c.status}</span>
+                        <div className="tags-flex">
+                          {(c.tags || "Lead").split(",").map((t, idx) => (
+                            <span key={idx} className="tag-pill">{t.trim()}</span>
+                          ))}
+                        </div>
                       </td>
-                      <td style={{ fontSize: "0.8125rem" }}>{c.leadSource || "Website"}</td>
-                      <td>
-                        {c.tags ? c.tags.split(",").map(t => (
-                          <span key={t} style={{ background: "rgba(255,255,255,0.06)", padding: "0.2rem 0.5rem", borderRadius: "4px", fontSize: "0.7rem", marginRight: "0.3rem" }}>
-                            {t.trim()}
-                          </span>
-                        )) : "—"}
-                      </td>
-                      <td style={{ color: "var(--accent)", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
-                        ${Number(c.value || 0).toLocaleString()}
-                      </td>
+                      <td>{c.leadSource || "Website"}</td>
                       <td style={{ textAlign: "right" }}>
-                        <div style={{ display: "inline-flex", gap: "0.4rem" }}>
-                          <button className="action-icon-btn" onClick={() => { setEditingContact(c); setIsContactModalOpen(true); }} title="Edit">
-                            <Edit3 size={14} />
+                        <div className="table-actions">
+                          {c.status !== "Won" && (
+                            <button 
+                              className="btn-action-convert" 
+                              title="1-Click Convert to Pipeline Deal"
+                              onClick={() => openConvertModal(c)}
+                            >
+                              <Zap size={14} color="#F0FF60" />
+                              <span>Convert</span>
+                            </button>
+                          )}
+                          <button 
+                            className="action-icon-btn" 
+                            title="Send Email"
+                            onClick={() => {
+                              setEmailFormData({
+                                contactId: c.id,
+                                recipientEmail: c.email,
+                                subject: `Following up with ${c.name}`,
+                                body: `Hi ${c.name},\n\n`
+                              });
+                              setIsEmailModalOpen(true);
+                            }}
+                          >
+                            <Mail size={15} />
                           </button>
-                          <button className="action-icon-btn" onClick={() => { setEmailFormData({ contactId: c.id, recipientEmail: c.email, subject: "", body: "" }); setIsEmailModalOpen(true); }} title="Send Email">
-                            <Mail size={14} />
+                          <button 
+                            className="action-icon-btn" 
+                            title="Edit Contact"
+                            onClick={() => {
+                              setEditingContact(c);
+                              setContactFormData({
+                                name: c.name,
+                                email: c.email,
+                                phone: c.phone || "",
+                                company: c.company || "",
+                                status: c.status,
+                                value: c.value || 0,
+                                leadSource: c.leadSource || "Website",
+                                tags: c.tags || "",
+                                notes: c.notes || "",
+                                expectedCloseDate: c.expectedCloseDate ? c.expectedCloseDate.slice(0, 10) : ""
+                              });
+                              setIsContactModalOpen(true);
+                            }}
+                          >
+                            <Edit3 size={15} />
                           </button>
-                          <button className="action-icon-btn" onClick={() => { setActivityFormData({ contactId: c.id, type: "Call", title: `Call with ${c.name}`, description: "", outcome: "Completed" }); setIsActivityModalOpen(true); }} title="Log Activity">
-                            <Phone size={14} />
-                          </button>
-                          <button className="action-icon-btn delete" onClick={() => { if (window.confirm("Delete contact?")) deleteContactMutation.mutate(c.id); }} title="Delete">
-                            <Trash2 size={14} />
+                          <button 
+                            className="action-icon-btn delete" 
+                            title="Delete"
+                            onClick={() => {
+                              if (confirm(`Delete ${c.name}?`)) deleteContactMutation.mutate(c.id);
+                            }}
+                          >
+                            <Trash2 size={15} />
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
+                  {contacts.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="empty-table-cell">
+                        No contacts matched your search. Click "Add Contact" to create one.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 3: KANBAN PIPELINE BOARD
-           ========================================================================= */}
+        {/* TAB 3: PIPELINE KANBAN VIEW */}
         {activeTab === "pipeline" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <div>
-                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>Deal Pipeline</h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Interactive Kanban deal stages: New → Contacted → Qualified → Proposal → Won/Lost.</p>
-              </div>
-              <button className="btn-primary-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
-                <Plus size={16} />
-                <span>Add Deal</span>
-              </button>
-            </div>
-
-            <div className="pipeline-board" style={{ gridTemplateColumns: `repeat(${STAGES.length}, 1fr)` }}>
-              {STAGES.map(stage => {
-                const stageDeals = contacts.filter(c => (c.status || "New") === stage);
-                const stageTotal = stageDeals.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
-
-                return (
-                  <div key={stage} className="pipeline-col">
-                    <div className="pipeline-col-header">
-                      <span className="pipeline-col-title">{stage}</span>
-                      <span className="pipeline-col-count">{stageDeals.length}</span>
+          <div className="pipeline-kanban-board">
+            {STAGES.map(stage => {
+              const stageDeals = contacts.filter(c => c.status === stage);
+              const stageSum = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+              return (
+                <div key={stage} className="kanban-column-circuit">
+                  <div className="kanban-column-header">
+                    <div className="col-title-wrap">
+                      <span className="col-title">{stage}</span>
+                      <span className="col-count">{stageDeals.length}</span>
                     </div>
-                    <div style={{ fontSize: "0.8125rem", color: "var(--accent)", fontFamily: "var(--font-mono)", fontWeight: 700, marginBottom: "0.75rem" }}>
-                      ${stageTotal.toLocaleString()}
-                    </div>
-
-                    <div className="pipeline-cards-stack">
-                      {stageDeals.map(deal => (
-                        <div key={deal.id} className="pipeline-item-card" onClick={() => { setEditingContact(deal); setIsContactModalOpen(true); }}>
-                          <div className="pipeline-item-name">{deal.name}</div>
-                          <div className="pipeline-item-company">{deal.company || "Direct Lead"}</div>
-                          <div className="pipeline-item-footer">
-                            <span className="pipeline-item-value">${Number(deal.value || 0).toLocaleString()}</span>
-                            <div style={{ display: "flex", gap: "0.2rem" }}>
-                              {stage !== "Won" && stage !== "Lost" && (
-                                <button 
-                                  className="action-icon-btn" 
-                                  style={{ width: "24px", height: "24px" }}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    const nextIdx = STAGES.indexOf(stage) + 1;
-                                    if (nextIdx < STAGES.length) handleMoveStage(deal.id, STAGES[nextIdx]);
-                                  }}
-                                  title="Advance to next stage"
-                                >
-                                  <ChevronRight size={13} />
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                      {stageDeals.length === 0 && (
-                        <div style={{ padding: "2rem 0.5rem", textAlign: "center", color: "var(--text-muted)", fontSize: "0.75rem", border: "1px dashed var(--border-hairline)", borderRadius: "10px" }}>
-                          No deals
-                        </div>
-                      )}
-                    </div>
+                    <div className="col-sum">${stageSum.toLocaleString()}</div>
                   </div>
-                );
-              })}
-            </div>
+
+                  <div className="kanban-cards-stack">
+                    {stageDeals.map(d => (
+                      <div key={d.id} className="kanban-card interactive-lift">
+                        <div className="kanban-card-top">
+                          <span className="deal-contact-name">{d.name}</span>
+                          <span className="deal-val">${(Number(d.value) || 0).toLocaleString()}</span>
+                        </div>
+                        <div className="deal-company">{d.company || "Independent Lead"}</div>
+                        {d.expectedCloseDate && (
+                          <div className="deal-date">
+                            <Clock size={12} />
+                            <span>Close: {new Date(d.expectedCloseDate).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                        <div className="deal-actions-row">
+                          <select 
+                            className="kanban-move-select"
+                            value={d.status}
+                            onChange={e => handleMoveStage(d.id, e.target.value)}
+                          >
+                            {STAGES.map(s => <option key={s} value={s}>Move to: {s}</option>)}
+                          </select>
+                        </div>
+                      </div>
+                    ))}
+                    {stageDeals.length === 0 && (
+                      <div className="empty-column-box">No deals</div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 4: TASKS & REMINDERS
-           ========================================================================= */}
-        {activeTab === "tasks" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <div>
-                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>Tasks & Follow-Up Reminders</h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Schedule to-dos, set priorities, and link actions to leads.</p>
-              </div>
-              <button className="btn-primary-yellow" onClick={() => setIsTaskModalOpen(true)}>
-                <Plus size={16} />
-                <span>Schedule Task</span>
+        {/* TAB 4: COMPANIES VIEW */}
+        {activeTab === "companies" && (
+          <div className="companies-view-stack">
+            <div className="toolbar-circuit">
+              <span className="card-title">Client & Partner Companies</span>
+              <button className="btn-primary-yellow" onClick={() => setIsCompanyModalOpen(true)}>
+                <Building size={16} />
+                <span>Add Company</span>
               </button>
             </div>
 
-            <div className="controls-glass-panel">
-              <select className="filter-select-circuit" value={taskStatusFilter} onChange={(e) => setTaskStatusFilter(e.target.value)}>
-                <option value="All">All Task Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="In Progress">In Progress</option>
-                <option value="Completed">Completed</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
-
-            <div className="tasks-container">
-              {tasks.map(t => (
-                <div key={t.id} className="task-item-card">
-                  <div className="task-left-section">
-                    <button 
-                      className={`task-checkbox-btn ${t.status === "Completed" ? "completed" : ""}`}
-                      onClick={() => updateTaskMutation.mutate({ id: t.id, data: { status: t.status === "Completed" ? "Pending" : "Completed" } })}
-                    >
-                      {t.status === "Completed" && <Check size={16} />}
-                    </button>
-                    <div>
-                      <div className={`task-title ${t.status === "Completed" ? "completed" : ""}`}>{t.title}</div>
-                      {t.description && <div style={{ fontSize: "0.8125rem", color: "var(--text-body)", marginTop: "0.2rem" }}>{t.description}</div>}
-                      <div className="task-meta">
-                        {t.dueDate && <span>Due: {new Date(t.dueDate).toLocaleDateString()}</span>}
-                        {t.Contact && <span style={{ color: "var(--accent)" }}>{t.Contact.name} ({t.Contact.company || "Contact"})</span>}
-                      </div>
-                    </div>
+            <div className="asymmetric-2up-grid">
+              {companies.map(comp => (
+                <div key={comp.id} className="card-circuit interactive-lift">
+                  <div className="card-header-bar">
+                    <span className="card-title">{comp.name}</span>
+                    <span className="tag-pill">{comp.domain || "Enterprise"}</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <span className={`priority-chip priority-${(t.priority || "medium").toLowerCase()}`}>{t.priority}</span>
-                    <button className="action-icon-btn delete" onClick={() => { if (window.confirm("Delete task?")) deleteTaskMutation.mutate(t.id); }}>
-                      <Trash2 size={15} />
-                    </button>
+                  <div style={{ marginTop: "12px", color: "var(--text-body)", fontSize: "14px" }}>
+                    <p>Phone: {comp.phone || "—"}</p>
+                    <p>Address: {comp.address || "—"}</p>
+                    <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--text-muted)" }}>
+                      Created: {new Date(comp.createdAt).toLocaleDateString()}
+                    </p>
                   </div>
                 </div>
               ))}
+              {companies.length === 0 && (
+                <div className="empty-state-notice">No companies listed yet. Click "Add Company" above.</div>
+              )}
             </div>
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 5: INVOICES & QUOTES
-           ========================================================================= */}
-        {activeTab === "invoices" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <div>
-                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>Quotes & Invoices</h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Generate proposals, quotes, and billing invoices for your clients.</p>
+        {/* TAB 5: TASKS & REMINDERS */}
+        {activeTab === "tasks" && (
+          <div className="tasks-view-stack">
+            <div className="toolbar-circuit">
+              <div className="filters-row">
+                <select value={taskStatusFilter} onChange={e => setTaskStatusFilter(e.target.value)}>
+                  <option value="All">All Task Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Completed">Completed</option>
+                  <option value="Cancelled">Cancelled</option>
+                </select>
               </div>
-              <button className="btn-primary-yellow" onClick={() => setIsInvoiceModalOpen(true)}>
+              <button className="btn-primary-yellow" onClick={() => setIsTaskModalOpen(true)}>
                 <Plus size={16} />
-                <span>New Invoice / Quote</span>
+                <span>New Task</span>
               </button>
             </div>
 
-            <div className="table-glass-card">
-              <table className="circuit-table">
+            <div className="tasks-grid">
+              {tasks.map(t => (
+                <div key={t.id} className={`task-card-circuit ${t.status === "Completed" ? "completed" : ""} interactive-lift`}>
+                  <div className="task-card-header">
+                    <span className={`priority-badge ${t.priority.toLowerCase()}`}>{t.priority}</span>
+                    <span className={`status-badge ${t.status.toLowerCase().replace(" ", "-")}`}>{t.status}</span>
+                  </div>
+                  <h4 className="task-card-title">{t.title}</h4>
+                  {t.description && <p className="task-card-desc">{t.description}</p>}
+                  {t.Contact && (
+                    <div className="task-associated-contact">
+                      <Users size={13} />
+                      <span>{t.Contact.name} ({t.Contact.company || "No Company"})</span>
+                    </div>
+                  )}
+                  <div className="task-card-footer">
+                    <div className="task-due-date">
+                      <Calendar size={13} />
+                      <span>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "No date"}</span>
+                    </div>
+                    <div className="task-actions">
+                      {t.status !== "Completed" && (
+                        <button 
+                          className="action-icon-btn" 
+                          title="Complete Task"
+                          onClick={() => updateTaskMutation.mutate({ id: t.id, data: { status: "Completed" } })}
+                        >
+                          <Check size={14} color="#22C55E" />
+                        </button>
+                      )}
+                      <button 
+                        className="action-icon-btn delete" 
+                        title="Delete Task"
+                        onClick={() => deleteTaskMutation.mutate(t.id)}
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+              {tasks.length === 0 && (
+                <div className="empty-state-notice">No tasks found. Click "New Task" to create one.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 6: ACTIVITY AUDIT LOG */}
+        {activeTab === "activities" && (
+          <div className="activities-view-stack">
+            <div className="toolbar-circuit">
+              <span className="card-title">Chronological Activity & Enterprise Audit Stream</span>
+              <button className="btn-primary-yellow" onClick={() => setIsActivityModalOpen(true)}>
+                <Plus size={16} />
+                <span>Log Manual Interaction</span>
+              </button>
+            </div>
+
+            <div className="timeline-circuit">
+              {activities.map(a => (
+                <div key={a.id} className="timeline-item">
+                  <div className="timeline-marker">
+                    <Clock size={14} color="#F0FF60" />
+                  </div>
+                  <div className="timeline-content interactive-lift">
+                    <div className="timeline-header">
+                      <span className="timeline-title">{a.action || a.title || "Audit Action"}</span>
+                      <span className="timeline-time">{new Date(a.timestamp || a.createdAt).toLocaleString()}</span>
+                    </div>
+                    <p className="timeline-desc">{a.description || a.details_json || "System logged action"}</p>
+                    {a.target_type && (
+                      <span className="tag-pill" style={{ marginTop: "6px", display: "inline-block" }}>
+                        Target: {a.target_type} #{a.target_id || ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {activities.length === 0 && (
+                <div className="empty-state-notice">No activity logs recorded yet.</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* TAB 7: INVOICES & QUOTES */}
+        {activeTab === "invoices" && (
+          <div className="invoices-view-stack">
+            <div className="toolbar-circuit">
+              <span className="card-title">Commercial Quotes & Billing Invoices</span>
+              <button className="btn-primary-yellow" onClick={() => setIsInvoiceModalOpen(true)}>
+                <Plus size={16} />
+                <span>Generate Quote / Invoice</span>
+              </button>
+            </div>
+
+            <div className="table-container-circuit">
+              <table className="crm-table">
                 <thead>
                   <tr>
-                    <th>Number</th>
+                    <th>Doc #</th>
                     <th>Type</th>
-                    <th>Client / Contact</th>
                     <th>Amount</th>
-                    <th>Due Date</th>
                     <th>Status</th>
-                    <th style={{ textAlign: "right" }}>Actions</th>
+                    <th>Due Date</th>
+                    <th>Created</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoices.map(inv => (
                     <tr key={inv.id}>
-                      <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "#FFF" }}>{inv.invoiceNumber}</td>
-                      <td><span className="eyebrow">{inv.type}</span></td>
-                      <td>{inv.Contact ? `${inv.Contact.name} (${inv.Contact.company || ""})` : "General"}</td>
-                      <td style={{ color: "var(--accent)", fontWeight: 700, fontFamily: "var(--font-mono)" }}>
-                        ${Number(inv.amount || 0).toLocaleString()}
-                      </td>
-                      <td style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>
-                        {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}
-                      </td>
-                      <td>
-                        <span className={`status-badge-chip ${inv.status === "Paid" ? "status-customer" : inv.status === "Sent" ? "status-contacted" : "status-lead"}`}>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button className="action-icon-btn delete" onClick={() => { if (window.confirm("Remove invoice?")) deleteInvoice(inv.id).then(() => queryClient.invalidateQueries({ queryKey: ["invoices"] })); }}>
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
+                      <td><strong>{inv.invoiceNumber}</strong></td>
+                      <td>{inv.type}</td>
+                      <td className="value-cell">${(Number(inv.amount) || 0).toLocaleString()}</td>
+                      <td><span className={`status-badge ${inv.status.toLowerCase()}`}>{inv.status}</span></td>
+                      <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}</td>
+                      <td>{new Date(inv.createdAt).toLocaleDateString()}</td>
                     </tr>
                   ))}
                   {invoices.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-                        No invoices or quotes generated yet.
-                      </td>
+                      <td colSpan="6" className="empty-table-cell">No invoices or quotes yet.</td>
                     </tr>
                   )}
                 </tbody>
@@ -977,60 +1175,52 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 6: TICKETS & SUPPORT
-           ========================================================================= */}
+        {/* TAB 8: CUSTOMER TICKETS */}
         {activeTab === "tickets" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <div>
-                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>Customer Support Tickets</h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Manage support issues, service inquiries, and resolution statuses.</p>
-              </div>
+          <div className="tickets-view-stack">
+            <div className="toolbar-circuit">
+              <span className="card-title">Customer Support & Incident Queues</span>
               <button className="btn-primary-yellow" onClick={() => setIsTicketModalOpen(true)}>
                 <Plus size={16} />
-                <span>Create Ticket</span>
+                <span>Open Ticket</span>
               </button>
             </div>
 
-            <div className="table-glass-card">
-              <table className="circuit-table">
+            <div className="table-container-circuit">
+              <table className="crm-table">
                 <thead>
                   <tr>
                     <th>Ticket #</th>
                     <th>Subject</th>
-                    <th>Customer</th>
                     <th>Priority</th>
                     <th>Status</th>
-                    <th>Created</th>
+                    <th>Opened</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {tickets.map(tck => (
-                    <tr key={tck.id}>
-                      <td style={{ fontFamily: "var(--font-mono)", fontWeight: 700, color: "var(--accent)" }}>{tck.ticketNumber}</td>
-                      <td style={{ fontWeight: 600, color: "#FFF" }}>{tck.subject}</td>
-                      <td>{tck.Contact ? tck.Contact.name : "Unassigned"}</td>
-                      <td><span className={`priority-chip priority-${(tck.priority || "medium").toLowerCase()}`}>{tck.priority}</span></td>
-                      <td>
-                        <span className={`status-badge-chip ${tck.status === "Resolved" || tck.status === "Closed" ? "status-customer" : "status-lead"}`}>
-                          {tck.status}
-                        </span>
-                      </td>
-                      <td style={{ color: "var(--text-muted)", fontSize: "0.8125rem" }}>{new Date(tck.createdAt).toLocaleDateString()}</td>
+                  {tickets.map(t => (
+                    <tr key={t.id}>
+                      <td><strong>{t.ticketNumber}</strong></td>
+                      <td>{t.subject}</td>
+                      <td><span className={`priority-badge ${t.priority.toLowerCase()}`}>{t.priority}</span></td>
+                      <td><span className={`status-badge ${t.status.toLowerCase().replace(" ", "-")}`}>{t.status}</span></td>
+                      <td>{new Date(t.createdAt).toLocaleDateString()}</td>
                       <td style={{ textAlign: "right" }}>
-                        <button className="action-icon-btn delete" onClick={() => { if (window.confirm("Remove ticket?")) deleteTicket(tck.id).then(() => queryClient.invalidateQueries({ queryKey: ["tickets"] })); }}>
-                          <Trash2 size={14} />
-                        </button>
+                        {t.status !== "Resolved" && (
+                          <button 
+                            className="btn-action-convert"
+                            onClick={() => updateTicket({ id: t.id, data: { status: "Resolved" } }).then(() => refetchTickets())}
+                          >
+                            Resolve
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
                   {tickets.length === 0 && (
                     <tr>
-                      <td colSpan={7} style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
-                        No support tickets currently open.
-                      </td>
+                      <td colSpan="6" className="empty-table-cell">No open support tickets.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1039,384 +1229,264 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* =========================================================================
-            TAB 7: ACTIVITY LOG TIMELINE
-           ========================================================================= */}
-        {activeTab === "activities" && (
-          <div>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
-              <div>
-                <h2 style={{ fontSize: "1.75rem", fontWeight: 800, color: "var(--text-heading)" }}>Full Activity History</h2>
-                <p style={{ color: "var(--text-muted)", fontSize: "0.875rem" }}>Audit log of calls, meetings, stage updates, and note entries.</p>
-              </div>
-              <button className="btn-primary-yellow" onClick={() => setIsActivityModalOpen(true)}>
-                <Plus size={16} />
-                <span>Log New Interaction</span>
+        {/* TAB 9: EMAIL OUTBOX & OPEN TRACKING */}
+        {activeTab === "emails" && (
+          <div className="emails-view-stack">
+            <div className="toolbar-circuit">
+              <span className="card-title">Dispatched Emails & Pixel Open Tracking</span>
+              <button className="btn-primary-yellow" onClick={() => setIsEmailModalOpen(true)}>
+                <Mail size={16} />
+                <span>Compose Email</span>
               </button>
             </div>
 
-            <div className="table-glass-card">
-              <table className="circuit-table">
+            <div className="table-container-circuit">
+              <table className="crm-table">
                 <thead>
                   <tr>
-                    <th>Type</th>
-                    <th>Activity Summary</th>
-                    <th>Contact</th>
-                    <th>Notes & Outcome</th>
-                    <th>Date & Time</th>
+                    <th>Recipient</th>
+                    <th>Subject</th>
+                    <th>Template</th>
+                    <th>Tracking Status</th>
+                    <th>Sent At</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {activities.map(a => (
-                    <tr key={a.id}>
-                      <td><span className="eyebrow">{a.type}</span></td>
-                      <td style={{ fontWeight: 600, color: "#FFF" }}>{a.title}</td>
-                      <td>{a.Contact ? a.Contact.name : "General"}</td>
-                      <td style={{ color: "var(--text-muted)" }}>{a.description || a.outcome || "—"}</td>
-                      <td style={{ fontFamily: "var(--font-mono)", fontSize: "0.75rem", color: "var(--text-muted)" }}>
-                        {new Date(a.createdAt).toLocaleString()}
+                  {emailLogs.map(em => (
+                    <tr key={em.id}>
+                      <td>{em.recipient_email || em.recipientEmail}</td>
+                      <td>{em.subject}</td>
+                      <td><span className="tag-pill">{em.template_name || "Custom"}</span></td>
+                      <td>
+                        {em.is_opened ? (
+                          <span className="status-badge won" title={`Opened at ${new Date(em.opened_at).toLocaleString()}`}>
+                            ✓ Opened ({new Date(em.opened_at).toLocaleTimeString()})
+                          </span>
+                        ) : (
+                          <span className="status-badge in-progress">
+                            Delivered / Unread
+                          </span>
+                        )}
                       </td>
+                      <td>{new Date(em.createdAt).toLocaleString()}</td>
                     </tr>
                   ))}
+                  {emailLogs.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="empty-table-cell">No emails dispatched yet. Click "Compose Email" above.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
           </div>
         )}
 
+        {/* TAB 10: ENTERPRISE SECURITY & BACKUP (ADMIN ONLY) */}
+        {activeTab === "security" && user?.role === "admin" && (
+          <div className="security-view-stack">
+            <div className="asymmetric-2up-grid">
+              {/* Database Backup & Snapshots Card */}
+              <div className="card-circuit interactive-lift">
+                <div className="card-header-bar">
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Database size={18} color="#F0FF60" />
+                    <span className="card-title">Database Safety & Automated Snapshots</span>
+                  </div>
+                </div>
+                <p style={{ color: "var(--text-body)", fontSize: "14px", margin: "12px 0" }}>
+                  Download immediate full-database JSON backups or trigger automated server storage snapshots. Backups are encrypted with enterprise access control.
+                </p>
+                <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", margin: "16px 0" }}>
+                  <a 
+                    href="http://localhost:5000/api/backup/download" 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="btn-primary-yellow"
+                    style={{ textDecoration: "none" }}
+                  >
+                    <Download size={16} />
+                    <span>Download Full Backup Dump</span>
+                  </a>
+                  <button className="btn-ghost-dark" onClick={() => createSnapshotMutation.mutate()}>
+                    <ShieldCheck size={16} color="#F0FF60" />
+                    <span>Create Server Snapshot</span>
+                  </button>
+                </div>
+
+                <h4 style={{ fontSize: "13px", color: "var(--accent)", marginTop: "20px", textTransform: "uppercase" }}>
+                  Recent Server Snapshots ({backupHistory.snapshots?.length || 0})
+                </h4>
+                <div style={{ marginTop: "10px" }}>
+                  {(backupHistory.snapshots || []).slice(0, 5).map((s, idx) => (
+                    <div key={idx} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid var(--border-hairline)", fontSize: "13px" }}>
+                      <span>{s.filename}</span>
+                      <span style={{ color: "var(--text-muted)" }}>{(s.sizeBytes / 1024).toFixed(1)} KB</span>
+                    </div>
+                  ))}
+                  {(!backupHistory.snapshots || backupHistory.snapshots.length === 0) && (
+                    <p style={{ fontSize: "13px", color: "var(--text-muted)" }}>No snapshots saved yet.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Cybersecurity Architecture Status Card */}
+              <div className="card-circuit interactive-lift">
+                <div className="card-header-bar">
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                    <Lock size={18} color="#F0FF60" />
+                    <span className="card-title">Cybersecurity Defense Architecture</span>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "16px" }}>
+                  <div className="security-check-item">
+                    <CheckCircle2 size={16} color="#22C55E" />
+                    <div>
+                      <strong>SQL Injection Protection:</strong> Fully parameterized queries and Sequelize ORM abstraction against SQL injection.
+                    </div>
+                  </div>
+                  <div className="security-check-item">
+                    <CheckCircle2 size={16} color="#22C55E" />
+                    <div>
+                      <strong>High-Salt Password Hashing:</strong> Enforced bcrypt hashing with 12 salt rounds for all user credentials.
+                    </div>
+                  </div>
+                  <div className="security-check-item">
+                    <CheckCircle2 size={16} color="#22C55E" />
+                    <div>
+                      <strong>IP Rate Limiting:</strong> Enforced `express-rate-limit` on auth endpoints (15 req/15m) and general API routes.
+                    </div>
+                  </div>
+                  <div className="security-check-item">
+                    <CheckCircle2 size={16} color="#22C55E" />
+                    <div>
+                      <strong>Role-Based Access Control (RBAC):</strong> Granular permissions for Admin, Manager, and Standard User roles across all API routes.
+                    </div>
+                  </div>
+                  <div className="security-check-item">
+                    <CheckCircle2 size={16} color="#22C55E" />
+                    <div>
+                      <strong>Security Headers (Helmet):</strong> Frameguard, HSTS, NoSniff, and strict CORS policies active.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="footer-circuit">
-        <div>© {new Date().getFullYear()} SCRM Enterprise. Complete Customer Relationship Management.</div>
-        <div className="footer-tagline">SCRM // OBSIDIAN & ELECTRIC YELLOW</div>
-      </footer>
-
-      {/* =========================================================================
-          MODALS
-         ========================================================================= */}
-
-      {/* 1. Contact / Lead Modal */}
+      {/* MODAL 1: ADD / EDIT CONTACT */}
       {isContactModalOpen && (
         <div className="modal-overlay-circuit" onClick={() => setIsContactModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">{editingContact ? "UPDATE RECORD" : "PROVISION LEAD"}</div>
-              <h3 className="modal-title-circuit">{editingContact ? "Edit Contact Profile" : "Create New Contact / Deal"}</h3>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingContact ? "Edit Contact & Deal" : "Create New Contact & Lead"}</h3>
+              <button className="modal-close-btn" onClick={() => setIsContactModalOpen(false)}>×</button>
             </div>
-            {contactFormError && <div className="auth-error-banner">{contactFormError}</div>}
+            {contactFormError && <div className="error-banner">{contactFormError}</div>}
             <form onSubmit={e => {
               e.preventDefault();
-              if (editingContact) updateContactMutation.mutate({ id: editingContact.id, data: contactFormData });
-              else createContactMutation.mutate(contactFormData);
+              setContactFormError("");
+              if (editingContact) {
+                updateContactMutation.mutate({ id: editingContact.id, data: contactFormData });
+              } else {
+                createContactMutation.mutate(contactFormData);
+              }
             }}>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Full Name *</label>
-                <input type="text" required className="circuit-input" placeholder="e.g. John Doe" value={contactFormData.name} onChange={e => setContactFormData({ ...contactFormData, name: e.target.value })} />
+              <div className="form-group-circuit">
+                <label>Full Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={contactFormData.name} 
+                  onChange={e => setContactFormData({ ...contactFormData, name: e.target.value })} 
+                />
               </div>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Email Address *</label>
-                <input type="email" required className="circuit-input" placeholder="john@example.com" value={contactFormData.email} onChange={e => setContactFormData({ ...contactFormData, email: e.target.value })} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Company</label>
-                  <input type="text" className="circuit-input" placeholder="Acme Corp" value={contactFormData.company} onChange={e => setContactFormData({ ...contactFormData, company: e.target.value })} />
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Email Address *</label>
+                  <input 
+                    type="email" 
+                    required
+                    value={contactFormData.email} 
+                    onChange={e => setContactFormData({ ...contactFormData, email: e.target.value })} 
+                  />
                 </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Phone</label>
-                  <input type="tel" className="circuit-input" placeholder="+1 (555) 019-2834" value={contactFormData.phone} onChange={e => setContactFormData({ ...contactFormData, phone: e.target.value })} />
+                <div className="form-group-circuit">
+                  <label>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    value={contactFormData.phone} 
+                    onChange={e => setContactFormData({ ...contactFormData, phone: e.target.value })} 
+                  />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Pipeline Stage</label>
-                  <select className="circuit-input" value={contactFormData.status} onChange={e => setContactFormData({ ...contactFormData, status: e.target.value })}>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Company</label>
+                  <input 
+                    type="text" 
+                    value={contactFormData.company} 
+                    onChange={e => setContactFormData({ ...contactFormData, company: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Pipeline Stage</label>
+                  <select 
+                    value={contactFormData.status} 
+                    onChange={e => setContactFormData({ ...contactFormData, status: e.target.value })}
+                  >
                     {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Deal Value ($)</label>
-                  <input type="number" min="0" step="0.01" className="circuit-input" value={contactFormData.value} onChange={e => setContactFormData({ ...contactFormData, value: e.target.value })} />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Deal Value ($)</label>
+                  <input 
+                    type="number" 
+                    min="0"
+                    value={contactFormData.value} 
+                    onChange={e => setContactFormData({ ...contactFormData, value: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Expected Close Date</label>
+                  <input 
+                    type="date" 
+                    value={contactFormData.expectedCloseDate} 
+                    onChange={e => setContactFormData({ ...contactFormData, expectedCloseDate: e.target.value })} 
+                  />
                 </div>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Lead Source</label>
-                  <select className="circuit-input" value={contactFormData.leadSource} onChange={e => setContactFormData({ ...contactFormData, leadSource: e.target.value })}>
-                    <option value="Website">Website</option>
-                    <option value="LinkedIn">LinkedIn</option>
-                    <option value="Referral">Referral</option>
-                    <option value="Cold Outreach">Cold Outreach</option>
-                    <option value="Import">Import</option>
-                  </select>
-                </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Tags (comma separated)</label>
-                  <input type="text" className="circuit-input" placeholder="Enterprise, Priority" value={contactFormData.tags} onChange={e => setContactFormData({ ...contactFormData, tags: e.target.value })} />
-                </div>
+
+              <div className="form-group-circuit">
+                <label>Tags (comma-separated)</label>
+                <input 
+                  type="text" 
+                  placeholder="Enterprise, VIP, Inbound"
+                  value={contactFormData.tags} 
+                  onChange={e => setContactFormData({ ...contactFormData, tags: e.target.value })} 
+                />
               </div>
-              <div className="circuit-form-group" style={{ marginBottom: "1.75rem" }}>
-                <label className="circuit-label">Notes & Summary</label>
-                <textarea rows={2} className="circuit-input" style={{ resize: "vertical" }} placeholder="Key notes about this lead..." value={contactFormData.notes} onChange={e => setContactFormData({ ...contactFormData, notes: e.target.value })} />
+
+              <div className="form-group-circuit">
+                <label>Notes & Context</label>
+                <textarea 
+                  rows="3"
+                  value={contactFormData.notes} 
+                  onChange={e => setContactFormData({ ...contactFormData, notes: e.target.value })} 
+                />
               </div>
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+
+              <div className="modal-footer-btns">
                 <button type="button" className="btn-ghost-dark" onClick={() => setIsContactModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">{editingContact ? "Save Changes" : "Create Contact"}</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 2. Task Modal */}
-      {isTaskModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsTaskModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">SCHEDULE TASK</div>
-              <h3 className="modal-title-circuit">Add Follow-Up Item</h3>
-            </div>
-            <form onSubmit={e => {
-              e.preventDefault();
-              createTaskMutation.mutate(taskFormData);
-            }}>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Task Title *</label>
-                <input type="text" required className="circuit-input" placeholder="e.g. Call to discuss contract" value={taskFormData.title} onChange={e => setTaskFormData({ ...taskFormData, title: e.target.value })} />
-              </div>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Associated Contact</label>
-                <select className="circuit-input" value={taskFormData.contactId} onChange={e => setTaskFormData({ ...taskFormData, contactId: e.target.value })}>
-                  <option value="">None / General</option>
-                  {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company || "Contact"})</option>)}
-                </select>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Due Date</label>
-                  <input type="date" className="circuit-input" value={taskFormData.dueDate} onChange={e => setTaskFormData({ ...taskFormData, dueDate: e.target.value })} />
-                </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Priority</label>
-                  <select className="circuit-input" value={taskFormData.priority} onChange={e => setTaskFormData({ ...taskFormData, priority: e.target.value })}>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-              <div className="circuit-form-group" style={{ marginBottom: "1.75rem" }}>
-                <label className="circuit-label">Description</label>
-                <textarea rows={2} className="circuit-input" placeholder="Notes for this reminder..." value={taskFormData.description} onChange={e => setTaskFormData({ ...taskFormData, description: e.target.value })} />
-              </div>
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsTaskModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Schedule Task</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 3. Activity Modal */}
-      {isActivityModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsActivityModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">LOG ACTIVITY</div>
-              <h3 className="modal-title-circuit">Record Customer Touchpoint</h3>
-            </div>
-            <form onSubmit={e => {
-              e.preventDefault();
-              createActivityMutation.mutate(activityFormData);
-            }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Type</label>
-                  <select className="circuit-input" value={activityFormData.type} onChange={e => setActivityFormData({ ...activityFormData, type: e.target.value })}>
-                    <option value="Call">Call</option>
-                    <option value="Meeting">Meeting</option>
-                    <option value="Email">Email</option>
-                    <option value="Note">Quick Note</option>
-                  </select>
-                </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Contact</label>
-                  <select className="circuit-input" value={activityFormData.contactId} onChange={e => setActivityFormData({ ...activityFormData, contactId: e.target.value })}>
-                    <option value="">General</option>
-                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Summary / Title *</label>
-                <input type="text" required className="circuit-input" placeholder="e.g. Discovery Call with CTO" value={activityFormData.title} onChange={e => setActivityFormData({ ...activityFormData, title: e.target.value })} />
-              </div>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Outcome / Results</label>
-                <input type="text" className="circuit-input" placeholder="e.g. Positive, follow-up scheduled" value={activityFormData.outcome} onChange={e => setActivityFormData({ ...activityFormData, outcome: e.target.value })} />
-              </div>
-              <div className="circuit-form-group" style={{ marginBottom: "1.75rem" }}>
-                <label className="circuit-label">Detailed Notes</label>
-                <textarea rows={3} className="circuit-input" placeholder="Discussed pricing, timelines..." value={activityFormData.description} onChange={e => setActivityFormData({ ...activityFormData, description: e.target.value })} />
-              </div>
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsActivityModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Log Interaction</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 4. Invoice / Quote Modal */}
-      {isInvoiceModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsInvoiceModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">COMMERCIAL PROPOSAL</div>
-              <h3 className="modal-title-circuit">Create Quote / Invoice</h3>
-            </div>
-            <form onSubmit={e => {
-              e.preventDefault();
-              createInvoiceMutation.mutate(invoiceFormData);
-            }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Document Type</label>
-                  <select className="circuit-input" value={invoiceFormData.type} onChange={e => setInvoiceFormData({ ...invoiceFormData, type: e.target.value })}>
-                    <option value="Invoice">Invoice</option>
-                    <option value="Quote">Quote</option>
-                  </select>
-                </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Contact</label>
-                  <select className="circuit-input" value={invoiceFormData.contactId} onChange={e => setInvoiceFormData({ ...invoiceFormData, contactId: e.target.value })}>
-                    <option value="">General Client</option>
-                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Total Amount ($)</label>
-                  <input type="number" step="0.01" required className="circuit-input" value={invoiceFormData.amount} onChange={e => setInvoiceFormData({ ...invoiceFormData, amount: e.target.value })} />
-                </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Due Date</label>
-                  <input type="date" className="circuit-input" value={invoiceFormData.dueDate} onChange={e => setInvoiceFormData({ ...invoiceFormData, dueDate: e.target.value })} />
-                </div>
-              </div>
-              <div className="circuit-form-group" style={{ marginBottom: "1.75rem" }}>
-                <label className="circuit-label">Line Items / Description</label>
-                <textarea rows={2} className="circuit-input" placeholder="CRM Setup & Implementation..." value={invoiceFormData.items} onChange={e => setInvoiceFormData({ ...invoiceFormData, items: e.target.value })} />
-              </div>
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsInvoiceModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Generate Document</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 5. Support Ticket Modal */}
-      {isTicketModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsTicketModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">CUSTOMER SUPPORT</div>
-              <h3 className="modal-title-circuit">Create Support Ticket</h3>
-            </div>
-            <form onSubmit={e => {
-              e.preventDefault();
-              createTicketMutation.mutate(ticketFormData);
-            }}>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Ticket Subject *</label>
-                <input type="text" required className="circuit-input" placeholder="e.g. Account configuration inquiry" value={ticketFormData.subject} onChange={e => setTicketFormData({ ...ticketFormData, subject: e.target.value })} />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Customer</label>
-                  <select className="circuit-input" value={ticketFormData.contactId} onChange={e => setTicketFormData({ ...ticketFormData, contactId: e.target.value })}>
-                    <option value="">Unassigned</option>
-                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                </div>
-                <div className="circuit-form-group">
-                  <label className="circuit-label">Priority</label>
-                  <select className="circuit-input" value={ticketFormData.priority} onChange={e => setTicketFormData({ ...ticketFormData, priority: e.target.value })}>
-                    <option value="Low">Low</option>
-                    <option value="Medium">Medium</option>
-                    <option value="High">High</option>
-                    <option value="Urgent">Urgent</option>
-                  </select>
-                </div>
-              </div>
-              <div className="circuit-form-group" style={{ marginBottom: "1.75rem" }}>
-                <label className="circuit-label">Issue Details</label>
-                <textarea rows={3} className="circuit-input" placeholder="Explain the customer inquiry or issue..." value={ticketFormData.description} onChange={e => setTicketFormData({ ...ticketFormData, description: e.target.value })} />
-              </div>
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsTicketModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Open Ticket</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Send Email Modal with Templates */}
-      {isEmailModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsEmailModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">COMMUNICATION</div>
-              <h3 className="modal-title-circuit">Send Customer Email</h3>
-            </div>
-            <form onSubmit={e => {
-              e.preventDefault();
-              sendEmailMutation.mutate(emailFormData);
-            }}>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Insert Email Template</label>
-                <select className="circuit-input" onChange={e => {
-                  const tpl = emailTemplates.find(t => t.id === e.target.value);
-                  if (tpl) {
-                    const selContact = contacts.find(c => c.id === parseInt(emailFormData.contactId, 10));
-                    const name = selContact ? selContact.name : "Client";
-                    const company = selContact ? (selContact.company || "Company") : "your organization";
-                    setEmailFormData({
-                      ...emailFormData,
-                      subject: tpl.subject.replace(/{{name}}/g, name).replace(/{{company}}/g, company),
-                      body: tpl.body.replace(/{{name}}/g, name).replace(/{{company}}/g, company)
-                    });
-                  }
-                }}>
-                  <option value="">Choose a template...</option>
-                  {emailTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
-                </select>
-              </div>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Recipient Email *</label>
-                <input type="email" required className="circuit-input" placeholder="client@company.com" value={emailFormData.recipientEmail} onChange={e => setEmailFormData({ ...emailFormData, recipientEmail: e.target.value })} />
-              </div>
-              <div className="circuit-form-group">
-                <label className="circuit-label">Subject *</label>
-                <input type="text" required className="circuit-input" placeholder="Subject..." value={emailFormData.subject} onChange={e => setEmailFormData({ ...emailFormData, subject: e.target.value })} />
-              </div>
-              <div className="circuit-form-group" style={{ marginBottom: "1.75rem" }}>
-                <label className="circuit-label">Message Body *</label>
-                <textarea rows={5} required className="circuit-input" placeholder="Type your message..." value={emailFormData.body} onChange={e => setEmailFormData({ ...emailFormData, body: e.target.value })} />
-              </div>
-              <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsEmailModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn-primary-yellow">
-                  <Send size={15} />
-                  <span>Send & Log</span>
+                  {editingContact ? "Save Changes" : "Create Record"}
                 </button>
               </div>
             </form>
@@ -1424,33 +1494,560 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* 7. CSV Bulk Import Modal */}
+      {/* MODAL 2: 1-CLICK CONVERT LEAD TO DEAL */}
+      {isConvertModalOpen && convertingContact && (
+        <div className="modal-overlay-circuit" onClick={() => setIsConvertModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Zap size={20} color="#F0FF60" />
+                <h3>1-Click Convert Lead to Deal</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsConvertModalOpen(false)}>×</button>
+            </div>
+            <p style={{ color: "var(--text-body)", fontSize: "14px", margin: "12px 0" }}>
+              Convert qualified lead <strong>{convertingContact.name}</strong> ({convertingContact.company || "Independent"}) into an active Pipeline Deal and create an automated discovery task.
+            </p>
+            <form onSubmit={e => {
+              e.preventDefault();
+              convertLeadMutation.mutate({
+                id: convertingContact.id,
+                data: {
+                  dealTitle: convertDealTitle,
+                  dealValue: convertDealValue,
+                  stageName: "Qualified"
+                }
+              });
+            }}>
+              <div className="form-group-circuit">
+                <label>Pipeline Deal Title</label>
+                <input 
+                  type="text" 
+                  required
+                  value={convertDealTitle} 
+                  onChange={e => setConvertDealTitle(e.target.value)} 
+                />
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Estimated Deal Value ($)</label>
+                <input 
+                  type="number" 
+                  required
+                  min="0"
+                  value={convertDealValue} 
+                  onChange={e => setConvertDealValue(e.target.value)} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsConvertModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">
+                  <Zap size={16} />
+                  <span>Execute Conversion</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: ADD COMPANY */}
+      {isCompanyModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsCompanyModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Create Company Record</h3>
+              <button className="modal-close-btn" onClick={() => setIsCompanyModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              createCompanyMutation.mutate(companyFormData);
+            }}>
+              <div className="form-group-circuit">
+                <label>Company Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={companyFormData.name} 
+                  onChange={e => setCompanyFormData({ ...companyFormData, name: e.target.value })} 
+                />
+              </div>
+              <div className="form-group-circuit">
+                <label>Domain / Website</label>
+                <input 
+                  type="text" 
+                  placeholder="acme.com"
+                  value={companyFormData.domain} 
+                  onChange={e => setCompanyFormData({ ...companyFormData, domain: e.target.value })} 
+                />
+              </div>
+              <div className="form-group-circuit">
+                <label>Phone Number</label>
+                <input 
+                  type="tel" 
+                  value={companyFormData.phone} 
+                  onChange={e => setCompanyFormData({ ...companyFormData, phone: e.target.value })} 
+                />
+              </div>
+              <div className="form-group-circuit">
+                <label>Office Address</label>
+                <input 
+                  type="text" 
+                  value={companyFormData.address} 
+                  onChange={e => setCompanyFormData({ ...companyFormData, address: e.target.value })} 
+                />
+              </div>
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsCompanyModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Save Company</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: DUPLICATE MERGE MODAL */}
+      {isDuplicateModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsDuplicateModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" style={{ maxWidth: "680px" }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <GitMerge size={20} color="#F0FF60" />
+                <h3>Duplicate Records Detected</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsDuplicateModalOpen(false)}>×</button>
+            </div>
+            <p style={{ color: "var(--text-body)", fontSize: "14px", margin: "12px 0" }}>
+              The system automatically flagged the following duplicate contacts. Click "Merge" to combine their notes, tags, and activities safely.
+            </p>
+            <div style={{ maxHeight: "360px", overflowY: "auto", display: "flex", flexDirection: "column", gap: "12px" }}>
+              {duplicatesData.duplicates.map((dup, idx) => (
+                <div key={idx} style={{ background: "rgba(0,0,0,0.5)", border: "1px solid var(--border-hairline)", borderRadius: "10px", padding: "12px" }}>
+                  <div style={{ color: "var(--accent)", fontSize: "13px", fontWeight: "bold" }}>{dup.reason}</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "8px", fontSize: "13px" }}>
+                    <div style={{ padding: "8px", background: "#202020", borderRadius: "6px" }}>
+                      <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>PRIMARY RECORD</span>
+                      <div><strong>{dup.existingRecord?.name}</strong></div>
+                      <div>{dup.existingRecord?.email}</div>
+                      <div>{dup.existingRecord?.phone || "No phone"}</div>
+                    </div>
+                    <div style={{ padding: "8px", background: "#202020", borderRadius: "6px" }}>
+                      <span style={{ color: "var(--text-muted)", fontSize: "11px" }}>DUPLICATE RECORD</span>
+                      <div><strong>{dup.duplicateRecord?.name}</strong></div>
+                      <div>{dup.duplicateRecord?.email}</div>
+                      <div>{dup.duplicateRecord?.phone || "No phone"}</div>
+                    </div>
+                  </div>
+                  <button 
+                    className="btn-primary-yellow small" 
+                    style={{ marginTop: "10px", width: "100%" }}
+                    onClick={() => mergeContactsMutation.mutate({
+                      primaryId: dup.existingRecord.id,
+                      duplicateId: dup.duplicateRecord.id
+                    })}
+                  >
+                    Merge These Two Contacts
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 5: SCHEDULE TASK */}
+      {isTaskModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsTaskModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Schedule Task & Follow-Up</h3>
+              <button className="modal-close-btn" onClick={() => setIsTaskModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              createTaskMutation.mutate(taskFormData);
+            }}>
+              <div className="form-group-circuit">
+                <label>Task Title *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Discovery call follow-up"
+                  value={taskFormData.title} 
+                  onChange={e => setTaskFormData({ ...taskFormData, title: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Due Date</label>
+                  <input 
+                    type="date" 
+                    value={taskFormData.dueDate} 
+                    onChange={e => setTaskFormData({ ...taskFormData, dueDate: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Priority</label>
+                  <select 
+                    value={taskFormData.priority} 
+                    onChange={e => setTaskFormData({ ...taskFormData, priority: e.target.value })}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Related Contact</label>
+                <select 
+                  value={taskFormData.contactId} 
+                  onChange={e => setTaskFormData({ ...taskFormData, contactId: e.target.value })}
+                >
+                  <option value="">No Contact Linked</option>
+                  {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company || "No Company"})</option>)}
+                </select>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Description</label>
+                <textarea 
+                  rows="3" 
+                  value={taskFormData.description} 
+                  onChange={e => setTaskFormData({ ...taskFormData, description: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsTaskModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Create Task</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: LOG ACTIVITY */}
+      {isActivityModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsActivityModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Log Interaction</h3>
+              <button className="modal-close-btn" onClick={() => setIsActivityModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              createActivityMutation.mutate(activityFormData);
+            }}>
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Interaction Type</label>
+                  <select 
+                    value={activityFormData.type} 
+                    onChange={e => setActivityFormData({ ...activityFormData, type: e.target.value })}
+                  >
+                    <option value="Call">Phone Call</option>
+                    <option value="Meeting">Meeting</option>
+                    <option value="Email">Email</option>
+                    <option value="Note">Quick Note</option>
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Outcome</label>
+                  <select 
+                    value={activityFormData.outcome} 
+                    onChange={e => setActivityFormData({ ...activityFormData, outcome: e.target.value })}
+                  >
+                    <option value="Interested">Interested</option>
+                    <option value="Left Voicemail">Left Voicemail</option>
+                    <option value="Proposal Requested">Proposal Requested</option>
+                    <option value="Not Interested">Not Interested</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Associated Contact</label>
+                <select 
+                  value={activityFormData.contactId} 
+                  onChange={e => setActivityFormData({ ...activityFormData, contactId: e.target.value })}
+                >
+                  <option value="">No Contact</option>
+                  {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Summary / Title *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Reviewed pricing options"
+                  value={activityFormData.title} 
+                  onChange={e => setActivityFormData({ ...activityFormData, title: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Notes</label>
+                <textarea 
+                  rows="3" 
+                  value={activityFormData.description} 
+                  onChange={e => setActivityFormData({ ...activityFormData, description: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsActivityModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Save Log</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: SEND EMAIL WITH TRACKING */}
+      {isEmailModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsEmailModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Mail size={18} color="#F0FF60" />
+                <h3>Compose Tracked Email</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsEmailModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              sendEmailMutation.mutate(emailFormData);
+            }}>
+              <div className="form-group-circuit">
+                <label>Quick Template</label>
+                <select onChange={e => {
+                  const tmpl = emailTemplates.find(t => t.id === e.target.value);
+                  if (tmpl) {
+                    const selContact = contacts.find(c => c.id === parseInt(emailFormData.contactId, 10));
+                    const name = selContact?.name || "Client";
+                    const company = selContact?.company || "Your Company";
+                    setEmailFormData({
+                      ...emailFormData,
+                      subject: tmpl.subject.replace("{{name}}", name).replace("{{company}}", company),
+                      body: tmpl.body.replace(/{{name}}/g, name).replace(/{{company}}/g, company)
+                    });
+                  }
+                }}>
+                  <option value="">Select a template...</option>
+                  {emailTemplates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Recipient Email *</label>
+                <input 
+                  type="email" 
+                  required
+                  value={emailFormData.recipientEmail} 
+                  onChange={e => setEmailFormData({ ...emailFormData, recipientEmail: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Subject *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={emailFormData.subject} 
+                  onChange={e => setEmailFormData({ ...emailFormData, subject: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Email Body *</label>
+                <textarea 
+                  rows="6" 
+                  required
+                  value={emailFormData.body} 
+                  onChange={e => setEmailFormData({ ...emailFormData, body: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsEmailModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">
+                  <Send size={15} />
+                  <span>Send & Track Open</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: CSV BULK IMPORT */}
       {isImportModalOpen && (
         <div className="modal-overlay-circuit" onClick={() => setIsImportModalOpen(false)}>
-          <div className="modal-card-circuit" onClick={e => e.stopPropagation()}>
-            <div className="modal-header-circuit">
-              <div className="eyebrow">DATA MANAGEMENT</div>
-              <h3 className="modal-title-circuit">Bulk Import Contacts (CSV)</h3>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Bulk Import Contacts via CSV</h3>
+              <button className="modal-close-btn" onClick={() => setIsImportModalOpen(false)}>×</button>
             </div>
-            <p style={{ color: "var(--text-muted)", fontSize: "0.8125rem", marginBottom: "1rem" }}>
-              Paste comma-separated rows. Columns: <br />
-              <code style={{ color: "var(--accent)", fontFamily: "var(--font-mono)" }}>Name, Email, Phone, Company, Stage, Value, Source, Tags</code>
+            <p style={{ color: "var(--text-body)", fontSize: "13px", margin: "10px 0" }}>
+              Paste comma-separated rows. Required columns: <code>Name, Email, Phone, Company, Stage, Value, LeadSource, Tags</code>.
             </p>
-            <textarea
-              rows={8}
-              className="circuit-input"
-              style={{ fontFamily: "var(--font-mono)", fontSize: "0.8125rem", marginBottom: "1.5rem" }}
-              placeholder={"Jane Doe, jane@example.com, +1555123456, Acme Corp, New, 5000, Website, VIP\nBob Smith, bob@globex.org, +1555987654, Globex, Qualified, 12000, Referral, Tech"}
+            <textarea 
+              rows="7"
+              placeholder="John Doe, john@example.com, +1234567890, Acme Corp, Qualified, 5000, Website, Inbound"
               value={csvText}
               onChange={e => setCsvText(e.target.value)}
+              style={{ width: "100%", padding: "10px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "8px", color: "#fff", fontFamily: "var(--font-mono)", fontSize: "12px" }}
             />
-            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+            <div className="modal-footer-btns">
               <button type="button" className="btn-ghost-dark" onClick={() => setIsImportModalOpen(false)}>Cancel</button>
               <button type="button" className="btn-primary-yellow" onClick={handleProcessCSVImport}>
-                <Upload size={15} />
-                <span>Import Contacts</span>
+                Process Import
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: CREATE INVOICE */}
+      {isInvoiceModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsInvoiceModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Generate Quote or Invoice</h3>
+              <button className="modal-close-btn" onClick={() => setIsInvoiceModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              createInvoiceMutation.mutate({
+                ...invoiceFormData,
+                invoiceNumber: `INV-${Date.now().toString().slice(-6)}`
+              });
+            }}>
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Document Type</label>
+                  <select 
+                    value={invoiceFormData.type} 
+                    onChange={e => setInvoiceFormData({ ...invoiceFormData, type: e.target.value })}
+                  >
+                    <option value="Invoice">Tax Invoice</option>
+                    <option value="Quote">Commercial Quote</option>
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Amount ($) *</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min="0"
+                    value={invoiceFormData.amount} 
+                    onChange={e => setInvoiceFormData({ ...invoiceFormData, amount: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Related Contact</label>
+                <select 
+                  value={invoiceFormData.contactId} 
+                  onChange={e => setInvoiceFormData({ ...invoiceFormData, contactId: e.target.value })}
+                >
+                  <option value="">Select Contact</option>
+                  {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
+                </select>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Due Date</label>
+                <input 
+                  type="date" 
+                  value={invoiceFormData.dueDate} 
+                  onChange={e => setInvoiceFormData({ ...invoiceFormData, dueDate: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsInvoiceModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Issue Document</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 10: CREATE TICKET */}
+      {isTicketModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsTicketModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Create Support Ticket</h3>
+              <button className="modal-close-btn" onClick={() => setIsTicketModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              createTicketMutation.mutate({
+                ...ticketFormData,
+                ticketNumber: `TCK-${Date.now().toString().slice(-6)}`
+              });
+            }}>
+              <div className="form-group-circuit">
+                <label>Subject *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Production login failure"
+                  value={ticketFormData.subject} 
+                  onChange={e => setTicketFormData({ ...ticketFormData, subject: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Priority</label>
+                  <select 
+                    value={ticketFormData.priority} 
+                    onChange={e => setTicketFormData({ ...ticketFormData, priority: e.target.value })}
+                  >
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                    <option value="Urgent">Urgent</option>
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Status</label>
+                  <select 
+                    value={ticketFormData.status} 
+                    onChange={e => setTicketFormData({ ...ticketFormData, status: e.target.value })}
+                  >
+                    <option value="Open">Open</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Description</label>
+                <textarea 
+                  rows="4" 
+                  value={ticketFormData.description} 
+                  onChange={e => setTicketFormData({ ...ticketFormData, description: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsTicketModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Submit Ticket</button>
+              </div>
+            </form>
           </div>
         </div>
       )}

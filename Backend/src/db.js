@@ -203,7 +203,7 @@ export const FileAttachment = sequelize.define(
     uploaded_by: { type: DataTypes.INTEGER, allowNull: true },
     uploaded_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
   },
-  { tableName: "file_attachments", timestamps: true, updatedAt: false }
+  { tableName: "file_attachments", timestamps: false }
 );
 
 // Quotes / Invoices Model

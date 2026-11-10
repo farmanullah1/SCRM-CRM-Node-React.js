@@ -8,3 +8,8 @@ dist/
 Backend/.env
 Frontend/.env
 minimalist-electric-cyan-portfolio-design.md
+
+Backend/backups/*.json
+Backend/uploads/*
+!Backend/backups/.gitkeep
+!Backend/uploads/.gitkeep

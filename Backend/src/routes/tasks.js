@@ -1,17 +1,25 @@
 import express from "express";
 import { Op } from "sequelize";
-import { Task, Contact } from "../db.js";
-import { authenticateToken } from "../middleware/auth.js";
+import { Task, Contact, User, Deal } from "../db.js";
+import { authenticateToken, logAudit } from "../middleware/auth.js";
+import { sanitizeString } from "../middleware/security.js";
 
 const router = express.Router();
-
 router.use(authenticateToken);
 
-// GET /api/tasks - fetch all tasks for logged in user
+// GET /api/tasks - fetch tasks with filters, overdue status, assignment
 router.get("/", async (req, res) => {
   try {
-    const { status, priority, contactId } = req.query;
-    const whereClause = { userId: req.user.id };
+    const { status, priority, contactId, dealId, assignedTo, overdue } = req.query;
+    const whereClause = {};
+
+    // Standard user restriction: view assigned or created tasks
+    if (req.user.role === "standard_user" && !req.user.permissions?.view_all) {
+      whereClause[Op.or] = [
+        { userId: req.user.id },
+        { assigned_to_user_id: req.user.id }
+      ];
+    }
 
     if (status && status !== "All") {
       whereClause.status = status;
@@ -22,7 +30,23 @@ router.get("/", async (req, res) => {
     }
 
     if (contactId) {
-      whereClause.contactId = contactId;
+      whereClause[Op.or] = [
+        { contactId },
+        { related_contact_id: contactId }
+      ];
+    }
+
+    if (dealId) {
+      whereClause.related_deal_id = dealId;
+    }
+
+    if (assignedTo) {
+      whereClause.assigned_to_user_id = assignedTo;
+    }
+
+    if (overdue === "true") {
+      whereClause.dueDate = { [Op.lt]: new Date() };
+      whereClause.status = { [Op.ne]: "Completed" };
     }
 
     const tasks = await Task.findAll({
@@ -31,6 +55,10 @@ router.get("/", async (req, res) => {
         {
           model: Contact,
           attributes: ["id", "name", "email", "company", "status"]
+        },
+        {
+          model: User,
+          attributes: ["id", "name", "email"]
         }
       ],
       order: [
@@ -40,7 +68,24 @@ router.get("/", async (req, res) => {
       ]
     });
 
-    res.json(tasks);
+    // Calculate summary statistics
+    const now = new Date();
+    let overdueCount = 0;
+    let dueTodayCount = 0;
+    let pendingCount = 0;
+
+    tasks.forEach((t) => {
+      if (t.status !== "Completed") {
+        pendingCount++;
+        if (t.dueDate) {
+          const d = new Date(t.dueDate);
+          if (d < now) overdueCount++;
+          else if (d.toDateString() === now.toDateString()) dueTodayCount++;
+        }
+      }
+    });
+
+    res.json({ tasks, stats: { total: tasks.length, overdue: overdueCount, dueToday: dueTodayCount, pending: pendingCount } });
   } catch (err) {
     console.error("Error fetching tasks:", err);
     res.status(500).json({ error: "Failed to fetch tasks", details: err.message });
@@ -50,28 +95,43 @@ router.get("/", async (req, res) => {
 // POST /api/tasks - create new task
 router.post("/", async (req, res) => {
   try {
-    const { title, description, dueDate, priority, status, contactId } = req.body;
+    let { title, description, dueDate, priority, status, contactId, dealId, assignedToUserId } = req.body;
 
-    if (!title || !title.trim()) {
+    title = sanitizeString(title);
+    description = sanitizeString(description);
+
+    if (!title) {
       return res.status(400).json({ error: "Task title is required." });
     }
 
+    const targetContact = contactId ? parseInt(contactId, 10) : null;
+    const targetDeal = dealId ? parseInt(dealId, 10) : null;
+    const assignedUser = assignedToUserId ? parseInt(assignedToUserId, 10) : req.user.id;
+
     const task = await Task.create({
       userId: req.user.id,
-      contactId: contactId ? parseInt(contactId, 10) : null,
-      title: title.trim(),
-      description: description ? description.trim() : null,
+      assigned_to_user_id: assignedUser,
+      contactId: targetContact,
+      related_contact_id: targetContact,
+      related_deal_id: targetDeal,
+      title,
+      description: description || null,
       dueDate: dueDate || null,
+      due_date: dueDate || null,
       priority: priority || "Medium",
       status: status || "Pending"
     });
 
+    await logAudit(req.user.id, "CREATE_TASK", "Task", task.id, {
+      title,
+      contactId: targetContact,
+      assignedTo: assignedUser
+    });
+
     const populated = await Task.findByPk(task.id, {
       include: [
-        {
-          model: Contact,
-          attributes: ["id", "name", "email", "company", "status"]
-        }
+        { model: Contact, attributes: ["id", "name", "email", "company", "status"] },
+        { model: User, attributes: ["id", "name", "email"] }
       ]
     });
 
@@ -85,31 +145,39 @@ router.post("/", async (req, res) => {
 // PUT /api/tasks/:id - update existing task
 router.put("/:id", async (req, res) => {
   try {
-    const task = await Task.findOne({
-      where: { id: req.params.id, userId: req.user.id }
-    });
-
+    const task = await Task.findByPk(req.params.id);
     if (!task) {
       return res.status(404).json({ error: "Task not found." });
     }
 
-    const { title, description, dueDate, priority, status, contactId } = req.body;
+    let { title, description, dueDate, priority, status, contactId, dealId, assignedToUserId } = req.body;
+    const oldStatus = task.status;
 
-    await task.update({
-      title: title !== undefined ? title.trim() : task.title,
-      description: description !== undefined ? description.trim() : task.description,
-      dueDate: dueDate !== undefined ? dueDate : task.dueDate,
-      priority: priority !== undefined ? priority : task.priority,
-      status: status !== undefined ? status : task.status,
-      contactId: contactId !== undefined ? (contactId ? parseInt(contactId, 10) : null) : task.contactId
-    });
+    if (title !== undefined) task.title = sanitizeString(title);
+    if (description !== undefined) task.description = sanitizeString(description);
+    if (dueDate !== undefined) {
+      task.dueDate = dueDate;
+      task.due_date = dueDate;
+    }
+    if (priority !== undefined) task.priority = priority;
+    if (status !== undefined) task.status = status;
+    if (contactId !== undefined) {
+      task.contactId = contactId;
+      task.related_contact_id = contactId;
+    }
+    if (dealId !== undefined) task.related_deal_id = dealId;
+    if (assignedToUserId !== undefined) task.assigned_to_user_id = assignedToUserId;
+
+    await task.save();
+
+    if (status && status !== oldStatus && status === "Completed") {
+      await logAudit(req.user.id, "TASK_COMPLETED", "Task", task.id, { title: task.title });
+    }
 
     const populated = await Task.findByPk(task.id, {
       include: [
-        {
-          model: Contact,
-          attributes: ["id", "name", "email", "company", "status"]
-        }
+        { model: Contact, attributes: ["id", "name", "email", "company", "status"] },
+        { model: User, attributes: ["id", "name", "email"] }
       ]
     });
 
@@ -123,16 +191,15 @@ router.put("/:id", async (req, res) => {
 // DELETE /api/tasks/:id - delete task
 router.delete("/:id", async (req, res) => {
   try {
-    const task = await Task.findOne({
-      where: { id: req.params.id, userId: req.user.id }
-    });
-
+    const task = await Task.findByPk(req.params.id);
     if (!task) {
       return res.status(404).json({ error: "Task not found." });
     }
 
     await task.destroy();
-    res.json({ message: "Task deleted successfully", id: Number(req.params.id) });
+    await logAudit(req.user.id, "DELETE_TASK", "Task", req.params.id, { title: task.title });
+
+    res.json({ message: "Task deleted successfully", id: parseInt(req.params.id, 10) });
   } catch (err) {
     console.error("Error deleting task:", err);
     res.status(500).json({ error: "Failed to delete task", details: err.message });
@@ -140,4 +207,3 @@ router.delete("/:id", async (req, res) => {
 });
 
 export default router;
-

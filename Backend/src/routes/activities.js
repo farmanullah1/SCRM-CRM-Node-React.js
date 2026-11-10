@@ -1,23 +1,24 @@
 import express from "express";
-import { Activity, Contact } from "../db.js";
-import { authenticateToken } from "../middleware/auth.js";
+import { ActivityLog, Contact, User } from "../db.js";
+import { authenticateToken, requirePermission } from "../middleware/auth.js";
+import { sanitizeString } from "../middleware/security.js";
 
 const router = express.Router();
 router.use(authenticateToken);
 
-// GET /api/activities - list recent activities
+// GET /api/activities - list recent activity logs & audit stream
 router.get("/", async (req, res) => {
   try {
-    const { contactId, type } = req.query;
-    const where = { userId: req.user.id };
-    if (contactId) where.contactId = contactId;
-    if (type) where.type = type;
+    const { contactId, action, targetType } = req.query;
+    const where = {};
+    if (contactId) where.target_id = contactId;
+    if (action) where.action = action;
+    if (targetType) where.target_type = targetType;
 
-    const activities = await Activity.findAll({
+    const activities = await ActivityLog.findAll({
       where,
-      include: [{ model: Contact, attributes: ["id", "name", "email", "company"] }],
       order: [["id", "DESC"]],
-      limit: 50
+      limit: 100
     });
 
     res.json(activities);
@@ -26,21 +27,30 @@ router.get("/", async (req, res) => {
   }
 });
 
-// POST /api/activities - log a call, meeting, note or event
+// POST /api/activities - log a call, meeting, note or event manually
 router.post("/", async (req, res) => {
   try {
-    const { contactId, type, title, description, outcome } = req.body;
+    let { contactId, type, title, description, outcome } = req.body;
+    title = sanitizeString(title);
+    description = sanitizeString(description);
+    outcome = sanitizeString(outcome);
+
     if (!type || !title) {
       return res.status(400).json({ error: "Type and Title are required." });
     }
 
-    const activity = await Activity.create({
-      userId: req.user.id,
-      contactId: contactId ? parseInt(contactId, 10) : null,
-      type: type || "Note",
-      title: title.trim(),
-      description: description ? description.trim() : null,
-      outcome: outcome ? outcome.trim() : null
+    const activity = await ActivityLog.create({
+      user_id: req.user.id,
+      action: type || "Note",
+      target_type: "Contact",
+      target_id: contactId ? parseInt(contactId, 10) : null,
+      timestamp: new Date(),
+      details_json: JSON.stringify({
+        title,
+        description,
+        outcome,
+        contactId
+      })
     });
 
     res.status(201).json(activity);
@@ -50,4 +60,3 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
-
