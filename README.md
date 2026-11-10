@@ -1,131 +1,179 @@
-# 🚀 SCRM — Next-Gen Secure Enterprise CRM System
+# ⚡ SCRM — Small Customer Relationship Management
 
 <div align="center">
 
-![SCRM Banner](https://img.shields.io/badge/SCRM-Enterprise_Grade-0052CC?style=for-the-badge&logo=shield&logoColor=white)
-![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=for-the-badge)
-![Security Standard](https://img.shields.io/badge/Security-OWASP_Top_10_Protected-blueviolet?style=for-the-badge)
+![SCRM Banner](https://img.shields.io/badge/SCRM-Small_CRM_Enterprise-F0FF60?style=for-the-badge&labelColor=181818&color=F0FF60)
+![Node Version](https://img.shields.io/badge/Node.js-v20%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![React Version](https://img.shields.io/badge/React-v19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![Database](https://img.shields.io/badge/Database-MSSQL%20%7C%20Sequelize-CC292B?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)
+![Security Standard](https://img.shields.io/badge/Security-RBAC%20%26%20OWASP%20Hardened-blueviolet?style=for-the-badge&logo=shield)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
-**A high-performance, security-first Customer Relationship Management (CRM) platform built with Node.js, Express, React.js, and SQL/MongoDB.**
+**In SCRM, the "S" stands for Small — a lightweight, hyper-fast, enterprise-grade Small Customer Relationship Management platform.**
+*Engineered with Node.js, Express, React 19, Vite, Microsoft SQL Server, and Sequelize ORM.*
 
-[Features](#-core-system-features) • [Architecture](#-system-architecture--data-flow) • [Security](#-enterprise-security--compliance) • [Database Schema](#-database-schema--auto-migration) • [Getting Started](#-getting-started) • [API Guide](#-api-endpoints-reference)
+[Platform Overview](#-platform-overview) • [Core Features](#-core-crm-features) • [Cybersecurity Architecture](#-cybersecurity-architecture--rbac) • [Database Schema](#-database-schema--idempotent-migration) • [Getting Started](#-getting-started) • [API Reference](#-complete-api-reference)
 
 </div>
 
 ---
 
-## 📸 Platform Interface & Highlights
+## 📌 Platform Overview
 
-| **Interactive Kanban Pipeline** | **Smart Contact & Activity Hub** |
-| :---: | :---: |
-| Dynamic deal drag-and-drop, real-time value calculation, and lead conversion. | Multi-tag filtering, duplicate detection, and chronological activity streams. |
+**SCRM (Small CRM)** is designed for growing businesses, startups, and sales teams that need high-velocity deal tracking, enterprise access controls, automated duplicate detection, email open tracking, and comprehensive billing without the bloat, complexity, or vendor lock-in of legacy enterprise suites.
 
-┌──────────────────────────────────────────────────────────────────────────────────┐
-│                                 SCRM DASHBOARD                                   │
-├──────────────┬───────────────────────────────────────────────────────────────────┤
-│  📊 Metrics  │ Total Revenue: $248,500 │ Deals Won: 42 │ Active Leads: 128        │
-├──────────────┼───────────────────────────────────────────────────────────────────┤
-│  📌 Pipeline │ [New] ──> [Contacted] ──> [Qualified] ──> [Proposal] ──> [Won]   │
-│              │  $12k        $45k           $80k           $65k         $248k    │
-├──────────────┼───────────────────────────────────────────────────────────────────┤
-│  ⚡ Quick Actions │ + New Lead   │  📥 Import CSV  │  🔒 Security Logs │ ⚙️ Settings  │
-└──────────────┴───────────────────────────────────────────────────────────────────┘
+Despite its lightweight footprint ("Small"), **SCRM** delivers full enterprise capabilities:
+- **Automatic Database Provisioning & Self-Healing Idempotent Migrations**.
+- **Role-Based Access Control (RBAC)** across Admin, Manager, and Standard User tiers.
+- **Dynamic Micro-Interactions**: Custom spring-interpolated cursor that expands over interactive elements and an ultra-dense 3D halftone background canvas.
+- **1-Click Lead-to-Deal Conversion** with automated follow-up scheduling.
+- **Zero-Dependency Data Portability**: Instant CSV/JSON exports and automated daily encrypted database snapshots.
 
-
----
-
-## 🌟 Core System Features
-
-### 👤 Contact & Company Management
-* **360° Profile Records:** Comprehensive profile storage including multi-email, phone, organization structure, custom tags, and rich-text notes.
-* **Automated Duplicate Engine:** Background matching via phone numbers and email domains with 1-click merge suggestions.
-* **Unified Activity Stream:** Aggregates phone logs, email exchanges, calendar meetings, and team notes into an integrated chronological feed.
-
-### 📊 Lead & Deal Pipeline
-* **Kanban Workflow Board:** Drag-and-drop pipeline stages: `New` ➔ `Contacted` ➔ `Qualified` ➔ `Proposal` ➔ `Won/Lost`.
-* **Lead Conversion Engine:** Transform qualified leads into active contacts, accounts, and deal opportunities with a single click.
-* **Deal Analytics:** Revenue forecasting, probability weighting, win/loss rationale logging, and owner assignment.
-
-### 📅 Tasks, Reminders & Timelines
-* **Intelligent Task Queue:** Assignable to-dos with due-date tracking, priority flags (`High`, `Medium`, `Low`), and automated alerts.
-* **Activity Audit Trail:** Real-time logging of user modifications and interactions per deal and contact card.
-
-### ✉️ Native Email Integration & Tracking
-* **In-App Mailer:** Send emails directly using pre-configured team templates (powered by SMTP/Nodemailer).
-* **Open & Click Analytics:** Embedded invisible tracking pixels and secure link wrappers for real-time engagement monitoring.
-
-### 📈 Reports & Executive Dashboard
-* **Pipeline Velocity & Volume:** Live tracking of deal distribution across all stages.
-* **Sales Performance Matrix:** Conversion ratios, deal lifecycle durations, and rep performance leaderboards.
-* **Overdue Task Monitor:** Instant alert system for unresolved actions and cold leads.
-
-### 📂 Portable Import/Export Engine
-* **Intelligent CSV Importer:** Dynamic field-mapping GUI to onboard existing CRM spreadsheets seamlessly.
-* **Zero Lock-In Data Export:** Secure 1-click database dumps to standard CSV and JSON formats at any time.
+```
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                           SCRM ENTERPRISE DASHBOARD                               │
+├─────────────────┬─────────────────────────────────────────────────────────────────┤
+│  📊 Telemetry   │ Active Pipeline: $255,000 │ Won Revenue: $92,000 │ Win Rate: 48%│
+├─────────────────┼─────────────────────────────────────────────────────────────────┤
+│  📌 Pipeline    │ [New] ──> [Contacted] ──> [Qualified] ──> [Proposal] ──> [Won]  │
+│                 │  $15k         $35k            $85k           $60k        $92k   │
+├─────────────────┼─────────────────────────────────────────────────────────────────┤
+│  ⚡ Operations  │ + New Lead │ ⚡ 1-Click Convert │ 📥 Import CSV │ 🔒 DB Snapshot  │
+└─────────────────┴─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 🛡️ Enterprise Security & Compliance
+## ✨ Core CRM Features
 
-       ┌────────────────────────────────────────┐
-       │        INCOMING CLIENT REQUEST         │
-       └──────────────────┬─────────────────────┘
-                          │
-                          ▼
-       ┌────────────────────────────────────────┐
-       │      IP Rate Limiting & Firewall       │
-       └──────────────────┬─────────────────────┘
-                          │
-                          ▼
-       ┌────────────────────────────────────────┐
-       │  HttpOnly Cookie JWT Auth Verification │
-       └──────────────────┬─────────────────────┘
-                          │
-                          ▼
-       ┌────────────────────────────────────────┐
-       │  Role-Based Access Control (RBAC Check)│
-       └──────────────────┬─────────────────────┘
-                          │
-                          ▼
-       ┌────────────────────────────────────────┐
-       │ Input Sanitization (XSS / SQLi Filter) │
-       └──────────────────┬─────────────────────┘
-                          │
-                          ▼
-       ┌────────────────────────────────────────┐
-       │   DATABASE / PROTECTED CONTROLLER      │
-       └────────────────────────────────────────┘
+### 1. 👥 Contact & Company Intelligence
+- **Comprehensive Profiles**: First and last name segmentation, multi-phone, company associations, lead sources, and multi-tag filtering.
+- **Automated Duplicate Engine**: Real-time background detection matching duplicate emails and phone numbers with an alert banner and **1-Click Merge Dialog**.
+- **Chronological Activity Timeline**: Unified stream tracking phone calls, email dispatches, meetings, notes, and deal stage transitions.
 
-* **Idempotent DB Auto-Migration:** Self-healing backend engine automatically detects missing databases, schemas, or seed tables on boot (`CREATE TABLE IF NOT EXISTS`).
-* **Session Hardening:** Stateless JWT authentication delivered exclusively inside secure, `HttpOnly`, `SameSite=Strict` cookies.
-* **Password Encryption:** High-work-factor salting and hashing utilizing **Bcrypt / Argon2**.
-* **Brute-Force & Flood Defense:** Rate limiting on `/login`, `/signup`, and global API endpoints using Express-Rate-Limit.
-* **Injection Defense:** Prepared parameterized SQL statements and Input Sanitization to prevent XSS and SQL Injection.
-* **Granular RBAC System:** Contextual authorization middleware supporting **Admin**, **Manager**, and **Standard User** permissions.
+### 2. 📊 Interactive Pipeline Kanban
+- **Visual Deal Progression**: Kanban stages pre-seeded with `New` $\rightarrow$ `Contacted` $\rightarrow$ `Qualified` $\rightarrow$ `Proposal` $\rightarrow$ `Won` / `Lost`.
+- **Dynamic Telemetry & Stage Totals**: Real-time sum calculation per stage, expected close dates, and win-rate percentage tracking.
+- **1-Click Lead Conversion**: Instantly converts qualified leads into pipeline deals, automatically creating discovery tasks and logging audit history.
+
+### 3. 📅 Tasks, Reminders & Overdue Alerts
+- **Prioritized Action Queue**: Task creation with `Low`, `Medium`, `High`, and `Urgent` priority flags.
+- **Due Date Tracking & Overdue Warnings**: Visual badges for overdue items, items due today, and completed action items.
+- **Record Linking**: Tasks linked directly to users, contacts, and deal opportunities.
+
+### 4. ✉️ Email Outbox & Pixel Open Tracking
+- **Built-in Dispatcher**: Native email dispatch engine with SMTP support and simulated delivery fallback for local dev.
+- **Reusable Templates**: Pre-configured templates for Welcome/Intro, Deal Follow-Up, Formal Proposal Submission, and Support Resolution.
+- **Transparent Tracking Pixel (`1x1 GIF`)**: Embedded zero-cache tracking pixel (`/api/emails/track/:pixelId`) that captures open timestamps and updates UI badges to `✓ Opened (hh:mm)`.
+
+### 5. 📄 Commercial Quotes & Invoices
+- **Billing Generator**: Issues line-item commercial quotes and tax invoices with unique numbers (`INV-XXXXXX`).
+- **Status Lifecycles**: Workflow states tracking `Draft`, `Sent`, `Paid`, `Overdue`, and `Cancelled`.
+
+### 6. 🛟 Customer Support & Incident Queues
+- **Support Ticketing**: Customer issue ticketing with urgency weighting (`Low`, `Medium`, `High`, `Urgent`) and lifecycle tracking (`Open`, `In Progress`, `Resolved`, `Closed`).
+
+### 7. 📥 Flexible CSV Import & Export Portability
+- **Bulk CSV Importer**: Dynamic column mapping for importing large lead sheets without duplicate collisions.
+- **1-Click Data Export**: Immediate CSV and formatted JSON dumps for complete data portability.
 
 ---
 
-## 🎨 Design System & Visual Polish
+## 🛡️ Cybersecurity Architecture & RBAC
 
-* **Interactive Dot-Cursor:** Custom dynamic dynamic cursor that grows and transforms smoothly when hovering over clickable cards, buttons, and input controls.
-* **Micro-Interactions:** Hardware-accelerated CSS animations (`transform: translateY(-3px)`, glassmorphism cards, state transitions).
-* **Responsive Touch Interface:** Mobile-optimized layout featuring collapsible drawers, swipeable Kanban columns, and touch-friendly target areas.
-* **Dark Mode Aesthetics:** Dark charcoal workspace (`#121212`) accented with high-contrast UI highlights.
+SCRM is engineered following strict security and compliance standards:
+
+```
+                  ┌────────────────────────────────────────┐
+                  │        INCOMING CLIENT REQUEST         │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │    Helmet.js & Strict CORS Policies    │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │ IP Rate Limiting (Express-Rate-Limit)  │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │     Bearer JWT & Token Rotation        │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │    Granular RBAC Permission Check      │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │ Input Sanitization & SQLi Parameterize │
+                  └──────────────────┬─────────────────────┘
+                                     │
+                                     ▼
+                  ┌────────────────────────────────────────┐
+                  │   MICROSOFT SQL SERVER (Sequelize)     │
+                  └────────────────────────────────────────┘
+```
+
+### Security Capabilities
+1. **SQL Injection Defense**: 100% parameterized queries via Sequelize ORM abstraction.
+2. **High-Salt Password Hashing**: Enforced bcrypt hashing with 12 salt rounds (`bcrypt.genSalt(12)`).
+3. **Input Sanitization**: Strips dangerous HTML tags and prevents Cross-Site Scripting (XSS).
+4. **Brute-Force Rate Limiting**: `express-rate-limit` throttles auth endpoints (20 req / 15 min) and API routes (600 req / 15 min).
+5. **Token Rotation**: Short-lived access tokens combined with long-lived rotated refresh tokens (`/api/auth/refresh`).
+6. **Automated Daily Snapshots**: Server-side JSON snapshot creation running every 24 hours in `Backend/backups/`.
+
+### Role-Based Access Control (RBAC) Matrix
+
+| Capability / Permission | Admin | Manager | Standard User |
+| :--- | :---: | :---: | :---: |
+| View Assigned Contacts & Deals | ✅ | ✅ | ✅ |
+| View All Organization Records | ✅ | ✅ | ❌ |
+| Create & Update Records | ✅ | ✅ | ✅ |
+| Convert Leads to Deals | ✅ | ✅ | ✅ |
+| Bulk Import & Export Data | ✅ | ✅ | ❌ |
+| User & Role Management | ✅ | ❌ | ❌ |
+| Trigger Database Snapshots | ✅ | ❌ | ❌ |
+| Download Full Database Backups | ✅ | ❌ | ❌ |
+| Delete Records | ✅ | ❌ | ❌ |
 
 ---
 
-## 🗄️ Database Schema & Auto-Migration
+## 🎨 Design System & Micro-Interactions
 
-The backend execution initializes the following database architecture automatically:
+Built upon a high-contrast industrial palette:
+- **Canvas Dominance**: Obsidian `#181818` (approx. 63% of pixel field).
+- **Transition Bands**: Warm-olive `#303018` and mid-grey `#484848`.
+- **System Accent**: High-voltage neon yellow `#F0FF60` / `#FAFF69` firing on CTAs, active badges, and inverted yellow cards.
+- **Typography Ink**: Primary headings `#F9F9F9` / `#FFFFFF`, body copy `#DFDFDF`, and near-black `#151515` on inverted yellow surfaces.
+- **Hairline Borders**: `#414141` on dark panels and `#4F5101` on yellow-adjacent glass containers.
+- **Semantic Tokens**: `#FB2C36` (red) and `#E17100` (amber) reserved strictly for errors and status alerts.
 
+### Interactive Micro-Interactions
+- **Custom Expanding Cursor (`CustomCursor.jsx`)**: Sleek neon dot with spring physics that smoothly scales from $6\text{px} \rightarrow 36\text{px}$ when hovering over cards, buttons, tabs, and inputs.
+- **3D Halftone Canvas (`HalftoneBackground.jsx`)**: 30,000+ animated dots ($9\text{px}$ grid) reacting with a $220\text{px}$ magnetic radial lens distortion around the cursor.
+- **Smooth Lift-on-Hover**: Interactive cards elevate with `transform: translateY(-2px)` and ambient drop shadows.
+- **Mobile Touch Drawer**: Mobile-friendly navigation drawer with minimum 44px tap targets.
+
+---
+
+## 🗄️ Database Schema & Idempotent Migration
+
+On application startup, [`Backend/src/dbSetup.js`](file:///c:/Users/farma/Desktop/Small%20CRM/Backend/src/dbSetup.js) verifies and executes idempotent DDL:
+
+```
                       ┌──────────────────┐
                       │      USERS       │
                       ├──────────────────┤
                       │ id (PK)          │
-                      │ email            │
-                      │ password_hash    │
+                      │ email (Unique)   │
+                      │ password (Bcrypt)│
                       │ role_id (FK)     │
+                      │ refresh_token    │
                       └────────┬─────────┘
                                │ 1:N
                                ▼
@@ -135,50 +183,197 @@ The backend execution initializes the following database architecture automatica
 │ id (PK)          ├─────►│ id (PK)          ├─────►│ id (PK)          │
 │ name             │ 1:N  │ company_id (FK)  │ 1:N  │ contact_id (FK)  │
 │ domain           │      │ owner_id (FK)    │      │ stage_id (FK)    │
-└──────────────────┘      └────────┬─────────┘      │ value            │
-│                └──────────────────┘
-│ 1:N
-▼
-┌──────────────────┐
-│ TASKS_ACTIVITIES │
-├──────────────────┤
-│ id (PK)          │
-│ related_id (FK)  │
-│ due_date         │
-│ status           │
-└──────────────────┘
-
+│ phone            │      │ status / value   │      │ value / notes    │
+└──────────────────┘      └────────┬─────────┘      └──────────────────┘
+                                   │ 1:N
+                                   ▼
+┌──────────────────┐      ┌──────────────────┐      ┌──────────────────┐
+│      TASKS       │      │  ACTIVITY_LOGS   │      │    EMAIL_LOGS    │
+├──────────────────┤      ├──────────────────┤      ├──────────────────┤
+│ id (PK)          │      │ id (PK)          │      │ id (PK)          │
+│ contactId (FK)   │      │ target_type / id │      │ tracking_pixel_id│
+│ assigned_to (FK) │      │ action / details │      │ is_opened (Bit)  │
+│ status / priority│      │ timestamp        │      │ opened_at        │
+└──────────────────┘      └──────────────────┘      └──────────────────┘
+```
 
 ---
 
-## 🛠️ Tech Stack & Dependencies
+## 🛠️ Tech Stack
 
-### Frontend Framework
-* **Core:** React.js (v18+)
-* **State Management:** React Context API / Redux Toolkit
-* **Styling:** Dynamic CSS3 Variables, Glassmorphism, Responsive Grid System
-* **Icons & UI Assets:** Lucide-React / React-Icons
+### Frontend
+- **Framework**: React 19 + Vite 8
+- **Data Fetching & Cache**: `@tanstack/react-query` v5
+- **Icons**: `lucide-react`
+- **Routing**: `react-router-dom` v7
+- **Styling**: Vanilla CSS3 Tokens + Micro-Interactions
 
-### Backend Infrastructure
-* **Runtime:** Node.js (v18+) & Express.js
-* **Security Middleware:** Helmet.js, CORS, Express-Rate-Limit, Bcrypt.js, JsonWebToken
-* **Data Layer:** PostgreSQL / MySQL / MongoDB (Automated Driver Support)
-* **Email & Tracking:** Nodemailer & Pixel Tracking Engine
+### Backend
+- **Runtime**: Node.js v20+ / Express 5
+- **Database**: Microsoft SQL Server / Express LocalDB
+- **ORM**: Sequelize v6 (`tedious` MSSQL driver)
+- **Security**: Helmet, CORS, Express-Rate-Limit, Bcrypt.js, JsonWebToken
+- **Utilities**: Nodemailer (Email dispatch), Multer (File attachments)
 
 ---
 
 ## 🚀 Getting Started
 
 ### 📋 Prerequisites
-* **Node.js** v18.0.0 or higher
-* **npm** v9.0.0+ or **yarn**
-* **MySQL / PostgreSQL / MongoDB** instance
+- **Node.js** v18+ or v20+
+- **npm** v9+
+- **Microsoft SQL Server** (running locally on port 1433 or remote instance)
 
 ---
 
-### 📥 1. Clone & Environment Setup
+### 📥 1. Installation
+
+Clone the repository and install all dependencies:
 
 ```bash
-# Clone repository
-git clone [https://github.com/farmanullah1/SCRM-CRM-Node-React.js.git](https://github.com/farmanullah1/SCRM-CRM-Node-React.js.git)
+git clone https://github.com/farmanullah1/SCRM-CRM-Node-React.js.git
 cd SCRM-CRM-Node-React.js
+
+# Install root, backend, and frontend dependencies in one command
+npm run install:all
+```
+
+---
+
+### ⚙️ 2. Environment Configuration
+
+Create or verify `Backend/.env`:
+
+```env
+PORT=5000
+NODE_ENV=development
+
+# Microsoft SQL Server Configuration
+DB_NAME=SCRM
+DB_USER=sa
+DB_PASSWORD=YourPassword123!
+DB_SERVER=localhost
+DB_PORT=1433
+DB_ENCRYPT=true
+DB_TRUST_SERVER_CERTIFICATE=true
+
+# Authentication Secrets
+JWT_SECRET=scrm_enterprise_production_jwt_secret_key_2026
+JWT_EXPIRES_IN=2h
+
+# Optional SMTP for Email Dispatch
+SMTP_HOST=smtp.mailgun.org
+SMTP_PORT=587
+SMTP_USER=postmaster@yourdomain.com
+SMTP_PASS=your_smtp_password
+SMTP_FROM="SCRM Team" <noreply@scrm.enterprise>
+```
+
+> **Note:** If SMTP credentials are not provided, SCRM automatically operates in simulated dispatch mode without throwing errors.
+
+---
+
+### 💻 3. Run Development Servers
+
+Start both Backend and Frontend concurrently with a single command:
+
+```bash
+npm run dev
+```
+
+- **Backend API**: `http://localhost:5000`
+- **Frontend Dashboard**: `http://localhost:5173`
+- **Healthcheck & Diagnostics**: `http://localhost:5000/health`
+
+---
+
+### 🧪 4. Automated Verification Suite
+
+Run the built-in end-to-end integration test suite:
+
+```bash
+cd Backend
+node tests/api.test.js
+```
+
+---
+
+## 📡 Complete API Reference
+
+### 🔐 Authentication & Access Control
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/signup` | Public | Register user account with 12-round bcrypt hash |
+| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT + refresh token |
+| `POST` | `/api/auth/refresh` | Public | Rotate refresh token & issue new access token |
+| `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile & permissions |
+| `GET` | `/api/auth/users` | Authenticated | List team users for task & deal assignments |
+| `GET` | `/api/auth/roles` | Authenticated | Inspect system RBAC role definitions |
+
+### 👥 Contacts & Companies
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/contacts` | Authenticated | List contacts with search indexing & tag filters |
+| `POST` | `/api/contacts` | Authenticated | Create new contact record |
+| `PUT` | `/api/contacts/:id` | Authenticated | Update contact details or status |
+| `DELETE` | `/api/contacts/:id` | Admin | Delete contact record |
+| `GET` | `/api/contacts/duplicates`| Authenticated | Automated duplicate detection (email/phone) |
+| `POST` | `/api/contacts/merge` | Authenticated | Merge two duplicate contact records |
+| `POST` | `/api/contacts/:id/convert`| Authenticated | **1-Click Convert Lead** to Contact + Deal |
+| `POST` | `/api/contacts/bulk` | Authenticated | Bulk import contacts via CSV |
+| `GET` | `/api/contacts/export` | Authenticated | Export contacts in CSV or JSON |
+| `GET` | `/api/companies` | Authenticated | List all client companies |
+| `POST` | `/api/companies` | Authenticated | Create company record |
+
+### 📊 Pipeline & Deals
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/deals` | Authenticated | List pipeline deals & stage value totals |
+| `GET` | `/api/deals/stages` | Authenticated | Get pipeline stages (`New` $\rightarrow$ `Won/Lost`) |
+| `GET` | `/api/deals/metrics` | Authenticated | Calculate pipeline velocity & win rates |
+| `POST` | `/api/deals` | Authenticated | Create new pipeline deal |
+| `PUT` | `/api/deals/:id` | Authenticated | Transition deal stage & trigger audit log |
+| `DELETE` | `/api/deals/:id` | Admin | Delete deal record |
+
+### 📅 Tasks & Activities
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/tasks` | Authenticated | List tasks with overdue & due date filters |
+| `POST` | `/api/tasks` | Authenticated | Schedule follow-up task |
+| `PUT` | `/api/tasks/:id` | Authenticated | Update task status (`Pending` $\rightarrow$ `Completed`) |
+| `DELETE` | `/api/tasks/:id` | Authenticated | Delete task |
+| `GET` | `/api/activities` | Authenticated | Retrieve chronological audit trail stream |
+| `POST` | `/api/activities` | Authenticated | Log interaction (call, meeting, note) |
+
+### ✉️ Email Outbox & Tracking
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/emails/templates` | Authenticated | Retrieve reusable message templates |
+| `GET` | `/api/emails` | Authenticated | Sent history with open tracking statuses |
+| `POST` | `/api/emails/send` | Authenticated | Dispatch email & generate tracking pixel |
+| `GET` | `/api/emails/track/:pixelId` | **Public** | **Tracking pixel: logs open timestamp & serves 1x1 GIF** |
+
+### 🔒 Enterprise Safety & Attachments
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/backup/download` | Admin | Download full database JSON dump |
+| `POST` | `/api/backup/snapshot` | Admin | Trigger manual server storage snapshot |
+| `GET` | `/api/backup/history` | Admin | List recent server snapshots |
+| `POST` | `/api/attachments/upload`| Authenticated | Upload document/contract via Multer |
+| `GET` | `/api/attachments/:type/:id`| Authenticated | List attachments for entity |
+
+---
+
+## 🔮 Scalability Modules
+
+- **Workflow Automations** (`/api/integrations/automations`): Round-robin lead routing, proposal stage alerts, and won-deal invoice drafts.
+- **Calendar Synchronization** (`/api/integrations/calendar/sync`): Google Calendar and Microsoft Outlook event sync hooks.
+- **Webhooks** (`/api/integrations/webhooks`): Slack outbound notifications and Zapier integration receivers.
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
+
+Built with precision for small teams requiring enterprise-level capability. **SCRM — Small CRM, Massive Impact.**
