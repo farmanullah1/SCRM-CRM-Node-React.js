@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { LogIn, AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function Login() {
   const { login } = useAuth();
@@ -52,7 +52,7 @@ export default function Login() {
               type="email"
               required
               className="circuit-input"
-              placeholder="agent@scrm.network"
+              placeholder="operator@scrm.io"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
@@ -70,9 +70,9 @@ export default function Login() {
             />
           </div>
 
-          <button type="submit" className="btn-cyan-cta" disabled={loading}>
-            <span>{loading ? "Authenticating..." : "Authorize Access"}</span>
-            {!loading && <ArrowRight size={18} />}
+          <button type="submit" className="button-cta-final" disabled={loading}>
+            <span>{loading ? "Authorizing..." : "Authorize Access"}</span>
+            {!loading && <ArrowRight size={20} />}
           </button>
         </form>
 

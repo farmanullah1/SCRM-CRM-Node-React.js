@@ -3,27 +3,36 @@
   --surface: #09090B;
   --surface-glass: rgba(0, 0, 0, 0.8);
   --border-subtle: rgba(255, 255, 255, 0.08);
-  --border-accent: rgba(0, 217, 255, 0.3);
+  --border-accent: rgba(0, 217, 255, 0.35);
   --text-primary: #FFFFFF;
   --text-secondary: #A1A1AA;
   --accent: #00D9FF;
   --accent-hover: #00B8D9;
   --accent-glow: rgba(0, 217, 255, 0.15);
-  --accent-glow-strong: rgba(0, 217, 255, 0.35);
+  --accent-glow-strong: rgba(0, 217, 255, 0.3);
 
-  --font-display: "Space Grotesk", sans-serif;
-  --font-body: "Plus Jakarta Sans", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   --radius-control: 16px;
   --radius-card: 24px;
+  --radius-card-lg: 40px;
   --radius-pill: 9999px;
+  
+  --spacing-section: 160px;
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.7s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -38,30 +47,30 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Halftone Dot-Matrix Background Texture */
+/* Halftone dot-matrix texture across entire app */
 body::before {
   content: "";
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 0;
-  opacity: 0.55;
-  background-image: radial-gradient(circle, #304848 1px, transparent 1px);
+  opacity: 0.65;
+  background-image: radial-gradient(circle, #304848 1.2px, transparent 1.2px);
   background-size: 24px 24px;
 }
 
-/* Glowing Circuit Motif in the Top Corner */
+/* Glowing circuit / radial motif bled off top-left corner */
 body::after {
   content: "";
   position: fixed;
-  top: -120px;
-  left: -120px;
-  width: 520px;
-  height: 520px;
-  background: radial-gradient(circle, rgba(0, 217, 255, 0.18) 0%, rgba(0, 217, 255, 0.04) 45%, transparent 70%);
+  top: -160px;
+  left: -160px;
+  width: 580px;
+  height: 580px;
+  background: radial-gradient(circle, rgba(0, 217, 255, 0.22) 0%, rgba(0, 217, 255, 0.05) 50%, transparent 72%);
   pointer-events: none;
   z-index: 0;
-  filter: blur(40px);
+  filter: blur(50px);
 }
 
 #root {
@@ -74,12 +83,12 @@ button, input, select, textarea {
   color: inherit;
 }
 
-/* Eyebrow Label Utility */
+/* Eyebrow Label Utility per spec */
 .eyebrow {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.18em;
   color: var(--accent);
 }

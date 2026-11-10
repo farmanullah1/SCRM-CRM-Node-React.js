@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { UserPlus, AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -47,7 +47,7 @@ export default function Signup() {
             01 // REGISTRATION
           </div>
           <h2 className="auth-circuit-title">Initialize Account</h2>
-          <p className="auth-circuit-sub">Deploy your personal CRM command center</p>
+          <p className="auth-circuit-sub">Deploy your personal SCRM command center</p>
         </div>
 
         {error && (
@@ -107,9 +107,9 @@ export default function Signup() {
             />
           </div>
 
-          <button type="submit" className="btn-cyan-cta" disabled={loading}>
+          <button type="submit" className="button-cta-final" disabled={loading}>
             <span>{loading ? "Registering..." : "Create Workspace"}</span>
-            {!loading && <ArrowRight size={18} />}
+            {!loading && <ArrowRight size={20} />}
           </button>
         </form>
 

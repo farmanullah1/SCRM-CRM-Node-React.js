@@ -1,15 +1,10 @@
 /* ==========================================================================
-   Halftone Circuit & Minimalist Electric Cyan Design System
-   Specification Source: minimalist-electric-cyan-portfolio-design.md
+   Halftone Circuit - Complete Layout, Components & Hover Effects Specification
    ========================================================================== */
-
-/* Motion token per specification:
-   Micro-interactions: 0.15s cubic-bezier(0.4, 0, 0.2, 1)
-   Deliberate reveals: 0.7s cubic-bezier(0.4, 0, 0.2, 1)
-*/
 
 /* --------------------------------------------------------------------------
    Navbar: Edge-to-edge full width (100vw, 0px inset, 0px radius), 81px, glass
+   Holds 6 items: logo/name at left, nav links center, utility control at right
    -------------------------------------------------------------------------- */
 .navbar-circuit {
   width: 100vw;
@@ -26,7 +21,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 0 2.5rem;
-  transition: border-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  border-radius: 0px !important;
 }
 
 .nav-brand {
@@ -47,194 +42,231 @@
   justify-content: center;
   background: rgba(0, 217, 255, 0.05);
   box-shadow: 0 0 16px rgba(0, 217, 255, 0.22);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
 }
 
 .nav-brand:hover .brand-glyph {
-  box-shadow: 0 0 24px rgba(0, 217, 255, 0.45);
+  box-shadow: 0 0 24px rgba(0, 217, 255, 0.5);
   background: rgba(0, 217, 255, 0.12);
-  transform: scale(1.03);
+  transform: scale(1.05);
 }
 
 .brand-title {
-  font-family: var(--font-display);
-  font-size: 1.25rem;
+  font-size: 1.4rem;
   font-weight: 900;
   letter-spacing: -0.04em;
   color: var(--text-primary);
   text-transform: uppercase;
 }
 
-.brand-accent {
-  color: var(--accent);
-}
-
-.nav-profile-pill {
+.nav-center-links {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--border-subtle);
-  padding: 0.45rem 1.1rem;
-  border-radius: var(--radius-pill);
-  font-size: 0.8125rem;
+  gap: 2rem;
+}
+
+@media (max-width: 900px) {
+  .nav-center-links {
+    display: none;
+  }
+}
+
+.nav-link-circuit {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   color: var(--text-secondary);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  transition: color var(--transition-fast);
 }
 
-.nav-profile-pill:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.05);
+.nav-link-circuit:hover {
+  color: var(--accent);
+  text-shadow: 0 0 10px rgba(0, 217, 255, 0.4);
 }
 
-/* --------------------------------------------------------------------------
-   Button System
-   -------------------------------------------------------------------------- */
+.nav-right-items {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
 
-/* Hero / Nav Primary Solid Pill:
-   Observed near-white solid pill, ~48px height, full 9999px radius, black text
-*/
-.btn-pill-solid {
+/* Nav Utility Button (Measured in Spec: #FFFFFF fill, #000000 text, 9999px radius, 44px height, 12px 24px padding) */
+.button-nav-utility {
   background: #FFFFFF;
   color: #000000;
   border-radius: var(--radius-pill);
-  height: 48px;
+  height: 44px;
   padding: 12px 24px;
-  font-family: var(--font-display);
   font-weight: 700;
   font-size: 0.875rem;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: 1px solid transparent;
+  border: none;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
   text-decoration: none;
 }
 
-.btn-pill-solid:hover {
+.button-nav-utility:hover {
   background: #E4E4E7;
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+  box-shadow: 0 4px 15px rgba(255, 255, 255, 0.25);
 }
 
-/* Hero Secondary Translucent / Glass Pill:
-   Translucent outline glass, full 9999px radius, white text
-*/
-.btn-pill-glass {
+/* --------------------------------------------------------------------------
+   Buttons per Specification
+   -------------------------------------------------------------------------- */
+
+/* button-primary-hero: #FFFFFF, #000000 text, 9999px radius, ~48px height, 12px 24px padding */
+.button-primary-hero {
+  background: #FFFFFF;
+  color: #000000;
+  border-radius: var(--radius-pill);
+  height: 48px;
+  padding: 12px 24px;
+  font-weight: 700;
+  font-size: 0.9375rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  text-decoration: none;
+}
+
+.button-primary-hero:hover {
+  background: #E4E4E7;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
+}
+
+/* button-secondary-hero: rgba(0,0,0,0.4) glass, outline, 9999px radius, ~48px height */
+.button-secondary-hero {
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  color: var(--text-primary);
+  color: #FFFFFF;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-pill);
   height: 48px;
   padding: 12px 24px;
-  font-family: var(--font-body);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.9375rem;
   display: inline-flex;
   align-items: center;
-  gap: 0.55rem;
+  gap: 0.5rem;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
   text-decoration: none;
 }
 
-.btn-pill-glass:hover {
+.button-secondary-hero:hover {
   background: rgba(255, 255, 255, 0.08);
   border-color: rgba(0, 217, 255, 0.5);
-  box-shadow: 0 0 18px rgba(0, 217, 255, 0.12);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.2);
   transform: translateY(-2px);
 }
 
-/* Final / CTA Button per spec:
+/* button-cta-final:
    background: #00D9FF
    text-color: #000000
-   radius: 16px (control radius, NOT pill)
-   height: 76px (for main forms/CTAs)
-   resting shadow: rgba(0, 217, 255, 0.15) 0px 0px 20px 0px
+   radius: 16px (rounded, not pill)
+   height: 76px
+   padding: 24px 0px
+   shadow: rgba(0, 217, 255, 0.15) 0px 0px 20px 0px
    hover-background: #00B8D9
    hover-shadow: rgba(0, 217, 255, 0.3) 0px 0px 40px 0px
 */
-.btn-cyan-cta {
+.button-cta-final {
   background: #00D9FF;
   color: #000000;
-  border-radius: var(--radius-control);
-  min-height: 56px;
-  padding: 16px 28px;
-  font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 1rem;
+  border-radius: 16px;
+  height: 76px;
+  padding: 24px 0px;
+  font-weight: 900;
+  font-size: 1.125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.65rem;
+  gap: 0.75rem;
   border: none;
   cursor: pointer;
   box-shadow: 0px 0px 20px 0px rgba(0, 217, 255, 0.15);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
   width: 100%;
 }
 
-.btn-cyan-cta:hover:not(:disabled) {
+.button-cta-final:hover:not(:disabled) {
   background: #00B8D9;
-  box-shadow: 0px 0px 40px 0px rgba(0, 217, 255, 0.35);
+  box-shadow: 0px 0px 40px 0px rgba(0, 217, 255, 0.3);
   transform: translateY(-2px);
 }
 
-.btn-cyan-cta:active:not(:disabled) {
+.button-cta-final:active:not(:disabled) {
   transform: translateY(0);
 }
 
-.btn-cyan-cta:disabled {
+.button-cta-final:disabled {
   opacity: 0.5;
   cursor: not-allowed;
   box-shadow: none;
 }
 
 /* --------------------------------------------------------------------------
-   CRM Layout & Hero Stack
+   Layout & Sections (1280px max-width, generous 160px section padding)
    -------------------------------------------------------------------------- */
 .crm-layout {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 3.5rem 1.5rem 7rem;
+  padding: 3rem 1.5rem 0;
   position: relative;
   z-index: 1;
 }
 
+.crm-section-pad {
+  padding-top: 100px;
+  padding-bottom: 100px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Hero Section */
 .crm-hero {
-  margin-bottom: 4rem;
-  animation: fadeInCircuit 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 2.5rem 0 5rem;
+  animation: fadeInCircuit var(--transition-slow);
 }
 
 .hero-display-stack {
-  font-family: var(--font-display);
-  font-size: clamp(2.5rem, 5.8vw, 4.25rem);
+  font-size: clamp(2.8rem, 6.2vw, 4.5rem);
   font-weight: 900;
   line-height: 0.94;
   letter-spacing: -0.04em;
   text-transform: uppercase;
   margin-top: 0.75rem;
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.75rem;
 }
 
 .hero-display-stack .cyan-text {
   color: var(--accent);
-  text-shadow: 0 0 35px rgba(0, 217, 255, 0.35);
+  text-shadow: 0 0 35px rgba(0, 217, 255, 0.4);
 }
 
 .hero-lead-text {
   color: var(--text-secondary);
-  font-size: 1.125rem;
+  font-size: 1.25rem;
   font-weight: 300;
-  max-width: 660px;
   line-height: 1.6;
-  margin-bottom: 2.25rem;
+  max-width: 680px;
+  margin-bottom: 2.5rem;
 }
 
-.hero-action-row {
+.hero-three-button-row {
   display: flex;
   flex-wrap: wrap;
   gap: 1.25rem;
@@ -242,101 +274,88 @@
 }
 
 /* --------------------------------------------------------------------------
-   4-Up Uniform Capability / Metrics Grid (Per Spec: 4-Up Equal Width Cards)
+   Core-capability card (×4 in a single row):
+   Dark surface panel, icon badge (cyan glyph in rounded square) at top, bold heading, 2-3 lines of muted copy
    -------------------------------------------------------------------------- */
-.metrics-4up-grid {
+.capability-4up-row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 24px;
-  margin-bottom: 3.5rem;
-  animation: fadeInCircuit 0.7s cubic-bezier(0.4, 0, 0.2, 1) 0.1s backwards;
+  margin-bottom: 3rem;
 }
 
 @media (max-width: 960px) {
-  .metrics-4up-grid {
+  .capability-4up-row {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
 @media (max-width: 540px) {
-  .metrics-4up-grid {
+  .capability-4up-row {
     grid-template-columns: 1fr;
   }
 }
 
-.metric-card-circuit {
+.core-capability-card {
   background: var(--surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  padding: 1.85rem 1.6rem;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  padding: 2rem 1.6rem;
   position: relative;
   overflow: hidden;
+  transition: all var(--transition-fast);
 }
 
-.metric-card-circuit::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, rgba(0, 217, 255, 0.3), transparent);
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.metric-card-circuit:hover {
+.core-capability-card:hover {
   border-color: var(--border-accent);
   box-shadow: 0 0 30px rgba(0, 217, 255, 0.12);
-  transform: translateY(-3px);
+  transform: translateY(-4px);
 }
 
-.metric-card-circuit:hover::before {
-  opacity: 1;
-}
-
-.metric-icon-badge {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
+.icon-badge-square {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
   background: rgba(0, 217, 255, 0.05);
   border: 1px solid rgba(0, 217, 255, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 1.35rem;
+  margin-bottom: 1.5rem;
   color: var(--accent);
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
 }
 
-.metric-card-circuit:hover .metric-icon-badge {
+.core-capability-card:hover .icon-badge-square {
   background: rgba(0, 217, 255, 0.12);
   border-color: var(--accent);
-  box-shadow: 0 0 15px rgba(0, 217, 255, 0.3);
+  box-shadow: 0 0 18px rgba(0, 217, 255, 0.35);
   transform: scale(1.05);
 }
 
-.metric-val {
-  font-family: var(--font-display);
-  font-size: 2.125rem;
+.capability-card-heading {
+  font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
-  line-height: 1.1;
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.5rem;
 }
 
-.metric-lbl {
+.capability-card-stat {
+  font-size: 1.75rem;
+  font-weight: 900;
+  color: var(--accent);
+  margin-bottom: 0.5rem;
   font-family: var(--font-mono);
-  font-size: 0.725rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
+}
+
+.capability-card-desc {
   color: var(--text-secondary);
+  font-size: 0.875rem;
+  line-height: 1.5;
 }
 
 /* --------------------------------------------------------------------------
-   Controls & Search Glass Panel (blur 12px)
+   Controls & Filter Glass Panel
    -------------------------------------------------------------------------- */
 .controls-glass-panel {
   background: var(--surface-glass);
@@ -344,18 +363,13 @@
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  padding: 1.25rem 1.6rem;
-  margin-bottom: 2.25rem;
+  padding: 1.35rem 1.75rem;
+  margin-bottom: 2.5rem;
   display: flex;
   flex-wrap: wrap;
   gap: 1.25rem;
   align-items: center;
   justify-content: space-between;
-  transition: border-color 0.15s ease;
-}
-
-.controls-glass-panel:focus-within {
-  border-color: rgba(0, 217, 255, 0.3);
 }
 
 .search-field-wrapper {
@@ -371,9 +385,9 @@
   border-radius: var(--radius-control);
   color: var(--text-primary);
   font-size: 0.875rem;
-  padding: 0.8rem 1rem 0.8rem 2.75rem;
+  padding: 0.85rem 1rem 0.85rem 2.85rem;
   outline: none;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
 }
 
 .search-field-input:focus {
@@ -383,12 +397,12 @@
 
 .search-field-icon {
   position: absolute;
-  left: 0.95rem;
+  left: 1rem;
   top: 50%;
   transform: translateY(-50%);
   color: var(--text-secondary);
   pointer-events: none;
-  transition: color 0.15s ease;
+  transition: color var(--transition-fast);
 }
 
 .search-field-input:focus + .search-field-icon,
@@ -402,11 +416,11 @@
   border-radius: var(--radius-control);
   color: var(--text-primary);
   font-size: 0.875rem;
-  font-weight: 500;
-  padding: 0.8rem 1.6rem 0.8rem 1.1rem;
+  font-weight: 600;
+  padding: 0.85rem 1.75rem 0.85rem 1.2rem;
   outline: none;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
 }
 
 .filter-select-circuit:hover {
@@ -426,8 +440,8 @@
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
   overflow: hidden;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.7);
-  transition: border-color 0.2s ease;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.8);
+  transition: border-color var(--transition-fast);
 }
 
 .table-glass-card:hover {
@@ -443,9 +457,9 @@
 .circuit-table th {
   background: rgba(255, 255, 255, 0.02);
   border-bottom: 1px solid var(--border-subtle);
-  padding: 1.15rem 1.6rem;
+  padding: 1.2rem 1.6rem;
   font-family: var(--font-mono);
-  font-size: 0.7rem;
+  font-size: 0.725rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.15em;
@@ -453,12 +467,12 @@
 }
 
 .circuit-table td {
-  padding: 1.3rem 1.6rem;
+  padding: 1.35rem 1.6rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
   font-size: 0.875rem;
   color: var(--text-primary);
   vertical-align: middle;
-  transition: background-color 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color var(--transition-fast);
 }
 
 .circuit-table tr:last-child td {
@@ -466,7 +480,7 @@
 }
 
 .circuit-table tr:hover td {
-  background: rgba(0, 217, 255, 0.025);
+  background: rgba(0, 217, 255, 0.03);
 }
 
 .status-badge-chip {
@@ -479,7 +493,6 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.1em;
-  transition: all 0.15s ease;
 }
 
 .status-lead { background: rgba(0, 217, 255, 0.08); color: var(--accent); border: 1px solid rgba(0, 217, 255, 0.3); }
@@ -493,31 +506,149 @@
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
   border-radius: 10px;
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
 }
 
 .action-icon-btn:hover {
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.06);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
 }
 
 .action-icon-btn.delete:hover {
   color: #f87171;
   border-color: rgba(239, 68, 68, 0.5);
   background: rgba(239, 68, 68, 0.12);
-  box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+  box-shadow: 0 0 18px rgba(239, 68, 68, 0.25);
 }
 
 /* --------------------------------------------------------------------------
-   Modal Dialog (blur 12px, 24px radius card)
+   Asymmetric 2-Column Grid (48%/48% split, 48-80px gap) per Spec:
+   Glass Identity Card (left) & Capability Chips (2×2, 16px radius, blur 12px)
+   -------------------------------------------------------------------------- */
+.asymmetric-2up-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 48px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .asymmetric-2up-grid {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+}
+
+/* card-identity-glass: transparent, backdrop-filter blur(12px), 24px radius, 32px padding */
+.card-identity-glass {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: 32px;
+  transition: all var(--transition-fast);
+}
+
+.card-identity-glass:hover {
+  border-color: var(--border-accent);
+  box-shadow: 0 0 35px rgba(0, 217, 255, 0.1);
+  transform: translateY(-3px);
+}
+
+.identity-headline {
+  font-size: 1.75rem;
+  font-weight: 700;
+  margin: 0.75rem 0 1rem;
+  color: var(--text-primary);
+  line-height: 1.2;
+}
+
+.identity-body {
+  color: var(--text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+/* Capability Chips: 2×2 grid (48/48 rows), 16px radius, blur 12px, 16px padding */
+.capability-chips-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.card-capability-chip {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all var(--transition-fast);
+}
+
+.card-capability-chip:hover {
+  border-color: var(--accent);
+  background: rgba(0, 217, 255, 0.05);
+  box-shadow: 0 0 20px rgba(0, 217, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.chip-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Contact Band: 2-Column Split (Form right, contact details left)
+   Contact form module with uppercase tracked labels & capped by 76px Cyan CTA
+   -------------------------------------------------------------------------- */
+.contact-band-split {
+  display: grid;
+  grid-template-columns: 46% 50%;
+  gap: 48px;
+  align-items: start;
+}
+
+@media (max-width: 900px) {
+  .contact-band-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-details-col {
+  padding-right: 1.5rem;
+}
+
+.contact-form-module {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-card);
+  padding: 32px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.7);
+}
+
+.contact-form-module:hover {
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   Modal Dialog
    -------------------------------------------------------------------------- */
 .modal-overlay-circuit {
   position: fixed;
@@ -537,10 +668,10 @@
   background: var(--surface);
   border: 1px solid var(--border-accent);
   border-radius: var(--radius-card);
-  max-width: 520px;
+  max-width: 540px;
   width: 100%;
   padding: 2.5rem;
-  box-shadow: 0 0 50px rgba(0, 217, 255, 0.16);
+  box-shadow: 0 0 50px rgba(0, 217, 255, 0.18);
   position: relative;
   animation: scaleUpCircuit 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -560,15 +691,13 @@
 }
 
 .modal-title-circuit {
-  font-family: var(--font-display);
-  font-size: 1.55rem;
+  font-size: 1.6rem;
   font-weight: 700;
   color: var(--text-primary);
   text-transform: uppercase;
   letter-spacing: -0.02em;
 }
 
-/* Form inputs */
 .circuit-form-group {
   margin-bottom: 1.35rem;
 }
@@ -591,9 +720,9 @@
   border-radius: var(--radius-control);
   color: var(--text-primary);
   font-size: 0.875rem;
-  padding: 0.8rem 1.1rem;
+  padding: 0.85rem 1.15rem;
   outline: none;
-  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--transition-fast);
 }
 
 .circuit-input:hover {
@@ -606,7 +735,7 @@
 }
 
 /* --------------------------------------------------------------------------
-   Auth Pages (Login / Signup)
+   Auth Pages (Login / Signup) in Full Circuit Aesthetic
    -------------------------------------------------------------------------- */
 .auth-circuit-page {
   min-height: 100vh;
@@ -622,18 +751,18 @@
   background: var(--surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-card);
-  padding: 3.25rem 2.75rem;
+  padding: 3.5rem 2.75rem;
   width: 100%;
   max-width: 450px;
   position: relative;
   box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.85), 0 0 40px rgba(0, 217, 255, 0.08);
   animation: scaleUpCircuit 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .auth-circuit-card:hover {
   border-color: rgba(0, 217, 255, 0.25);
-  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.9), 0 0 50px rgba(0, 217, 255, 0.14);
+  box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.9), 0 0 50px rgba(0, 217, 255, 0.15);
 }
 
 .auth-circuit-card::before {
@@ -652,8 +781,7 @@
 }
 
 .auth-circuit-title {
-  font-family: var(--font-display);
-  font-size: 1.95rem;
+  font-size: 2rem;
   font-weight: 900;
   letter-spacing: -0.03em;
   text-transform: uppercase;
@@ -693,7 +821,7 @@
   font-weight: 700;
   margin-left: 0.4rem;
   position: relative;
-  transition: all 0.15s ease;
+  transition: all var(--transition-fast);
 }
 
 .auth-cyan-link:hover {
@@ -701,11 +829,43 @@
   text-decoration: underline;
 }
 
-/* Animations */
+/* --------------------------------------------------------------------------
+   Footer per Spec:
+   transparent background, no visible link list — just small copyright left, tracked tagline right
+   -------------------------------------------------------------------------- */
+.footer-circuit {
+  width: 100%;
+  background: transparent;
+  padding: 3rem 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  color: var(--text-secondary);
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 600px) {
+  .footer-circuit {
+    flex-direction: column;
+    gap: 1rem;
+    text-align: center;
+  }
+}
+
+.footer-tagline {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.15em;
+  color: var(--text-secondary);
+}
+
+/* Keyframe Animations */
 @keyframes fadeInCircuit {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(12px);
   }
   to {
     opacity: 1;
