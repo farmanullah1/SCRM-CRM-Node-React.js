@@ -19,13 +19,13 @@ export default function HalftoneBackground() {
       y: -1000,
       targetX: -1000,
       targetY: -1000,
-      radius: 200, // Radial influence zone in px
-      maxShift: 18, // Max displacement in px
+      radius: 220, // Radial influence zone in px
+      maxShift: 20, // Max displacement in px
       active: false
     };
 
-    // Grid configuration: High-density matrix (15px gap)
-    const spacing = 15;
+    // Grid configuration: Ultra-dense matrix (9px gap) -> ~30,000+ dots on HD screens
+    const spacing = 9;
     let dots = [];
 
     const initDots = () => {
@@ -45,17 +45,27 @@ export default function HalftoneBackground() {
         for (let c = 0; c < cols; c++) {
           const originX = c * spacing;
           const originY = r * spacing;
+
+          // Palette base:
+          // Subtle variance across transition bands (#303018 warm-olive & #484848 mid-grey)
+          const isWarmBand = (r + c) % 5 === 0;
+          const baseR = isWarmBand ? 48 : 36;
+          const baseG = isWarmBand ? 48 : 36;
+          const baseB = isWarmBand ? 24 : 36;
+
           dots.push({
             originX,
             originY,
             currentX: originX,
             currentY: originY,
-            currentRadius: 1.1,
-            // Subtle harmonic phase for breathing animation
-            phase: (c * 0.15 + r * 0.15) % (Math.PI * 2),
-            currentR: 48,
-            currentG: 48,
-            currentB: 24,
+            currentRadius: 0.9,
+            phase: (c * 0.12 + r * 0.12) % (Math.PI * 2),
+            baseR,
+            baseG,
+            baseB,
+            currentR: baseR,
+            currentG: baseG,
+            currentB: baseB,
             currentAlpha: 0.35
           });
         }
@@ -98,17 +108,17 @@ export default function HalftoneBackground() {
 
     // Render loop
     const render = () => {
-      time += 0.025;
+      time += 0.02;
 
       // Smooth lerp mouse tracking
-      mouse.x += (mouse.targetX - mouse.x) * 0.15;
-      mouse.y += (mouse.targetY - mouse.y) * 0.15;
+      mouse.x += (mouse.targetX - mouse.x) * 0.14;
+      mouse.y += (mouse.targetY - mouse.y) * 0.14;
 
-      // Base background: #181818
+      // Base Canvas Dominance: #181818 confirmed at ~63%
       ctx.fillStyle = "#181818";
       ctx.fillRect(0, 0, width, height);
 
-      // Render dense dot matrix
+      // Render dense dot field
       const count = dots.length;
       for (let i = 0; i < count; i++) {
         const dot = dots[i];
@@ -120,37 +130,37 @@ export default function HalftoneBackground() {
         let targetX = dot.originX;
         let targetY = dot.originY;
 
-        // Base idle state with gentle harmonic pulse
-        const pulse = Math.sin(time + dot.phase) * 0.2;
-        let targetRadius = 1.1 + pulse;
-        let targetR = 48; // #303018 tone
-        let targetG = 48;
-        let targetB = 24;
+        // Subtle ambient harmonic pulse
+        const pulse = Math.sin(time + dot.phase) * 0.15;
+        let targetRadius = 0.9 + pulse;
+        let targetR = dot.baseR;
+        let targetG = dot.baseG;
+        let targetB = dot.baseB;
         let targetAlpha = 0.32;
 
         if (dist < mouse.radius && mouse.active) {
-          // Normalized proximity factor (1 at center, 0 at border)
           const factor = 1 - dist / mouse.radius;
           const quadFactor = factor * factor;
 
-          // Radial displacement away from cursor (bulge / lens field effect)
+          // 3D Spherical lens deformation
           const angle = Math.atan2(dy, dx);
           const shift = quadFactor * mouse.maxShift;
 
           targetX = dot.originX + Math.cos(angle) * shift;
           targetY = dot.originY + Math.sin(angle) * shift;
 
-          // Dot scale expansion on hover: 1.1px -> 3.2px
-          targetRadius = 1.2 + quadFactor * 2.2;
+          // Dynamic Scaling: 0.9px -> 2.8px
+          targetRadius = 1.0 + quadFactor * 1.8;
 
-          // Transition color dynamically to glowing electric yellow #F0FF60 / #FAFF69 (240, 255, 96)
-          targetR = 48 + quadFactor * (240 - 48);
-          targetG = 48 + quadFactor * (255 - 48);
-          targetB = 24 + quadFactor * (96 - 24);
-          targetAlpha = 0.35 + quadFactor * 0.6;
+          // Dynamic Color Transition on Hover:
+          // Shifts to electric yellow #F0FF60 (240, 255, 96) and #FAFF69 (250, 255, 105)
+          targetR = dot.baseR + quadFactor * (240 - dot.baseR);
+          targetG = dot.baseG + quadFactor * (255 - dot.baseG);
+          targetB = dot.baseB + quadFactor * (96 - dot.baseB);
+          targetAlpha = 0.35 + quadFactor * 0.65;
         }
 
-        // Spring lerp physics for organic transition
+        // Spring lerp physics
         dot.currentX += (targetX - dot.currentX) * 0.14;
         dot.currentY += (targetY - dot.currentY) * 0.14;
         dot.currentRadius += (targetRadius - dot.currentRadius) * 0.14;
@@ -159,9 +169,9 @@ export default function HalftoneBackground() {
         dot.currentB += (targetB - dot.currentB) * 0.14;
         dot.currentAlpha += (targetAlpha - dot.currentAlpha) * 0.14;
 
-        // Draw dot
+        // Draw individual dot
         ctx.beginPath();
-        ctx.arc(dot.currentX, dot.currentY, Math.max(0.6, dot.currentRadius), 0, Math.PI * 2);
+        ctx.arc(dot.currentX, dot.currentY, Math.max(0.4, dot.currentRadius), 0, Math.PI * 2);
         ctx.fillStyle = `rgba(${Math.round(dot.currentR)}, ${Math.round(dot.currentG)}, ${Math.round(dot.currentB)}, ${dot.currentAlpha})`;
         ctx.fill();
       }
