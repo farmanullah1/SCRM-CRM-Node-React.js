@@ -27,3 +27,4 @@
 - **Status:** Accepted
 - **Context:** Full database JSON backups should allow complete disaster recovery without leaking password hashes or active refresh tokens.
 - **Decision:** User password hashes (`password`), refresh token strings, and temporary 2FA verification codes are scrubbed from exported JSON dumps.
+

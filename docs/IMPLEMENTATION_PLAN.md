@@ -32,3 +32,4 @@
 - [ ] Enforce strict `organization_id` filter across all custom queries via a tenant-scoped query repository.
 - [ ] Add drag-and-drop support for pipeline kanban columns using `@hello-pangea/dnd`.
 - [ ] Add Stripe subscription billing webhook listener for enterprise cloud tiers.
+
