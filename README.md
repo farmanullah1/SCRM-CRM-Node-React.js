@@ -23,6 +23,9 @@
 **SCRM (Small CRM)** is designed for growing businesses, startups, and sales teams that need high-velocity deal tracking, enterprise access controls, automated duplicate detection, email open tracking, and comprehensive billing without the bloat, complexity, or vendor lock-in of legacy enterprise suites.
 
 Despite its lightweight footprint ("Small"), **SCRM** delivers full enterprise capabilities:
+- **Public Landing Page & Brand Architecture**: Public visitor landing page at `/` with Electric Obsidian visual system, interactive pipeline preview, and dedicated workspace routing at `/app`.
+- **Standalone Inbound Leads Engine & Atomic Qualification**: Strictly decouples unqualified prospects (`leads`) from customer contacts and pipeline deals with 1-click atomic transactional conversion (`Lead` $\rightarrow$ `Contact` + `Company` + `Deal`).
+- **Cryptographic Access Control & Non-Elevatable Signup**: Public registration assigns strictly lowest privilege (`standard_user`), with dedicated permanently-locking first-run administrator provisioning (`/api/auth/setup-admin`).
 - **Automatic Database Provisioning & Self-Healing Idempotent Migrations**.
 - **Role-Based Access Control (RBAC)** across Admin, Manager, and Standard User tiers.
 - **Dynamic Micro-Interactions**: Custom spring-interpolated cursor that expands over interactive elements and an ultra-dense 3D halftone background canvas.
