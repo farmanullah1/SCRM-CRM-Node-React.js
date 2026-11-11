@@ -453,8 +453,6 @@ export default function LandingPage() {
           <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "1.1s" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <Lock size={22} color="#F0FF60" />
-            <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
-              <Lock size={22} color="#F0FF60" />
             </div>
             <h3 style={{ fontSize: "20px", fontWeight: 700, color: "#FFFFFF", marginBottom: "10px" }}>Enterprise Security & Backups</h3>
             <p style={{ color: "#DFDFDF", fontSize: "14px", lineHeight: 1.6, marginBottom: "16px" }}>
@@ -568,12 +566,14 @@ export default function LandingPage() {
             { step: "04", title: "Activity Execution", desc: "Automate follow-up tasks, schedule calls, and record timestamped meeting notes." },
             { step: "05", title: "Billing & Retention", desc: "Issue tracked quotes, invoice accepted contracts, and manage support tickets." }
           ].map((item, idx) => (
-            <div key={idx} style={{
-              backgroundColor: "#202020",
+            <div key={idx} className="interactive-lift scrm-float-gentle" style={{
+              backgroundColor: "rgba(32, 32, 32, 0.78)",
+              backdropFilter: "blur(12px)",
               border: "1px solid #414141",
-              borderRadius: "8px",
+              borderRadius: "10px",
               padding: "24px 18px",
-              position: "relative"
+              position: "relative",
+              animationDelay: `${idx * 0.25}s`
             }}>
               <div style={{
                 fontSize: "24px",
@@ -605,14 +605,16 @@ export default function LandingPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "28px" }}>
           {/* Sovereign Small Team */}
-          <div style={{
-            backgroundColor: "#202020",
+          <div className="interactive-lift scrm-float-gentle" style={{
+            backgroundColor: "rgba(32, 32, 32, 0.8)",
+            backdropFilter: "blur(14px)",
             border: "2px solid #F0FF60",
-            borderRadius: "12px",
+            borderRadius: "14px",
             padding: "36px",
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
+            boxShadow: "0 10px 40px rgba(0, 0, 0, 0.5), 0 0 20px rgba(240, 255, 96, 0.15)"
           }}>
             <div>
               <div style={{
@@ -664,14 +666,16 @@ export default function LandingPage() {
           </div>
 
           {/* Enterprise Support */}
-          <div style={{
-            backgroundColor: "#202020",
+          <div className="interactive-lift scrm-float-gentle" style={{
+            backgroundColor: "rgba(32, 32, 32, 0.78)",
+            backdropFilter: "blur(14px)",
             border: "1px solid #414141",
-            borderRadius: "12px",
+            borderRadius: "14px",
             padding: "36px",
             display: "flex",
             flexDirection: "column",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
+            animationDelay: "0.4s"
           }}>
             <div>
               <div style={{
@@ -738,10 +742,12 @@ export default function LandingPage() {
           {faqItems.map((item, idx) => (
             <div
               key={idx}
+              className="interactive-lift"
               style={{
-                backgroundColor: "#202020",
+                backgroundColor: "rgba(32, 32, 32, 0.78)",
+                backdropFilter: "blur(10px)",
                 border: "1px solid #414141",
-                borderRadius: "8px",
+                borderRadius: "10px",
                 overflow: "hidden"
               }}
             >

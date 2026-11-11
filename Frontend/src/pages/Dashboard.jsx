@@ -105,6 +105,13 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // In-App Toast Notification
+  const [toastMessage, setToastMessage] = useState("");
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(""), 4000);
+  };
+
   // Profile & 2FA Settings State
   const [profileName, setProfileName] = useState(user?.name || "");
   const [currentPassword, setCurrentPassword] = useState("");
@@ -319,8 +326,9 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       setIsLeadModalOpen(false);
       setEditingLead(null);
+      showToast("Inbound lead captured successfully!");
     },
-    onError: (err) => alert(err.response?.data?.error || "Failed to create lead.")
+    onError: (err) => showToast(err.response?.data?.error || "Failed to create lead.")
   });
 
   const updateLeadMutation = useMutation({
@@ -329,16 +337,18 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       setIsLeadModalOpen(false);
       setEditingLead(null);
+      showToast("Lead updated successfully.");
     },
-    onError: (err) => alert(err.response?.data?.error || "Failed to update lead.")
+    onError: (err) => showToast(err.response?.data?.error || "Failed to update lead.")
   });
 
   const deleteLeadMutation = useMutation({
     mutationFn: deleteLead,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
+      showToast("Lead removed from system.");
     },
-    onError: (err) => alert(err.response?.data?.error || "Failed to delete lead.")
+    onError: (err) => showToast(err.response?.data?.error || "Failed to delete lead.")
   });
 
   const convertLeadMutation = useMutation({
@@ -351,9 +361,9 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsLeadConvertModalOpen(false);
       setConvertingLead(null);
-      alert("Lead successfully converted to Contact, Company, and Deal!");
+      showToast("Lead successfully converted to Contact, Company, and Deal!");
     },
-    onError: (err) => alert(err.response?.data?.error || "Failed to convert lead.")
+    onError: (err) => showToast(err.response?.data?.error || "Failed to convert lead.")
   });
 
   const createContactMutation = useMutation({
@@ -394,9 +404,9 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsConvertModalOpen(false);
-      alert(res.message || "Lead converted successfully!");
+      showToast(res.message || "Lead converted successfully!");
     },
-    onError: (err) => alert("Conversion failed: " + (err.response?.data?.error || err.message))
+    onError: (err) => showToast("Conversion failed: " + (err.response?.data?.error || err.message))
   });
 
   const createCompanyMutation = useMutation({
@@ -455,7 +465,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["emailLogs"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsEmailModalOpen(false);
-      alert("Email dispatched and tracking pixel attached!");
+      showToast("Email dispatched and tracking pixel attached!");
     }
   });
 
@@ -466,7 +476,7 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       setIsDuplicateModalOpen(false);
       setSelectedDuplicate(null);
-      alert("Contacts merged cleanly!");
+      showToast("Contacts merged cleanly!");
     }
   });
 
@@ -474,17 +484,17 @@ export default function Dashboard() {
     mutationFn: createDatabaseSnapshot,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["backupHistory"] });
-      alert("Snapshot successfully created in server storage!");
+      showToast("Snapshot successfully created in server storage!");
     }
   });
 
   const toggle2FAMutation = useMutation({
     mutationFn: toggle2FA,
     onSuccess: (data) => {
-      alert(data.message);
+      showToast(data.message);
       if (refreshUser) refreshUser();
     },
-    onError: (err) => alert(err.response?.data?.error || "Failed to toggle 2FA")
+    onError: (err) => showToast(err.response?.data?.error || "Failed to toggle 2FA")
   });
 
   const updateProfileMutation = useMutation({
@@ -501,7 +511,7 @@ export default function Dashboard() {
   // Export to CSV
   const handleExportCSV = () => {
     if (contacts.length === 0) {
-      alert("No contacts to export.");
+      showToast("No contacts to export.");
       return;
     }
     const headers = ["ID", "Name", "Email", "Phone", "Company", "Status", "Value", "LeadSource", "Tags"];
@@ -524,6 +534,7 @@ export default function Dashboard() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showToast("Contacts exported to CSV successfully.");
   };
 
   // Import CSV text
@@ -549,17 +560,17 @@ export default function Dashboard() {
         }
       }
       if (parsedContacts.length === 0) {
-        alert("No valid contacts found in CSV text.");
+        showToast("No valid contacts found in CSV text.");
         return;
       }
       const res = await bulkImportContacts(parsedContacts);
-      alert(res.message);
+      showToast(res.message);
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       setIsImportModalOpen(false);
       setCsvText("");
     } catch (e) {
-      alert("Import error: " + (e.response?.data?.error || e.message));
+      showToast("Import error: " + (e.response?.data?.error || e.message));
     }
   };
 
@@ -2643,6 +2654,16 @@ export default function Dashboard() {
                 <button type="submit" className="btn-primary-yellow">Submit Ticket</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Floating In-App Toast Notification */}
+      {toastMessage && (
+        <div className="scrm-toast-container">
+          <div className="scrm-toast-bubble">
+            <CheckCircle2 size={16} color="#F0FF60" />
+            <span>{toastMessage}</span>
           </div>
         </div>
       )}
