@@ -1,46 +1,29 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48" fill="none">
   <defs>
-    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+    <linearGradient id="scrmFavGrad" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#181818" />
-      <stop offset="50%" stop-color="#303018" />
-      <stop offset="100%" stop-color="#181818" />
+      <stop offset="50%" stop-color="#242514" />
+      <stop offset="100%" stop-color="#121212" />
     </linearGradient>
-    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="1.5" result="blur" />
-      <feComposite in="SourceGraphic" in2="blur" operator="over" />
-    </filter>
+    <linearGradient id="scrmFavAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAFF69" />
+      <stop offset="100%" stop-color="#F0FF60" />
+    </linearGradient>
   </defs>
-  
-  <!-- Outer Shield Outline -->
-  <path d="M32 4 L54 14 V28 C54 44 32 58 32 58 C32 58 10 44 10 28 V14 Z" 
-        fill="url(#shieldGrad)" 
-        stroke="#F0FF60" 
-        stroke-width="2.5" 
-        stroke-linejoin="round" />
-        
-  <!-- Subtle Internal Hairline -->
-  <path d="M32 9 L49 17 V28 C49 40 32 51 32 51 C32 51 15 40 15 28 V17 Z" 
-        fill="none" 
-        stroke="#4F5101" 
-        stroke-width="1" />
 
-  <!-- Dynamic CRM Graph Bars -->
-  <!-- Bar 1 (Left) -->
-  <rect x="20" y="32" width="5" height="10" rx="1.5" fill="#484848" stroke="#414141" stroke-width="0.8" />
-  
-  <!-- Bar 2 (Middle) -->
-  <rect x="29.5" y="24" width="5" height="18" rx="1.5" fill="#DFDFDF" stroke="#414141" stroke-width="0.8" />
-  
-  <!-- Bar 3 (Right - Hero Growth) -->
-  <rect x="39" y="18" width="5" height="24" rx="1.5" fill="#F0FF60" filter="url(#glow)" />
+  <!-- Container -->
+  <rect x="2" y="2" width="44" height="44" rx="10" fill="url(#scrmFavGrad)" stroke="#414141" stroke-width="1.2" />
+  <rect x="4" y="4" width="40" height="40" rx="8" stroke="#4F5101" stroke-width="0.8" opacity="0.7" />
 
-  <!-- Trend Line Connector -->
-  <path d="M22.5 32 L32 24 L41.5 18" 
-        fill="none" 
-        stroke="#FAFF69" 
-        stroke-width="2" 
+  <!-- S Circuit -->
+  <path d="M34 14 C34 10.5 30 8.5 24 8.5 C16.5 8.5 13 12.5 13 17 C13 22.5 18 24 24 25.5 C30 27 35 28.5 35 34 C35 39.5 30.5 42.5 24 42.5 C16 42.5 12 38.5 12 34" 
+        stroke="url(#scrmFavAccent)" 
+        stroke-width="3.8" 
         stroke-linecap="round" 
         stroke-linejoin="round" />
-        
-  <circle cx="41.5" cy="18" r="2.5" fill="#FFFFFF" stroke="#181818" stroke-width="1" />
+
+  <!-- Relationship Nodes -->
+  <circle cx="34" cy="14" r="3.2" fill="#FFFFFF" stroke="#181818" stroke-width="1.5" />
+  <circle cx="24" cy="25.5" r="2.8" fill="#F0FF60" stroke="#181818" stroke-width="1.2" />
+  <circle cx="12" cy="34" r="3.2" fill="#FAFF69" stroke="#181818" stroke-width="1.5" />
 </svg>

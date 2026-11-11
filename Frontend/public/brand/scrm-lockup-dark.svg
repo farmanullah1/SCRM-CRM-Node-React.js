@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 220 48" width="220" height="48" fill="none">
+  <defs>
+    <linearGradient id="scrmLockMarkDark" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#181818" />
+      <stop offset="50%" stop-color="#242514" />
+      <stop offset="100%" stop-color="#121212" />
+    </linearGradient>
+    <linearGradient id="scrmLockAccent" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FAFF69" />
+      <stop offset="100%" stop-color="#F0FF60" />
+    </linearGradient>
+  </defs>
+
+  <!-- Mark -->
+  <g transform="translate(0, 0)">
+    <rect x="2" y="2" width="44" height="44" rx="10" fill="url(#scrmLockMarkDark)" stroke="#414141" stroke-width="1.2" />
+    <rect x="4" y="4" width="40" height="40" rx="8" stroke="#4F5101" stroke-width="0.8" opacity="0.7" />
+    <path d="M34 14 C34 10.5 30 8.5 24 8.5 C16.5 8.5 13 12.5 13 17 C13 22.5 18 24 24 25.5 C30 27 35 28.5 35 34 C35 39.5 30.5 42.5 24 42.5 C16 42.5 12 38.5 12 34" 
+          stroke="url(#scrmLockAccent)" 
+          stroke-width="3.5" 
+          stroke-linecap="round" 
+          stroke-linejoin="round" />
+    <circle cx="34" cy="14" r="3" fill="#FFFFFF" stroke="#181818" stroke-width="1.5" />
+    <circle cx="24" cy="25.5" r="2.5" fill="#F0FF60" stroke="#181818" stroke-width="1.2" />
+    <circle cx="12" cy="34" r="3" fill="#FAFF69" stroke="#181818" stroke-width="1.5" />
+  </g>
+
+  <!-- Text -->
+  <g transform="translate(58, 0)">
+    <text x="0" y="30" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="28" letter-spacing="0.06em" fill="#FFFFFF">
+      S<tspan fill="#F0FF60">CRM</tspan>
+    </text>
+    <text x="2" y="42" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="8" letter-spacing="0.22em" fill="#DFDFDF" opacity="0.8">
+      SMALL CRM
+    </text>
+  </g>
+</svg>

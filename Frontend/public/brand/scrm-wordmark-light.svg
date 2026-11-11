@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" width="160" height="40" fill="none">
+  <!-- Wordmark for Light Surfaces -->
+  <text x="0" y="28" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="900" font-size="28" letter-spacing="0.08em" fill="#151515">
+    S<tspan fill="#303018">CRM</tspan>
+  </text>
+  <text x="2" y="38" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif" font-weight="600" font-size="7" letter-spacing="0.25em" fill="#484848">
+    SMALL CRM
+  </text>
+</svg>
