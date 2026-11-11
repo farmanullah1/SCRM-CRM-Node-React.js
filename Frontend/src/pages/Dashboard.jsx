@@ -43,7 +43,8 @@ import {
   Sliders,
   ExternalLink,
   Menu,
-  X
+  X,
+  Package
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { 
@@ -91,7 +92,10 @@ import {
   getCalendarSync,
   triggerCalendarSync,
   toggle2FA,
-  updateProfile
+  updateProfile,
+  getProducts,
+  createProduct,
+  deleteProduct
 } from "../services/api";
 import "../App.css";
 
@@ -211,6 +215,17 @@ export default function Dashboard() {
     items: ""
   });
 
+  // Product Catalog Modal (Supply Pillar)
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [productFormData, setProductFormData] = useState({
+    name: "",
+    sku: "",
+    description: "",
+    price: 0,
+    category: "Services",
+    unit: "unit"
+  });
+
   // Ticket Modal
   const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
   const [ticketFormData, setTicketFormData] = useState({
@@ -312,6 +327,12 @@ export default function Dashboard() {
   const { data: automationsData = { automations: [] } } = useQuery({
     queryKey: ["automations"],
     queryFn: getAutomations
+  });
+
+  // Supply Pillar: Products Catalog Query
+  const { data: products = [], refetch: refetchProducts } = useQuery({
+    queryKey: ["products"],
+    queryFn: getProducts
   });
 
   const { data: calendarSyncData = { status: "connected", scheduledEventsCount: 0 } } = useQuery({
@@ -457,6 +478,25 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
       setIsTicketModalOpen(false);
     }
+  });
+
+  const createProductMutation = useMutation({
+    mutationFn: createProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      setIsProductModalOpen(false);
+      showToast("Product registered in supply catalog!");
+    },
+    onError: (err) => showToast(err.response?.data?.error || "Failed to create product.")
+  });
+
+  const deleteProductMutation = useMutation({
+    mutationFn: deleteProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      showToast("Product removed from catalog.");
+    },
+    onError: (err) => showToast(err.response?.data?.error || "Failed to delete product.")
   });
 
   const sendEmailMutation = useMutation({
@@ -675,6 +715,13 @@ export default function Dashboard() {
             <span>Invoices</span>
           </button>
           <button 
+            className={`nav-tab-btn ${activeTab === "catalog" ? "active" : ""}`}
+            onClick={() => setActiveTab("catalog")}
+          >
+            <Package size={15} />
+            <span>Catalog ({products.length})</span>
+          </button>
+          <button 
             className={`nav-tab-btn ${activeTab === "tickets" ? "active" : ""}`}
             onClick={() => setActiveTab("tickets")}
           >
@@ -740,6 +787,7 @@ export default function Dashboard() {
           <button onClick={() => { setActiveTab("tasks"); setMobileMenuOpen(false); }}>Tasks ({pendingTasks.length})</button>
           <button onClick={() => { setActiveTab("activities"); setMobileMenuOpen(false); }}>Activity Log</button>
           <button onClick={() => { setActiveTab("invoices"); setMobileMenuOpen(false); }}>Invoices & Quotes</button>
+          <button onClick={() => { setActiveTab("catalog"); setMobileMenuOpen(false); }}>Supply Catalog ({products.length})</button>
           <button onClick={() => { setActiveTab("tickets"); setMobileMenuOpen(false); }}>Support Tickets ({openTickets.length})</button>
           <button onClick={() => { setActiveTab("emails"); setMobileMenuOpen(false); }}>Outbox</button>
           {user?.role === "admin" && (
@@ -1487,6 +1535,83 @@ export default function Dashboard() {
                   {invoices.length === 0 && (
                     <tr>
                       <td colSpan="6" className="empty-table-cell">No invoices or quotes yet.</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: SUPPLY PILLAR - PRODUCTS CATALOG */}
+        {activeTab === "catalog" && (
+          <div className="invoices-view-stack">
+            <div className="toolbar-circuit">
+              <div>
+                <span className="card-title">Commercial Products & Services Catalog</span>
+                <div style={{ fontSize: "12px", color: "#9E9E9E", marginTop: "2px" }}>
+                  Supply Pillar · Fixed line items, standardized SKU pricing, and stock catalog
+                </div>
+              </div>
+              <button className="btn-primary-yellow" onClick={() => setIsProductModalOpen(true)}>
+                <Plus size={16} />
+                <span>Add Product / Service</span>
+              </button>
+            </div>
+
+            <div className="table-container-circuit">
+              <table className="crm-table">
+                <thead>
+                  <tr>
+                    <th>Item Name</th>
+                    <th>SKU</th>
+                    <th>Category</th>
+                    <th>Unit Price</th>
+                    <th>Unit</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {products.map(p => (
+                    <tr key={p.id}>
+                      <td><strong>{p.name}</strong></td>
+                      <td><span style={{ fontFamily: "monospace", fontSize: "12px", color: "#FAFF69" }}>{p.sku || "—"}</span></td>
+                      <td>{p.category || "Services"}</td>
+                      <td className="value-cell">${(Number(p.price) || 0).toLocaleString()}</td>
+                      <td>{p.unit || "unit"}</td>
+                      <td>
+                        <span style={{
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          padding: "3px 8px",
+                          borderRadius: "4px",
+                          backgroundColor: p.is_active ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)",
+                          color: p.is_active ? "#22C55E" : "#9E9E9E"
+                        }}>
+                          {p.is_active ? "Active" : "Archived"}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          className="action-icon-btn delete"
+                          onClick={() => {
+                            if (window.confirm(`Delete product ${p.name}?`)) {
+                              deleteProductMutation.mutate(p.id);
+                            }
+                          }}
+                          title="Delete Product"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {products.length === 0 && (
+                    <tr>
+                      <td colSpan="7" className="empty-table-cell">
+                        No products registered in catalog yet. Click "+ Add Product / Service" to build your pricing inventory.
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -2652,6 +2777,95 @@ export default function Dashboard() {
               <div className="modal-footer-btns">
                 <button type="button" className="btn-ghost-dark" onClick={() => setIsTicketModalOpen(false)}>Cancel</button>
                 <button type="submit" className="btn-primary-yellow">Submit Ticket</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Product Catalog Modal (Supply Pillar) */}
+      {isProductModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsProductModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Register Product / Service</h3>
+              <button className="modal-close-btn" onClick={() => setIsProductModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              createProductMutation.mutate(productFormData);
+            }}>
+              <div className="form-group-circuit">
+                <label>Item / Service Name *</label>
+                <input 
+                  type="text" 
+                  required 
+                  placeholder="e.g. Enterprise SLA Consulting"
+                  value={productFormData.name} 
+                  onChange={e => setProductFormData({ ...productFormData, name: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>SKU / Code</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. SVC-001"
+                    value={productFormData.sku} 
+                    onChange={e => setProductFormData({ ...productFormData, sku: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Category</label>
+                  <select 
+                    value={productFormData.category} 
+                    onChange={e => setProductFormData({ ...productFormData, category: e.target.value })}
+                  >
+                    <option value="Services">Services</option>
+                    <option value="Hardware">Hardware</option>
+                    <option value="Software License">Software License</option>
+                    <option value="Subscription">Subscription</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Unit Price ($) *</label>
+                  <input 
+                    type="number" 
+                    required 
+                    min="0"
+                    step="0.01"
+                    value={productFormData.price} 
+                    onChange={e => setProductFormData({ ...productFormData, price: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Pricing Unit</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. hour, month, seat"
+                    value={productFormData.unit} 
+                    onChange={e => setProductFormData({ ...productFormData, unit: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Description</label>
+                <textarea 
+                  rows="3" 
+                  placeholder="Service description or line-item notes..."
+                  value={productFormData.description} 
+                  onChange={e => setProductFormData({ ...productFormData, description: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsProductModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Register Product</button>
               </div>
             </form>
           </div>

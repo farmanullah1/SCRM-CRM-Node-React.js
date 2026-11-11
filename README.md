@@ -1,18 +1,18 @@
-# ⚡ SCRM — Small Customer Relationship Management
+# ⚡ SCRM — Secure · Supply · Social · Software · Small · Site
 
 <div align="center">
 
-![SCRM Banner](https://img.shields.io/badge/SCRM-Small_CRM_Enterprise-F0FF60?style=for-the-badge&labelColor=181818&color=F0FF60)
+![SCRM Banner](https://img.shields.io/badge/SCRM-Enterprise_Sovereign_CRM-F0FF60?style=for-the-badge&labelColor=181818&color=F0FF60)
 ![Node Version](https://img.shields.io/badge/Node.js-v20%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![React Version](https://img.shields.io/badge/React-v19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Database](https://img.shields.io/badge/Database-MSSQL%20%7C%20Sequelize-CC292B?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)
 ![Security Standard](https://img.shields.io/badge/Security-RBAC%20%26%20OWASP%20Hardened-blueviolet?style=for-the-badge&logo=shield)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
-**In SCRM, the "S" stands for Small — a lightweight, hyper-fast, enterprise-grade Small Customer Relationship Management platform.**
+**In SCRM, the "S" stands for six core product pillars: Secure, Supply, Social, Software, Small, and Site.**  
 *Engineered with Node.js, Express, React 19, Vite, Microsoft SQL Server, and Sequelize ORM.*
 
-[Platform Overview](#-platform-overview) • [Core Features](#-core-crm-features) • [Cybersecurity Architecture](#-cybersecurity-architecture--rbac) • [Database Schema](#-database-schema--idempotent-migration) • [Getting Started](#-getting-started) • [API Reference](#-complete-api-reference)
+[Platform Overview](#-platform-overview) • [The Six S Pillars](#-the-six-s-pillars) • [Core Features](#-core-crm-features) • [Cybersecurity Architecture](#-cybersecurity-architecture--rbac) • [Database Schema](#-database-schema--idempotent-migration) • [Getting Started](#-getting-started) • [API Reference](#-complete-api-reference)
 
 </div>
 
@@ -20,17 +20,22 @@
 
 ## 📌 Platform Overview
 
-**SCRM (Small CRM)** is designed for growing businesses, startups, and sales teams that need high-velocity deal tracking, enterprise access controls, automated duplicate detection, email open tracking, and comprehensive billing without the bloat, complexity, or vendor lock-in of legacy enterprise suites.
+**SCRM** is designed for growing businesses, startups, service agencies, and agile sales squads that need high-velocity deal tracking, enterprise access controls, automated duplicate detection, email open tracking, and comprehensive billing without the bloat, complexity, or vendor lock-in of legacy enterprise suites.
 
-Despite its lightweight footprint ("Small"), **SCRM** delivers full enterprise capabilities:
-- **Public Landing Page & Brand Architecture**: Public visitor landing page at `/` with Electric Obsidian visual system, interactive pipeline preview, and dedicated workspace routing at `/app`.
-- **Standalone Inbound Leads Engine & Atomic Qualification**: Strictly decouples unqualified prospects (`leads`) from customer contacts and pipeline deals with 1-click atomic transactional conversion (`Lead` $\rightarrow$ `Contact` + `Company` + `Deal`).
-- **Cryptographic Access Control & Non-Elevatable Signup**: Public registration assigns strictly lowest privilege (`standard_user`), with dedicated permanently-locking first-run administrator provisioning (`/api/auth/setup-admin`).
-- **Automatic Database Provisioning & Self-Healing Idempotent Migrations**.
-- **Role-Based Access Control (RBAC)** across Admin, Manager, and Standard User tiers.
-- **Dynamic Micro-Interactions**: Custom spring-interpolated cursor that expands over interactive elements and an ultra-dense 3D halftone background canvas.
-- **1-Click Lead-to-Deal Conversion** with automated follow-up scheduling.
-- **Zero-Dependency Data Portability**: Instant CSV/JSON exports and automated daily encrypted database snapshots.
+---
+
+## 🏛️ The Six S Pillars
+
+SCRM is organized around six foundational operational pillars:
+
+| Pillar | Meaning | Product Responsibility & Implemented Capability |
+| :--- | :--- | :--- |
+| **Secure** | Security-first CRM | 12-round bcrypt hashing, optional email 2FA/TOTP verification, session revocation, automated daily database snapshots, and granular RBAC. |
+| **Supply** | Suppliers & catalog | Product and service catalog, supplier directories, inventory price lists, line-item quotations, and tax-calculated invoices. |
+| **Social** | Customer relationships & collaboration | Rich customer profiles, social links, activity audit feeds, internal notes, mentions, and unified contact-to-company relationships. |
+| **Software** | Extensible developer platform | High-performance REST API, scoped developer API keys, OpenAPI documentation, and outbound webhook dispatchers. |
+| **Small** | Lean, fast & sovereign | Sub-second boot times, low memory consumption, zero telemetry lock-in, and lean dependencies with no massive corporate bloat budget. |
+| **Site** | Website & customer entry points | Public high-conversion landing page, embeddable web-to-lead forms, hosted public quotes/invoices, and transparent 1x1 GIF read-receipt tracking. |
 
 ```
 ┌───────────────────────────────────────────────────────────────────────────────────┐

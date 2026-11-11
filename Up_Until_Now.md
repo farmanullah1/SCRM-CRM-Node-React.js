@@ -10,12 +10,19 @@
 
 ## 1. 🧭 Executive Summary & Core Identity
 
-### 1.1 What is SCRM?
-**SCRM** stands for **Small Customer Relationship Management**.
+### 1.1 What is SCRM & The Six S Pillars
+**SCRM** is organized around **six foundational operational pillars**:
 
-The name is intentional: **the "S" strictly stands for Small**.
-- **"Small" in operational footprint:** Zero enterprise bloatware, sub-second boot times, lean resource consumption, and zero opaque cloud vendor black boxes.
-- **Enterprise-grade in power & capability:** Engineered from day one with 12-round bcrypt authentication, Role-Based Access Control (RBAC), Microsoft SQL Server ACID relational data integrity, automated duplicate detection and 1-click contact merging, atomic lead-to-deal conversion, transparent 1x1 GIF email open tracking, automated daily database snapshots, and an interactive 75,000+ dot halftone background with kinetic wave physics.
+| Pillar | Meaning | Product Responsibility |
+| :--- | :--- | :--- |
+| **Secure** | Security-first CRM | 12-round bcrypt hashing, optional email 2FA/TOTP verification, session revocation, automated daily database snapshots, and granular RBAC. |
+| **Supply** | Suppliers & catalog | Product and service catalog, supplier directories, inventory price lists, line-item quotations, and tax-calculated invoices. |
+| **Social** | Customer relationships & collaboration | Rich customer profiles, social links, activity audit feeds, internal notes, mentions, and unified contact-to-company relationships. |
+| **Software** | Extensible developer platform | High-performance REST API, scoped developer API keys, OpenAPI documentation, and outbound webhook dispatchers. |
+| **Small** | Lean, fast & sovereign | Sub-second boot times, low memory consumption, zero telemetry lock-in, and lean dependencies with no massive corporate bloat budget. |
+| **Site** | Website & customer entry points | Public high-conversion landing page, embeddable web-to-lead forms, hosted public quotes/invoices, and transparent 1x1 GIF read-receipt tracking. |
+
+Historically, the "S" stood solely for Small. Today, SCRM embodies these six pillars while rigorously defending its **lean, small-footprint philosophy** (zero enterprise bloat, sub-second boot times, low memory use).
 
 ### 1.2 Target Audience & Core Philosophy
 SCRM is built for high-velocity sales squads, agencies, startups, consultancies, and independent enterprises that have outgrown fragmented spreadsheets but categorically reject the sluggish, expensive, feature-bloated legacy CRMs. 

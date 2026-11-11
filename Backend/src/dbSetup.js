@@ -387,6 +387,92 @@ export async function ensureDatabaseAndSchema() {
       END
     `);
 
+    // 11. SUPPLY PILLAR: Products Catalog & Suppliers
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'products')
+      BEGIN
+        CREATE TABLE [products] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [name] NVARCHAR(150) NOT NULL,
+          [sku] NVARCHAR(100) NULL,
+          [description] NVARCHAR(MAX) NULL,
+          [price] DECIMAL(12,2) DEFAULT 0.00,
+          [cost] DECIMAL(12,2) DEFAULT 0.00,
+          [unit] NVARCHAR(50) DEFAULT 'unit',
+          [category] NVARCHAR(100) DEFAULT 'Services',
+          [is_active] BIT DEFAULT 1,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'suppliers')
+      BEGIN
+        CREATE TABLE [suppliers] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [name] NVARCHAR(150) NOT NULL,
+          [contact_name] NVARCHAR(150) NULL,
+          [email] NVARCHAR(255) NULL,
+          [phone] NVARCHAR(50) NULL,
+          [category] NVARCHAR(100) DEFAULT 'Vendor',
+          [notes] NVARCHAR(MAX) NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
+    // 12. SOCIAL PILLAR: Entity Comments, Mentions & Shared Notes
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'comments')
+      BEGIN
+        CREATE TABLE [comments] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [entity_type] NVARCHAR(50) NOT NULL,
+          [entity_id] INT NOT NULL,
+          [user_id] INT NOT NULL,
+          [user_name] NVARCHAR(150) NULL,
+          [content] NVARCHAR(MAX) NOT NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
+    // 13. SOFTWARE PILLAR: Developer API Keys & Webhook Subscriptions
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'api_keys')
+      BEGIN
+        CREATE TABLE [api_keys] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [user_id] INT NOT NULL,
+          [name] NVARCHAR(100) NOT NULL,
+          [key_prefix] NVARCHAR(16) NOT NULL,
+          [key_hash] NVARCHAR(255) NOT NULL,
+          [permissions_json] NVARCHAR(MAX) NULL,
+          [last_used_at] DATETIMEOFFSET NULL,
+          [expires_at] DATETIMEOFFSET NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
+    // 14. SITE PILLAR: Web-to-Lead Forms Submissions
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'web_leads')
+      BEGIN
+        CREATE TABLE [web_leads] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [form_id] NVARCHAR(100) DEFAULT 'default-contact-form',
+          [name] NVARCHAR(150) NOT NULL,
+          [email] NVARCHAR(255) NOT NULL,
+          [phone] NVARCHAR(50) NULL,
+          [message] NVARCHAR(MAX) NULL,
+          [ip_address] NVARCHAR(50) NULL,
+          [is_processed] BIT DEFAULT 0,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
     console.log("[Database Init] Idempotent schema migration completed successfully!");
   } catch (err) {
     console.error("[Database Init] Migration error:", err);

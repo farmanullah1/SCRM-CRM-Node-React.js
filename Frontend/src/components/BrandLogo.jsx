@@ -15,6 +15,7 @@ export default function BrandLogo({
   theme = "dark",
   size = 36,
   showTagline = true,
+  taglineText = "SOVEREIGN CRM",
   className = "",
   style = {}
 }) {
@@ -148,7 +149,7 @@ export default function BrandLogo({
               marginTop: "3px"
             }}
           >
-            SMALL CRM
+            {taglineText}
           </span>
         )}
       </div>
@@ -194,7 +195,7 @@ export default function BrandLogo({
                 marginTop: "3px"
               }}
             >
-              SMALL CRM
+              {taglineText}
             </div>
           )}
         </div>
@@ -240,7 +241,7 @@ export default function BrandLogo({
               marginTop: "2px"
             }}
           >
-            SMALL CRM
+            {taglineText}
           </div>
         )}
       </div>

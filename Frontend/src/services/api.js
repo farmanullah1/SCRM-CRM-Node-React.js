@@ -144,4 +144,16 @@ export const testAutomationRule = async (data) => (await API.post("/integrations
 export const getCalendarSync = async () => (await API.get("/integrations/calendar/sync")).data;
 export const triggerCalendarSync = async (data) => (await API.post("/integrations/calendar/sync", data)).data;
 
+// Supply Pillar: Products & Suppliers Catalog
+export const getProducts = async () => (await API.get("/catalog/products")).data;
+export const createProduct = async (data) => (await API.post("/catalog/products", data)).data;
+export const updateProduct = async ({ id, data }) => (await API.put(`/catalog/products/${id}`, data)).data;
+export const deleteProduct = async (id) => (await API.delete(`/catalog/products/${id}`)).data;
+export const getSuppliers = async () => (await API.get("/catalog/suppliers")).data;
+export const createSupplier = async (data) => (await API.post("/catalog/suppliers", data)).data;
+
+// Site Pillar: Web-to-Lead
+export const submitWebLead = async (data) => (await API.post("/site/web-lead", data)).data;
+export const getWebLeads = async () => (await API.get("/site/web-leads")).data;
+
 export default API;

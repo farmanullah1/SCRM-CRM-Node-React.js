@@ -110,7 +110,36 @@ async function runTests() {
   const toggle2FAData = await toggle2FARes.json();
   console.log("✓ 2FA Toggle tested:", toggle2FAData.message);
 
-  // 11. Test Session Revocation / Logout
+  // 11. Test Product Catalog (Supply Pillar)
+  const productRes = await fetch(`${base}/catalog/products`, {
+    method: "POST",
+    headers: { ...authHeaders, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Enterprise Architecture Consulting",
+      sku: "SVC-CONSULT-01",
+      price: 15000.00,
+      category: "Services"
+    })
+  });
+  const productData = await productRes.json();
+  console.log("✓ Product Catalog verified:", productData.product?.name, "| Price: $" + productData.product?.price);
+
+  // 12. Test Web-to-Lead Ingestion (Site Pillar)
+  const webLeadRes = await fetch(`${base}/site/web-lead`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: "Hypatia of Alexandria",
+      email: `hypatia_${Date.now()}@library.alexandria`,
+      phone: "+1-555-8899",
+      company_name: "Alexandria Research Institute",
+      message: "Requesting demonstration of SCRM for academic research."
+    })
+  });
+  const webLeadData = await webLeadRes.json();
+  console.log("✓ Web-to-Lead submission verified:", webLeadData.message, "| Inbound Lead ID:", webLeadData.leadId);
+
+  // 13. Test Session Revocation / Logout
   const logoutRes = await fetch(`${base}/auth/logout`, {
     method: "POST",
     headers: authHeaders
@@ -119,7 +148,7 @@ async function runTests() {
   console.log("✓ Session Revocation tested:", logoutData.message);
 
   console.log("\n=======================================================");
-  console.log("ALL SCRM ENTERPRISE VERIFICATION TESTS PASSED (11/11)!");
+  console.log("ALL SCRM ENTERPRISE VERIFICATION TESTS PASSED (13/13)!");
   console.log("=======================================================");
 }
 

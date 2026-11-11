@@ -28,9 +28,10 @@ export default function HalftoneBackground() {
     const ripples = [];
 
     // Grid configuration:
-    // Spacing = 6.5px -> Higher dots per inch! (over ~55,000 to 75,000 dots on HD/4K)
-    // Base radius = 1.6px (visibly larger, sharper, and more substantial than prior 0.9px)
-    const spacing = 6.5;
+    // Spacing = 5.2px -> Exceptionally high dots-per-inch density (~75,000 to 110,000 dots)
+    // Base radius = 1.85px (noticeably bigger, crisp, solid & tactile)
+    // Hover radius = up to 5.4px with electric yellow aura (#F0FF60)
+    const spacing = 5.2;
     let dots = [];
 
     const initDots = () => {
@@ -53,21 +54,21 @@ export default function HalftoneBackground() {
 
           // Electric Obsidian Palette distribution:
           // Canvas base #181818, with warm-olive (#303018) and mid-grey (#484848) bands
-          const isWarmBand = (r + c) % 6 === 0;
-          const isMidGrey = (r * 2 + c) % 8 === 0;
+          const isWarmBand = (r + c) % 5 === 0;
+          const isMidGrey = (r * 2 + c) % 7 === 0;
           
-          let baseR = 38;
-          let baseG = 38;
-          let baseB = 38;
+          let baseR = 44;
+          let baseG = 44;
+          let baseB = 44;
 
           if (isWarmBand) {
-            baseR = 56;
-            baseG = 56;
-            baseB = 28;
+            baseR = 64;
+            baseG = 64;
+            baseB = 32;
           } else if (isMidGrey) {
-            baseR = 68;
-            baseG = 68;
-            baseB = 68;
+            baseR = 76;
+            baseG = 76;
+            baseB = 76;
           }
 
           dots.push({
@@ -75,16 +76,16 @@ export default function HalftoneBackground() {
             originY,
             currentX: originX,
             currentY: originY,
-            baseRadius: 1.55,
-            currentRadius: 1.55,
-            phase: (c * 0.14 + r * 0.14) % (Math.PI * 2),
+            baseRadius: 1.85,
+            currentRadius: 1.85,
+            phase: (c * 0.16 + r * 0.16) % (Math.PI * 2),
             baseR,
             baseG,
             baseB,
             currentR: baseR,
             currentG: baseG,
             currentB: baseB,
-            currentAlpha: 0.42
+            currentAlpha: 0.50
           });
         }
       }
@@ -163,12 +164,12 @@ export default function HalftoneBackground() {
         let targetY = dot.originY;
 
         // Harmonic organic breathing pulse
-        const pulse = Math.sin(time + dot.phase) * 0.28;
+        const pulse = Math.sin(time + dot.phase) * 0.32;
         let targetRadius = dot.baseRadius + pulse;
         let targetR = dot.baseR;
         let targetG = dot.baseG;
         let targetB = dot.baseB;
-        let targetAlpha = 0.40;
+        let targetAlpha = 0.48;
 
         // Interactive Mouse Lens & Hover Effect
         if (dist < mouse.radius && mouse.active) {
@@ -182,15 +183,15 @@ export default function HalftoneBackground() {
           targetX = dot.originX + Math.cos(angle) * shift;
           targetY = dot.originY + Math.sin(angle) * shift;
 
-          // Dynamic Scaling on hover: 1.55px -> 4.4px
-          targetRadius = dot.baseRadius + quadFactor * 2.85;
+          // Dynamic Scaling on hover: 1.85px -> 5.4px
+          targetRadius = dot.baseRadius + quadFactor * 3.55;
 
           // Color Transition on Hover:
           // Shifts to electric yellow #F0FF60 (240, 255, 96) and #FAFF69 (250, 255, 105)
           targetR = dot.baseR + quadFactor * (245 - dot.baseR);
           targetG = dot.baseG + quadFactor * (255 - dot.baseG);
           targetB = dot.baseB + quadFactor * (100 - dot.baseB);
-          targetAlpha = 0.40 + quadFactor * 0.60;
+          targetAlpha = 0.50 + quadFactor * 0.50;
         }
 
         // Ripple wave influence
@@ -201,13 +202,13 @@ export default function HalftoneBackground() {
             const rdy = dot.originY - rp.y;
             const rDist = Math.sqrt(rdx * rdx + rdy * rdy);
             const waveDiff = Math.abs(rDist - rp.radius);
-            if (waveDiff < 36) {
-              const waveFactor = (1 - waveDiff / 36) * rp.strength;
-              targetRadius += waveFactor * 1.8;
+            if (waveDiff < 42) {
+              const waveFactor = (1 - waveDiff / 42) * rp.strength;
+              targetRadius += waveFactor * 2.6;
               targetR += waveFactor * (240 - targetR);
               targetG += waveFactor * (255 - targetG);
               targetB += waveFactor * (96 - targetB);
-              targetAlpha = Math.min(1.0, targetAlpha + waveFactor * 0.5);
+              targetAlpha = Math.min(1.0, targetAlpha + waveFactor * 0.55);
             }
           }
         }

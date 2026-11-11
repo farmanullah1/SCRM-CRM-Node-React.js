@@ -292,6 +292,84 @@ export const Ticket = sequelize.define(
   { tableName: "tickets", timestamps: true }
 );
 
+// 11. SUPPLY PILLAR: Products Catalog Model
+export const Product = sequelize.define(
+  "Product",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    name: { type: DataTypes.STRING(150), allowNull: false },
+    sku: { type: DataTypes.STRING(100), allowNull: true },
+    description: { type: DataTypes.TEXT, allowNull: true },
+    price: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
+    cost: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.00 },
+    unit: { type: DataTypes.STRING(50), defaultValue: "unit" },
+    category: { type: DataTypes.STRING(100), defaultValue: "Services" },
+    is_active: { type: DataTypes.BOOLEAN, defaultValue: true }
+  },
+  { tableName: "products", timestamps: true }
+);
+
+// Supplier / Vendor Model
+export const Supplier = sequelize.define(
+  "Supplier",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    name: { type: DataTypes.STRING(150), allowNull: false },
+    contact_name: { type: DataTypes.STRING(150), allowNull: true },
+    email: { type: DataTypes.STRING(255), allowNull: true },
+    phone: { type: DataTypes.STRING(50), allowNull: true },
+    category: { type: DataTypes.STRING(100), defaultValue: "Vendor" },
+    notes: { type: DataTypes.TEXT, allowNull: true }
+  },
+  { tableName: "suppliers", timestamps: true }
+);
+
+// 12. SOCIAL PILLAR: Comments & Mentions Model
+export const Comment = sequelize.define(
+  "Comment",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    entity_type: { type: DataTypes.STRING(50), allowNull: false },
+    entity_id: { type: DataTypes.INTEGER, allowNull: false },
+    user_id: { type: DataTypes.INTEGER, allowNull: false },
+    user_name: { type: DataTypes.STRING(150), allowNull: true },
+    content: { type: DataTypes.TEXT, allowNull: false }
+  },
+  { tableName: "comments", timestamps: true, updatedAt: false }
+);
+
+// 13. SOFTWARE PILLAR: Developer API Keys Model
+export const ApiKey = sequelize.define(
+  "ApiKey",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    user_id: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(100), allowNull: false },
+    key_prefix: { type: DataTypes.STRING(16), allowNull: false },
+    key_hash: { type: DataTypes.STRING(255), allowNull: false },
+    permissions_json: { type: DataTypes.TEXT, allowNull: true },
+    last_used_at: { type: DataTypes.DATE, allowNull: true },
+    expires_at: { type: DataTypes.DATE, allowNull: true }
+  },
+  { tableName: "api_keys", timestamps: true, updatedAt: false }
+);
+
+// 14. SITE PILLAR: Web-to-Lead Submissions Model
+export const WebLead = sequelize.define(
+  "WebLead",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    form_id: { type: DataTypes.STRING(100), defaultValue: "default-contact-form" },
+    name: { type: DataTypes.STRING(150), allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false },
+    phone: { type: DataTypes.STRING(50), allowNull: true },
+    message: { type: DataTypes.TEXT, allowNull: true },
+    ip_address: { type: DataTypes.STRING(50), allowNull: true },
+    is_processed: { type: DataTypes.BOOLEAN, defaultValue: false }
+  },
+  { tableName: "web_leads", timestamps: true, updatedAt: false }
+);
+
 // Associations
 User.hasMany(Lead, { foreignKey: "owner_id" });
 Lead.belongsTo(User, { foreignKey: "owner_id" });

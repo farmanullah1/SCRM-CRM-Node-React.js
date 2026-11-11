@@ -222,13 +222,14 @@ export default function LandingPage() {
           fontSize: "clamp(16px, 2vw, 19px)",
           lineHeight: 1.6,
           color: "#DFDFDF",
-          maxWidth: "760px",
+          maxWidth: "780px",
           margin: "0 auto 36px",
           textShadow: "0 2px 10px rgba(0, 0, 0, 0.6)"
         }}>
-          <strong>SCRM</strong> (where <em>S stands for Small</em>) eliminates bloated enterprise complexity. 
-          Manage unqualified leads, qualified contacts, deal stage velocity, tasks, and transactional communications 
-          with total control on a robust Microsoft SQL Server foundation.
+          <strong>SCRM</strong> is organized around six foundational product pillars: 
+          <span style={{ color: "#F0FF60", fontWeight: 700 }}> Secure · Supply · Social · Software · Small · Site</span>.
+          Eliminate bloated enterprise complexity while managing unqualified leads, qualified contacts, deal stage velocity, 
+          and transactional communications with sovereign control on a resilient Microsoft SQL Server foundation.
         </p>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "50px" }}>
@@ -364,6 +365,128 @@ export default function LandingPage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* The Six SCRM Product Pillars */}
+      <section id="pillars" style={{ maxWidth: "1200px", margin: "0 auto", padding: "60px 24px 30px" }}>
+        <div style={{ textAlign: "center", marginBottom: "40px" }}>
+          <div style={{ color: "#F0FF60", fontWeight: 700, fontSize: "13px", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "10px" }}>
+            THE SIX CORE PILLARS OF SCRM
+          </div>
+          <h2 style={{ fontSize: "34px", fontWeight: 800, color: "#FFFFFF", marginBottom: "14px" }}>
+            The "S" Stands for Complete Operational Strength
+          </h2>
+          <p style={{ color: "#DFDFDF", maxWidth: "700px", margin: "0 auto", fontSize: "15px", lineHeight: 1.6 }}>
+            SCRM is organized around six verified product disciplines, engineered to provide end-to-end commercial operations without bloated seat taxes.
+          </p>
+        </div>
+
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+          gap: "20px"
+        }}>
+          {[
+            {
+              letter: "S",
+              name: "Secure",
+              role: "Security-First CRM Architecture",
+              desc: "12-round bcrypt hashing, optional email 2FA/TOTP verification, session revocation, automated daily database snapshots, and granular RBAC.",
+              status: "Available"
+            },
+            {
+              letter: "S",
+              name: "Supply",
+              role: "Suppliers & Products Catalog",
+              desc: "Manage commercial product and service catalogs, supplier directories, inventory price lists, line-item quotations, and tax-calculated invoices.",
+              status: "Available"
+            },
+            {
+              letter: "S",
+              name: "Social",
+              role: "Customer Graph & Team Collaboration",
+              desc: "Rich customer social profiles, interaction timelines, shared activity logs, internal notes, and unified contact-to-company relationships.",
+              status: "Available"
+            },
+            {
+              letter: "S",
+              name: "Software",
+              role: "Extensible Developer Platform",
+              desc: "High-performance REST API, scoped developer API keys, OpenAPI documentation, and outbound webhook dispatchers.",
+              status: "Available"
+            },
+            {
+              letter: "S",
+              name: "Small",
+              role: "Lean, Fast & Sovereign",
+              desc: "Sub-second boot times, low memory consumption, zero telemetry lock-in, and lean dependencies with no massive corporate bloat.",
+              status: "Available"
+            },
+            {
+              letter: "S",
+              name: "Site",
+              role: "Website & Customer Entry Points",
+              desc: "Embeddable web-to-lead forms, public quote/invoice views, high-conversion landing page, and transparent 1x1 GIF read-receipt tracking.",
+              status: "Available"
+            }
+          ].map((pillar, pIdx) => (
+            <div
+              key={pIdx}
+              className="interactive-lift scrm-float-gentle"
+              style={{
+                backgroundColor: "rgba(30, 30, 30, 0.78)",
+                backdropFilter: "blur(14px)",
+                border: "1px solid #414141",
+                borderRadius: "12px",
+                padding: "24px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "10px",
+                animationDelay: `${pIdx * 0.15}s`
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{
+                  width: "36px",
+                  height: "36px",
+                  borderRadius: "8px",
+                  backgroundColor: "#303018",
+                  border: "1px solid #4F5101",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontWeight: 900,
+                  fontSize: "18px",
+                  color: "#F0FF60"
+                }}>
+                  {pillar.letter}
+                </div>
+                <span style={{
+                  fontSize: "11px",
+                  fontWeight: 700,
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  padding: "3px 8px",
+                  borderRadius: "4px",
+                  backgroundColor: "rgba(34, 197, 94, 0.15)",
+                  color: "#22C55E",
+                  border: "1px solid rgba(34, 197, 94, 0.35)"
+                }}>
+                  {pillar.status}
+                </span>
+              </div>
+              <h3 style={{ fontSize: "20px", fontWeight: 800, color: "#FFFFFF", margin: "4px 0 0" }}>
+                {pillar.name}
+              </h3>
+              <div style={{ fontSize: "13px", fontWeight: 600, color: "#FAFF69" }}>
+                {pillar.role}
+              </div>
+              <p style={{ fontSize: "13.5px", color: "#DFDFDF", lineHeight: 1.5, margin: 0 }}>
+                {pillar.desc}
+              </p>
+            </div>
+          ))}
         </div>
       </section>
 
@@ -591,16 +714,18 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* Editions / Deployment Tiers */}
+      {/* Planned Editions & Deployment Tiers */}
       <section id="pricing" style={{ maxWidth: "1000px", margin: "0 auto", padding: "80px 24px" }}>
         <div style={{ textAlign: "center", marginBottom: "50px" }}>
           <div style={{ color: "#F0FF60", fontWeight: 700, fontSize: "13px", letterSpacing: "0.15em", textTransform: "uppercase", marginBottom: "12px" }}>
-            DEPLOYMENT EDITIONS
+            DEPLOYMENT & PLANNED PRICING TIERS
           </div>
           <h2 style={{ fontSize: "36px", fontWeight: 800, color: "#FFFFFF", marginBottom: "16px" }}>
             Predictable, Sovereign Ownership
           </h2>
-          <p style={{ color: "#DFDFDF", fontSize: "16px" }}>No per-seat penalties. Grow your team without recurring licensing spikes.</p>
+          <p style={{ color: "#DFDFDF", fontSize: "16px" }}>
+            SCRM Core is 100% free and open for self-hosted deployment on your private infrastructure. No artificial paywalls or fake checkout traps.
+          </p>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "28px" }}>
@@ -804,8 +929,8 @@ export default function LandingPage() {
         }}>
           <div>
             <BrandLogo variant="horizontal" size={32} showTagline={true} />
-            <p style={{ fontSize: "13px", color: "#9E9E9E", marginTop: "10px", maxWidth: "340px" }}>
-              Small Customer Relationship Management. Focused, sovereign, and engineered for high-velocity teams.
+            <p style={{ fontSize: "13px", color: "#9E9E9E", marginTop: "10px", maxWidth: "420px" }}>
+              SCRM: Secure · Supply · Social · Software · Small · Site. Sovereign, high-velocity CRM engineered for everyday business productivity.
             </p>
           </div>
 

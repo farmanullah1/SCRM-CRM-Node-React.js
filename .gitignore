@@ -14,3 +14,8 @@ Backend/backups/*.json
 Backend/uploads/*
 !Backend/backups/.gitkeep
 !Backend/uploads/.gitkeep
+
+Up Until Now.md
+Up_Until_Now.md
+Prompt.md
+SCRM_V3_Master_Upgrade_Implementation_Prompt.md

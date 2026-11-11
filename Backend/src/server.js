@@ -18,6 +18,8 @@ import ticketsRouter from "./routes/tickets.js";
 import backupRouter, { startDailyBackupScheduler } from "./routes/backup.js";
 import attachmentsRouter from "./routes/attachments.js";
 import integrationsRouter from "./routes/integrations.js";
+import catalogRouter from "./routes/catalog.js";
+import webleadsRouter from "./routes/webleads.js";
 import { apiLimiter } from "./middleware/security.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -69,6 +71,8 @@ app.use("/api/tickets", ticketsRouter);
 app.use("/api/backup", backupRouter);
 app.use("/api/attachments", attachmentsRouter);
 app.use("/api/integrations", integrationsRouter);
+app.use("/api/catalog", catalogRouter);
+app.use("/api/site", webleadsRouter);
 
 // System Health & Diagnostics Endpoint
 app.get("/health", (req, res) => {
@@ -95,7 +99,9 @@ app.get("/health", (req, res) => {
       "tickets",
       "backup",
       "attachments",
-      "integrations"
+      "integrations",
+      "catalog_supply",
+      "site_webleads"
     ]
   });
 });
