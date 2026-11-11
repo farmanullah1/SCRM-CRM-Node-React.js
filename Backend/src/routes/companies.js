@@ -1,4 +1,5 @@
 import express from "express";
+import { Op } from "sequelize";
 import { Company, Contact, Deal } from "../db.js";
 import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
 import { sanitizeString } from "../middleware/security.js";
@@ -37,18 +38,48 @@ router.get("/", async (req, res) => {
   }
 });
 
-// GET /api/companies/:id - Get single company with contacts
+// GET /api/companies/:id - Company record with linked contacts, deals and totals
 router.get("/:id", async (req, res) => {
   try {
-    const company = await Company.findByPk(req.params.id, {
-      include: [{ model: Contact }]
-    });
+    const company = await Company.findByPk(req.params.id);
     if (!company) {
       return res.status(404).json({ error: "Company not found" });
     }
-    res.json({ company });
+
+    // Contacts may be linked by company_id or by the legacy company name field.
+    const contacts = await Contact.findAll({
+      where: {
+        [Op.or]: [
+          { company_id: company.id },
+          { company: company.name }
+        ]
+      },
+      order: [["name", "ASC"]]
+    });
+
+    const contactIds = contacts.map((contact) => contact.id);
+    const deals = contactIds.length
+      ? await Deal.findAll({
+          where: { contact_id: { [Op.in]: contactIds } },
+          include: [{ model: Contact, attributes: ["id", "name", "email", "company"] }],
+          order: [["createdAt", "DESC"]]
+        })
+      : [];
+
+    const totals = {
+      contactCount: contacts.length,
+      dealCount: deals.length,
+      openPipelineValue: deals
+        .filter((deal) => !["Won", "Lost"].includes(deal.stage_name || "New"))
+        .reduce((sum, deal) => sum + (Number(deal.value) || 0), 0),
+      wonRevenue: deals
+        .filter((deal) => deal.stage_name === "Won")
+        .reduce((sum, deal) => sum + (Number(deal.value) || 0), 0)
+    };
+
+    res.json({ company, contacts, deals, totals });
   } catch (err) {
-    res.status(500).json({ error: "Failed to fetch company details" });
+    res.status(500).json({ error: "Failed to fetch company details", details: err.message });
   }
 });
 

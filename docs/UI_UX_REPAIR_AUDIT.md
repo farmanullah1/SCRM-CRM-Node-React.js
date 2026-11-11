@@ -193,3 +193,18 @@ conversion results disagreed. This pass separated the two concepts.
 - Deal metrics are not time-windowed (no month/quarter filters or forecasting).
 - Leads and companies remain workspace-wide; contacts and deals are owner-scoped for standard users.
 - No pagination on the contacts table or activity feed.
+
+---
+
+## 9. Company records and deal drag-and-drop (November 2026)
+
+| Area | Change |
+|---|---|
+| Company 360 | `GET /api/companies/:id` now returns the account, its linked contacts (by `company_id` or legacy company name), linked deals and totals. Company cards open a record dialog with account details, contact/deal lists and open/won revenue. |
+| Account actions | From the record: open a linked contact, open a linked deal, add a contact pre-filled with the company, edit the account, or delete it as an administrator. |
+| Pipeline | Deal cards are draggable between stage columns; drop updates `Deal.stage_name` through the existing update endpoint. The stage select remains for keyboard and mobile use. |
+| UX | Drop target highlights, dragging card fades, empty columns remain drop targets, and no page-level horizontal overflow is introduced. |
+
+**Verified:** build passed; API suite passed; a seeded company record showed 1 linked contact, 1 linked deal, `$24,000` open pipeline and correct account details; a synthetic drag moved the deal from Proposal to Won, showed `Deal updated.`, and updated the column totals; 1440px layout had zero horizontal overflow. Test company, contact, deal, activity, email and user were deleted afterward.
+
+**Remaining:** drag-and-drop is pointer-only (select remains the accessible alternative); company records do not yet aggregate invoices/tickets; no pagination for large account contact lists.

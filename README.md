@@ -424,3 +424,10 @@ The sales pipeline is now driven by deal records, not contact statuses:
 - Tasks can be edited (title, status, priority, assignee, due date) instead of only completed or deleted.
 
 See `docs/UI_UX_REPAIR_AUDIT.md` for the full change record and verification evidence.
+
+## Company records and pipeline drag-and-drop (November 2026)
+
+- Company cards open an account record with domain, phone, address, linked contacts, linked deals, open pipeline and won revenue.
+- From a company record you can open a linked contact or deal, add a contact pre-linked to the company, or edit the account.
+- Deals can be dragged between pipeline columns; the stage is persisted through the deals API, with the stage menu kept as a keyboard-friendly fallback.
+- `GET /api/companies/:id` now returns `{ company, contacts, deals, totals }`; the existing company list response is unchanged.

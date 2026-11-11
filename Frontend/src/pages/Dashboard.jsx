@@ -83,6 +83,7 @@ import {
   getEmailLogs,
   sendEmail,
   getCompanies,
+  getCompanyById,
   createCompany,
   getDeals,
   getDealMetrics,
@@ -420,8 +421,11 @@ export default function Dashboard() {
   const teamUsers = teamUsersData.users || [];
   const deals = dealsData.deals || [];
 
-  // Contact record drawer
+  // Contact / company record drawers
   const [selectedContactId, setSelectedContactId] = useState(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState(null);
+  const [draggingDealId, setDraggingDealId] = useState(null);
+  const [dragOverStage, setDragOverStage] = useState("");
 
   // Contact record (360) — related deals, tasks and activity stream
   const { data: contactDetail, isLoading: isContactDetailLoading } = useQuery({
@@ -434,6 +438,16 @@ export default function Dashboard() {
     queryFn: () => getContactActivities(selectedContactId),
     enabled: Boolean(selectedContactId)
   });
+
+  const { data: companyRecordData, isLoading: isCompanyRecordLoading } = useQuery({
+    queryKey: ["company", selectedCompanyId],
+    queryFn: () => getCompanyById(selectedCompanyId),
+    enabled: Boolean(selectedCompanyId)
+  });
+  const companyRecord = companyRecordData?.company;
+  const companyContacts = companyRecordData?.contacts || [];
+  const companyDeals = companyRecordData?.deals || [];
+  const companyTotals = companyRecordData?.totals || {};
 
   // Deal create/edit modal
   const [isDealModalOpen, setIsDealModalOpen] = useState(false);
@@ -574,6 +588,7 @@ export default function Dashboard() {
     mutationFn: updateCompany,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["company"] });
       setIsEditCompanyModalOpen(false);
       showToast("Company details updated.");
     },
@@ -584,7 +599,9 @@ export default function Dashboard() {
     mutationFn: deleteCompany,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["company"] });
       setSelectedCompanyDetail(null);
+      setSelectedCompanyId(null);
       showToast("Company removed.");
     },
     onError: (err) => showToast("Failed to delete company: " + (err.response?.data?.error || err.message))
@@ -1010,6 +1027,10 @@ export default function Dashboard() {
     if (contact?.id) setSelectedContactId(contact.id);
   };
 
+  const openCompanyRecord = (company) => {
+    if (company?.id) setSelectedCompanyId(company.id);
+  };
+
   // Convert Lead Handler
   const openConvertModal = (contact) => {
     setConvertingContact(contact);
@@ -1052,7 +1073,8 @@ export default function Dashboard() {
     isTicketModalOpen ||
     isProductModalOpen ||
     isDealModalOpen ||
-    Boolean(selectedContactId);
+    Boolean(selectedContactId) ||
+    Boolean(selectedCompanyId);
 
   const closeAllModals = () => {
     setIsLeadModalOpen(false);
@@ -1071,6 +1093,7 @@ export default function Dashboard() {
     setIsProductModalOpen(false);
     setIsDealModalOpen(false);
     setSelectedContactId(null);
+    setSelectedCompanyId(null);
   };
 
   useModalAccessibility(anyModalOpen, closeAllModals);
@@ -1666,7 +1689,28 @@ export default function Dashboard() {
                 const stageDeals = deals.filter(d => (d.stage_name || "New") === stage);
                 const stageSum = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
                 return (
-                  <div key={stage} className="kanban-column-circuit">
+                  <div
+                    key={stage}
+                    className={`kanban-column-circuit ${dragOverStage === stage ? "drag-over" : ""}`}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+                      if (dragOverStage !== stage) setDragOverStage(stage);
+                    }}
+                    onDragLeave={(e) => {
+                      if (!e.currentTarget.contains(e.relatedTarget)) setDragOverStage("");
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      const droppedId = Number(e.dataTransfer?.getData("text/plain")) || draggingDealId;
+                      const droppedDeal = deals.find(deal => deal.id === droppedId);
+                      setDragOverStage("");
+                      setDraggingDealId(null);
+                      if (droppedDeal && (droppedDeal.stage_name || "New") !== stage) {
+                        updateDealMutation.mutate({ id: droppedId, data: { stage_name: stage } });
+                      }
+                    }}
+                  >
                     <div className="kanban-column-header">
                       <div className="col-title-wrap">
                         <span className="col-title">{stage}</span>
@@ -1677,7 +1721,26 @@ export default function Dashboard() {
 
                     <div className="kanban-cards-stack">
                       {stageDeals.map(d => (
-                        <div key={d.id} className="kanban-card interactive-lift">
+                        <div
+                          key={d.id}
+                          className={`kanban-card interactive-lift ${draggingDealId === d.id ? "is-dragging" : ""}`}
+                          draggable
+                          onDragStart={(e) => {
+                            if (e.target.closest("button,select,input,textarea,a")) {
+                              e.preventDefault();
+                              return;
+                            }
+                            setDraggingDealId(d.id);
+                            if (e.dataTransfer) {
+                              e.dataTransfer.effectAllowed = "move";
+                              e.dataTransfer.setData("text/plain", String(d.id));
+                            }
+                          }}
+                          onDragEnd={() => {
+                            setDraggingDealId(null);
+                            setDragOverStage("");
+                          }}
+                        >
                           <div className="kanban-card-top">
                             <button type="button" className="deal-title-button" onClick={() => openEditDeal(d)} title="Open deal">
                               {d.title}
@@ -1760,7 +1823,9 @@ export default function Dashboard() {
                     <div className="card-header-bar">
                       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                         <Building size={18} color="#F0FF60" />
-                        <span className="card-title">{comp.name}</span>
+                        <button type="button" className="deal-title-button" onClick={() => openCompanyRecord(comp)} title="Open company record">
+                          {comp.name}
+                        </button>
                       </div>
                       <span className="tag-pill">{comp.domain || "Enterprise"}</span>
                     </div>
@@ -1777,6 +1842,10 @@ export default function Dashboard() {
                       </div>
                     </div>
                     <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px", borderTop: "1px solid var(--border-hairline)", paddingTop: "10px" }}>
+                      <button className="btn-ghost-dark small" onClick={() => openCompanyRecord(comp)}>
+                        <Eye size={13} />
+                        <span>Open</span>
+                      </button>
                       <button 
                         className="btn-ghost-dark small" 
                         onClick={() => {
@@ -3801,6 +3870,141 @@ export default function Dashboard() {
                 <button type="submit" className="btn-primary-yellow">Register Product</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: COMPANY RECORD */}
+      {selectedCompanyId && (
+        <div className="modal-overlay-circuit" onClick={() => setSelectedCompanyId(null)}>
+          <div className="modal-box-circuit company-record-modal interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <span className="eyebrow">Company record</span>
+                <h3>{companyRecord?.name || "Loading company…"}</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setSelectedCompanyId(null)}>×</button>
+            </div>
+
+            {isCompanyRecordLoading && <div className="empty-state-notice">Loading company record…</div>}
+
+            {companyRecord && (
+              <>
+                <div className="contact-detail-grid">
+                  <div>
+                    <span className="detail-label">Domain</span>
+                    <span className="detail-value">
+                      {companyRecord.domain
+                        ? <a href={`https://${companyRecord.domain}`} target="_blank" rel="noreferrer">{companyRecord.domain}</a>
+                        : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Phone</span>
+                    <span className="detail-value">{companyRecord.phone || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Address</span>
+                    <span className="detail-value">{companyRecord.address || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Created</span>
+                    <span className="detail-value">{companyRecord.createdAt ? new Date(companyRecord.createdAt).toLocaleDateString() : "—"}</span>
+                  </div>
+                </div>
+
+                <div className="company-metrics">
+                  <div><span className="detail-label">Contacts</span><strong>{companyTotals.contactCount ?? companyContacts.length}</strong></div>
+                  <div><span className="detail-label">Open pipeline</span><strong>${(Number(companyTotals.openPipelineValue) || 0).toLocaleString()}</strong></div>
+                  <div><span className="detail-label">Won revenue</span><strong>${(Number(companyTotals.wonRevenue) || 0).toLocaleString()}</strong></div>
+                  <div><span className="detail-label">Deals</span><strong>{companyTotals.dealCount ?? companyDeals.length}</strong></div>
+                </div>
+
+                <div className="contact-detail-columns">
+                  <div>
+                    <h4 className="contact-detail-section-title">Contacts ({companyContacts.length})</h4>
+                    <div className="contact-detail-list">
+                      {companyContacts.map(c => (
+                        <button
+                          type="button"
+                          className="contact-detail-item link-item"
+                          key={c.id}
+                          onClick={() => { setSelectedCompanyId(null); setSelectedContactId(c.id); }}
+                        >
+                          <span><strong>{c.name}</strong><br />{c.email || "No email"}</span>
+                          <span>{c.status || "New"}</span>
+                        </button>
+                      ))}
+                      {companyContacts.length === 0 && <div className="empty-state-notice">No contacts linked to this company.</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="contact-detail-section-title">Deals ({companyDeals.length})</h4>
+                    <div className="contact-detail-list">
+                      {companyDeals.map(d => (
+                        <button
+                          type="button"
+                          className="contact-detail-item link-item"
+                          key={d.id}
+                          onClick={() => { setSelectedCompanyId(null); openEditDeal(d); }}
+                        >
+                          <span><strong>{d.title}</strong><br />{d.stage_name || "New"}</span>
+                          <span>${(Number(d.value) || 0).toLocaleString()}</span>
+                        </button>
+                      ))}
+                      {companyDeals.length === 0 && <div className="empty-state-notice">No deals linked to this company yet.</div>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="contact-detail-actions">
+                  <button className="btn-primary-yellow small" onClick={() => {
+                    setEditingContact(null);
+                    setContactFormData({
+                      name: "",
+                      email: "",
+                      phone: "",
+                      company: companyRecord.name || "",
+                      status: "New",
+                      value: 0,
+                      leadSource: "Website",
+                      tags: "",
+                      notes: "",
+                      expectedCloseDate: ""
+                    });
+                    setSelectedCompanyId(null);
+                    setIsContactModalOpen(true);
+                  }}>
+                    <Plus size={14} />
+                    <span>Add contact</span>
+                  </button>
+                  <button className="btn-ghost-dark small" onClick={() => {
+                    setEditingCompanyData({
+                      id: companyRecord.id,
+                      name: companyRecord.name || "",
+                      domain: companyRecord.domain || "",
+                      phone: companyRecord.phone || "",
+                      address: companyRecord.address || ""
+                    });
+                    setSelectedCompanyId(null);
+                    setIsEditCompanyModalOpen(true);
+                  }}>
+                    <Edit3 size={14} />
+                    <span>Edit company</span>
+                  </button>
+                  {user?.role === "admin" && (
+                    <button className="btn-ghost-dark small" style={{ color: "#EF4444" }} onClick={() => {
+                      if (window.confirm(`Delete company record for ${companyRecord.name}? Associated contacts will remain.`)) {
+                        deleteCompanyMutation.mutate(companyRecord.id);
+                      }
+                    }}>
+                      <Trash2 size={14} />
+                      <span>Delete</span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
