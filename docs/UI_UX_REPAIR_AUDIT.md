@@ -208,3 +208,21 @@ conversion results disagreed. This pass separated the two concepts.
 **Verified:** build passed; API suite passed; a seeded company record showed 1 linked contact, 1 linked deal, `$24,000` open pipeline and correct account details; a synthetic drag moved the deal from Proposal to Won, showed `Deal updated.`, and updated the column totals; 1440px layout had zero horizontal overflow. Test company, contact, deal, activity, email and user were deleted afterward.
 
 **Remaining:** drag-and-drop is pointer-only (select remains the accessible alternative); company records do not yet aggregate invoices/tickets; no pagination for large account contact lists.
+
+---
+
+## 10. Line-item invoices and quotes (November 2026)
+
+Invoices were previously a single amount with no line items, tax or payment lifecycle. The billing module now stores and renders itemised documents.
+
+| Area | Change |
+|---|---|
+| Data | Additive columns `subtotal`, `tax_rate`, `tax_amount`, `notes`, `issued_date`, `paid_at`; line items remain in the existing `items` JSON column. |
+| Calculation | The API normalizes line items and computes subtotal, tax and total; totals sent by the browser are ignored. |
+| Lifecycle | Statuses Draft, Sent, Paid, Overdue and Void. Marking Paid stores `paid_at`; moving away from Paid clears it. |
+| UI | Line-item editor with catalog autofill, quantity/unit price, live totals and tax rate; invoice record dialog with lines, totals, notes, print, edit, send and mark-paid actions. |
+| List | Invoice table now shows contact, live status/overdue indicator and row actions. |
+
+**Verified:** build passed; API suite passed; a two-line invoice at 10% tax produced `$2,500` subtotal, `$250` tax and `$2,750` total, moved to Paid with `paid_at`, and listed its contact. Browser: detail dialog rendered both lines and totals; editor opened with a line row; zero horizontal overflow. Test invoice, contact, activity, email and user were deleted afterward.
+
+**Remaining:** no PDF renderer (Print uses the browser print dialog), no payment gateway, no partial payments/credits, and no invoice-level attachments.

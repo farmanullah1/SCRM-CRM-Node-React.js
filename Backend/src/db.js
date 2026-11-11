@@ -278,7 +278,13 @@ export const Invoice = sequelize.define(
     amount: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
     status: { type: DataTypes.STRING(20), defaultValue: "Draft" },
     dueDate: { type: DataTypes.DATE, allowNull: true },
-    items: { type: DataTypes.TEXT, allowNull: true }
+    items: { type: DataTypes.TEXT, allowNull: true },
+    subtotal: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
+    tax_rate: { type: DataTypes.DECIMAL(5, 2), defaultValue: 0.0 },
+    tax_amount: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    issued_date: { type: DataTypes.DATE, allowNull: true },
+    paid_at: { type: DataTypes.DATE, allowNull: true }
   },
   { tableName: "invoices", timestamps: true }
 );

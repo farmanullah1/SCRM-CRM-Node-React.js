@@ -505,6 +505,18 @@ export async function ensureDatabaseAndSchema() {
           [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
       END
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'subtotal')
+        ALTER TABLE [invoices] ADD [subtotal] DECIMAL(12,2) DEFAULT 0.00;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'tax_rate')
+        ALTER TABLE [invoices] ADD [tax_rate] DECIMAL(5,2) DEFAULT 0.00;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'tax_amount')
+        ALTER TABLE [invoices] ADD [tax_amount] DECIMAL(12,2) DEFAULT 0.00;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'notes')
+        ALTER TABLE [invoices] ADD [notes] NVARCHAR(MAX) NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'issued_date')
+        ALTER TABLE [invoices] ADD [issued_date] DATETIMEOFFSET NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'paid_at')
+        ALTER TABLE [invoices] ADD [paid_at] DATETIMEOFFSET NULL;
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'tickets')
       BEGIN
         CREATE TABLE [tickets] (

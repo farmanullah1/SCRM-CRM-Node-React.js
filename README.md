@@ -431,3 +431,11 @@ See `docs/UI_UX_REPAIR_AUDIT.md` for the full change record and verification evi
 - From a company record you can open a linked contact or deal, add a contact pre-linked to the company, or edit the account.
 - Deals can be dragged between pipeline columns; the stage is persisted through the deals API, with the stage menu kept as a keyboard-friendly fallback.
 - `GET /api/companies/:id` now returns `{ company, contacts, deals, totals }`; the existing company list response is unchanged.
+
+## Line-item invoices and quotes (November 2026)
+
+- Invoices and quotes now contain line items (catalog item or custom description, quantity, unit price).
+- The server calculates subtotal, tax and total; client-supplied totals are ignored.
+- Status lifecycle: Draft → Sent → Paid, plus Overdue and Void; marking Paid records `paid_at`.
+- Invoice records show bill-to contact, dates, line items, totals and notes, with print, edit, send and mark-paid actions.
+- Additive migration columns: `subtotal`, `tax_rate`, `tax_amount`, `notes`, `issued_date`, `paid_at`.

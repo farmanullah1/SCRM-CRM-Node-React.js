@@ -277,13 +277,17 @@ export default function Dashboard() {
 
   // Invoice / Quote Modal
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [invoiceFormError, setInvoiceFormError] = useState("");
   const [invoiceFormData, setInvoiceFormData] = useState({
     contactId: "",
     type: "Invoice",
-    amount: 0,
     status: "Draft",
     dueDate: "",
-    items: ""
+    taxRate: 0,
+    notes: "",
+    items: [{ productId: "", description: "", quantity: 1, unitPrice: 0 }]
   });
 
   // Product Catalog Modal (Supply Pillar)
@@ -709,14 +713,148 @@ export default function Dashboard() {
     onError: (err) => setActivityFormError(err.response?.data?.error || "Failed to log interaction.")
   });
 
+  const resetInvoiceForm = () => {
+    setEditingInvoice(null);
+    setInvoiceFormError("");
+    setInvoiceFormData({
+      contactId: "",
+      type: "Invoice",
+      status: "Draft",
+      dueDate: "",
+      taxRate: 0,
+      notes: "",
+      items: [{ productId: "", description: "", quantity: 1, unitPrice: 0 }]
+    });
+  };
+
   const createInvoiceMutation = useMutation({
     mutationFn: createInvoice,
+    onSuccess: (invoice) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsInvoiceModalOpen(false);
+      resetInvoiceForm();
+      setSelectedInvoice(invoice);
+      showToast(`${invoice.type} ${invoice.invoiceNumber} created.`);
+    },
+    onError: (err) => setInvoiceFormError(err.response?.data?.error || "Failed to create invoice.")
+  });
+
+  const updateInvoiceMutation = useMutation({
+    mutationFn: updateInvoice,
+    onSuccess: (invoice) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsInvoiceModalOpen(false);
+      resetInvoiceForm();
+      setSelectedInvoice(invoice);
+      showToast("Invoice updated.");
+    },
+    onError: (err) => setInvoiceFormError(err.response?.data?.error || "Failed to update invoice.")
+  });
+
+  const deleteInvoiceMutation = useMutation({
+    mutationFn: deleteInvoice,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
-      setIsInvoiceModalOpen(false);
-      showToast("Invoice created.");
-    }
+      setSelectedInvoice(null);
+      showToast("Invoice removed.");
+    },
+    onError: (err) => showToast(err.response?.data?.error || "Failed to delete invoice.")
   });
+
+  const invoiceStatusMutation = useMutation({
+    mutationFn: updateInvoice,
+    onSuccess: (invoice) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setSelectedInvoice((current) => current?.id === invoice.id ? invoice : current);
+      showToast(`Invoice marked ${invoice.status.toLowerCase()}.`);
+    },
+    onError: (err) => showToast(err.response?.data?.error || "Failed to update invoice status.")
+  });
+
+  const openNewInvoice = () => {
+    resetInvoiceForm();
+    setIsInvoiceModalOpen(true);
+  };
+
+  const parseInvoiceItems = (items) => {
+    if (Array.isArray(items)) return items;
+    if (typeof items === "string") {
+      try {
+        const parsed = JSON.parse(items);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const openEditInvoice = (invoice) => {
+    setEditingInvoice(invoice);
+    setInvoiceFormError("");
+    setInvoiceFormData({
+      contactId: invoice.contactId ? String(invoice.contactId) : "",
+      type: invoice.type || "Invoice",
+      status: invoice.status || "Draft",
+      dueDate: invoice.dueDate ? String(invoice.dueDate).slice(0, 10) : "",
+      taxRate: Number(invoice.tax_rate) || 0,
+      notes: invoice.notes || "",
+      items: parseInvoiceItems(invoice.items).length
+        ? parseInvoiceItems(invoice.items)
+        : [{ productId: "", description: invoice.invoiceNumber || "Line item", quantity: 1, unitPrice: Number(invoice.amount) || 0 }]
+    });
+    setSelectedInvoice(null);
+    setIsInvoiceModalOpen(true);
+  };
+
+  const updateInvoiceItem = (index, patch) => {
+    setInvoiceFormData((current) => ({
+      ...current,
+      items: current.items.map((item, itemIndex) => itemIndex === index ? { ...item, ...patch } : item)
+    }));
+  };
+
+  const addInvoiceItem = () => {
+    setInvoiceFormData((current) => ({
+      ...current,
+      items: [...current.items, { productId: "", description: "", quantity: 1, unitPrice: 0 }]
+    }));
+  };
+
+  const removeInvoiceItem = (index) => {
+    setInvoiceFormData((current) => ({
+      ...current,
+      items: current.items.length > 1 ? current.items.filter((_, itemIndex) => itemIndex !== index) : current.items
+    }));
+  };
+
+  const previewInvoiceTotals = (form) => {
+    const subtotal = (form.items || []).reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unitPrice) || 0),
+      0
+    );
+    const rate = Math.max(0, Number(form.taxRate) || 0);
+    const taxAmount = (subtotal * rate) / 100;
+    return { subtotal, taxAmount, total: subtotal + taxAmount };
+  };
+
+  const printInvoice = (invoice) => {
+    const items = parseInvoiceItems(invoice.items);
+    const escape = (value) => String(value ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+    const rows = items.map(item => `<tr><td>${escape(item.description)}</td><td>${Number(item.quantity) || 0}</td><td>$${(Number(item.unitPrice) || 0).toFixed(2)}</td><td>$${((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toFixed(2)}</td></tr>`).join("");
+    const printWindow = window.open("", "_blank", "width=820,height=900");
+    if (!printWindow) {
+      showToast("Allow pop-ups to print this invoice.");
+      return;
+    }
+    printWindow.document.write(`<!doctype html><html><head><title>${escape(invoice.invoiceNumber)}</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#111}h1{margin:0 0 4px}p{color:#555}table{width:100%;border-collapse:collapse;margin-top:24px}th,td{padding:8px;border-bottom:1px solid #ddd;text-align:left}th{background:#f4f4f4}.totals{margin-top:20px;margin-left:auto;width:280px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.total{font-weight:bold;border-top:2px solid #111;padding-top:8px}</style></head><body><h1>${escape(invoice.type)} ${escape(invoice.invoiceNumber)}</h1><p>Status: ${escape(invoice.status)} · Due: ${invoice.dueDate ? escape(new Date(invoice.dueDate).toLocaleDateString()) : "—"}</p><p>Bill to: ${escape(invoice.Contact?.name || "No contact")}${invoice.Contact?.company ? " · " + escape(invoice.Contact.company) : ""}</p><table><thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="totals"><div><span>Subtotal</span><span>$${(Number(invoice.subtotal) || 0).toFixed(2)}</span></div><div><span>Tax (${Number(invoice.tax_rate) || 0}%)</span><span>$${(Number(invoice.tax_amount) || 0).toFixed(2)}</span></div><div class="total"><span>Total</span><span>$${(Number(invoice.amount) || 0).toFixed(2)}</span></div></div>${invoice.notes ? `<p style="margin-top:24px">${escape(invoice.notes)}</p>` : ""}</body></html>`);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => printWindow.print(), 300);
+  };
 
   const createTicketMutation = useMutation({
     mutationFn: createTicket,
@@ -1074,7 +1212,8 @@ export default function Dashboard() {
     isProductModalOpen ||
     isDealModalOpen ||
     Boolean(selectedContactId) ||
-    Boolean(selectedCompanyId);
+    Boolean(selectedCompanyId) ||
+    Boolean(selectedInvoice);
 
   const closeAllModals = () => {
     setIsLeadModalOpen(false);
@@ -1094,6 +1233,7 @@ export default function Dashboard() {
     setIsDealModalOpen(false);
     setSelectedContactId(null);
     setSelectedCompanyId(null);
+    setSelectedInvoice(null);
   };
 
   useModalAccessibility(anyModalOpen, closeAllModals);
@@ -2015,7 +2155,7 @@ export default function Dashboard() {
           <div className="invoices-view-stack">
             <div className="toolbar-circuit">
               <span className="card-title">Commercial Quotes & Billing Invoices</span>
-              <button className="btn-primary-yellow" onClick={() => setIsInvoiceModalOpen(true)}>
+              <button className="btn-primary-yellow" onClick={openNewInvoice}>
                 <Plus size={16} />
                 <span>Generate Quote / Invoice</span>
               </button>
@@ -2027,26 +2167,54 @@ export default function Dashboard() {
                   <tr>
                     <th>Doc #</th>
                     <th>Type</th>
+                    <th>Contact</th>
                     <th>Amount</th>
                     <th>Status</th>
-                    <th>Due Date</th>
-                    <th>Created</th>
+                    <th>Due</th>
+                    <th style={{ textAlign: "right" }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoices.map(inv => (
                     <tr key={inv.id}>
-                      <td><strong>{inv.invoiceNumber}</strong></td>
+                      <td>
+                        <button type="button" className="contact-name-button" onClick={() => setSelectedInvoice(inv)}>
+                          {inv.invoiceNumber}
+                        </button>
+                      </td>
                       <td>{inv.type}</td>
+                      <td>{inv.Contact?.name || "—"}</td>
                       <td className="value-cell">${(Number(inv.amount) || 0).toLocaleString()}</td>
-                      <td><span className={`status-badge ${inv.status.toLowerCase()}`}>{inv.status}</span></td>
+                      <td>
+                        <span className={`status-badge ${(inv.status || "Draft").toLowerCase()}`}>{inv.status}</span>
+                        {inv.isOverdue && <span className="status-badge overdue" style={{ marginLeft: "6px" }}>Overdue</span>}
+                      </td>
                       <td>{inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : "—"}</td>
-                      <td>{new Date(inv.createdAt).toLocaleDateString()}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <div className="table-actions">
+                          <button className="action-icon-btn" title="View invoice" onClick={() => setSelectedInvoice(inv)}>
+                            <Eye size={14} />
+                          </button>
+                          {!["Paid", "Void"].includes(inv.status) && (
+                            <button className="action-icon-btn" title="Mark as paid" onClick={() => invoiceStatusMutation.mutate({ id: inv.id, data: { status: "Paid" } })}>
+                              <CheckCircle2 size={14} color="#22C55E" />
+                            </button>
+                          )}
+                          <button className="action-icon-btn" title="Edit invoice" onClick={() => openEditInvoice(inv)}>
+                            <Edit3 size={14} />
+                          </button>
+                          <button className="action-icon-btn delete" title="Delete invoice" onClick={() => {
+                            if (window.confirm(`Delete ${inv.type.toLowerCase()} ${inv.invoiceNumber}?`)) deleteInvoiceMutation.mutate(inv.id);
+                          }}>
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                   {invoices.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="empty-table-cell">No invoices or quotes yet.</td>
+                      <td colSpan="7" className="empty-table-cell">No invoices or quotes yet. Generate one from a catalog item or a custom line.</td>
                     </tr>
                   )}
                 </tbody>
@@ -3648,67 +3816,182 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODAL 9: CREATE INVOICE */}
-      {isInvoiceModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsInvoiceModalOpen(false)}>
-          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+      {/* MODAL: INVOICE DETAIL */}
+      {selectedInvoice && (
+        <div className="modal-overlay-circuit" onClick={() => setSelectedInvoice(null)}>
+          <div className="modal-box-circuit invoice-detail-modal interactive-lift" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Generate Quote or Invoice</h3>
-              <button className="modal-close-btn" onClick={() => setIsInvoiceModalOpen(false)}>×</button>
+              <div>
+                <span className="eyebrow">{selectedInvoice.type}</span>
+                <h3>{selectedInvoice.invoiceNumber}</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setSelectedInvoice(null)}>×</button>
             </div>
+
+            <div className="invoice-detail-meta">
+              <div><span className="detail-label">Bill to</span><span className="detail-value">{selectedInvoice.Contact?.name || "No contact"}{selectedInvoice.Contact?.company ? ` · ${selectedInvoice.Contact.company}` : ""}</span></div>
+              <div><span className="detail-label">Status</span><span className="detail-value">{selectedInvoice.status}{selectedInvoice.isOverdue ? " · overdue" : ""}</span></div>
+              <div><span className="detail-label">Issued</span><span className="detail-value">{selectedInvoice.issued_date ? new Date(selectedInvoice.issued_date).toLocaleDateString() : new Date(selectedInvoice.createdAt).toLocaleDateString()}</span></div>
+              <div><span className="detail-label">Due</span><span className="detail-value">{selectedInvoice.dueDate ? new Date(selectedInvoice.dueDate).toLocaleDateString() : "—"}</span></div>
+            </div>
+
+            <div className="table-container-circuit">
+              <table className="crm-table invoice-detail-table">
+                <thead><tr><th>Description</th><th>Qty</th><th>Unit price</th><th>Amount</th></tr></thead>
+                <tbody>
+                  {parseInvoiceItems(selectedInvoice.items).map((item, index) => (
+                    <tr key={index}>
+                      <td>{item.description}</td>
+                      <td>{Number(item.quantity) || 0}</td>
+                      <td>${(Number(item.unitPrice) || 0).toLocaleString()}</td>
+                      <td className="value-cell">${((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString()}</td>
+                    </tr>
+                  ))}
+                  {parseInvoiceItems(selectedInvoice.items).length === 0 && (
+                    <tr><td colSpan="4" className="empty-table-cell">No line items stored on this legacy document.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="invoice-detail-totals">
+              <div><span>Subtotal</span><span>${(Number(selectedInvoice.subtotal) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div><span>Tax ({Number(selectedInvoice.tax_rate) || 0}%)</span><span>${(Number(selectedInvoice.tax_amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div className="invoice-total-row"><span>Total</span><span>${(Number(selectedInvoice.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+            </div>
+
+            {selectedInvoice.notes && <p className="invoice-notes">{selectedInvoice.notes}</p>}
+
+            <div className="modal-footer-btns invoice-detail-actions">
+              <button className="btn-ghost-dark" onClick={() => printInvoice(selectedInvoice)}><FileText size={15} /> Print</button>
+              <button className="btn-ghost-dark" onClick={() => openEditInvoice(selectedInvoice)}><Edit3 size={15} /> Edit</button>
+              {selectedInvoice.status === "Draft" && (
+                <button className="btn-ghost-dark" onClick={() => invoiceStatusMutation.mutate({ id: selectedInvoice.id, data: { status: "Sent" } })}>Mark sent</button>
+              )}
+              {!["Paid", "Void"].includes(selectedInvoice.status) && (
+                <button className="btn-primary-yellow" onClick={() => invoiceStatusMutation.mutate({ id: selectedInvoice.id, data: { status: "Paid" } })}><CheckCircle2 size={15} /> Mark paid</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: CREATE / EDIT INVOICE */}
+      {isInvoiceModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => { setIsInvoiceModalOpen(false); resetInvoiceForm(); }}>
+          <div className="modal-box-circuit invoice-editor-modal interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingInvoice ? `Edit ${editingInvoice.type}` : "New Quote / Invoice"}</h3>
+              <button className="modal-close-btn" onClick={() => { setIsInvoiceModalOpen(false); resetInvoiceForm(); }}>×</button>
+            </div>
+            {invoiceFormError && <div className="error-banner">{invoiceFormError}</div>}
             <form onSubmit={e => {
               e.preventDefault();
-              createInvoiceMutation.mutate({
+              setInvoiceFormError("");
+              const payload = {
                 ...invoiceFormData,
-                invoiceNumber: `INV-${Date.now().toString().slice(-6)}`
-              });
+                taxRate: Number(invoiceFormData.taxRate) || 0,
+                items: invoiceFormData.items.map(item => ({
+                  ...item,
+                  quantity: Number(item.quantity) || 0,
+                  unitPrice: Number(item.unitPrice) || 0
+                }))
+              };
+              if (editingInvoice) {
+                updateInvoiceMutation.mutate({ id: editingInvoice.id, data: payload });
+              } else {
+                createInvoiceMutation.mutate(payload);
+              }
             }}>
               <div className="form-row-2col">
                 <div className="form-group-circuit">
                   <label>Document Type</label>
-                  <select 
-                    value={invoiceFormData.type} 
-                    onChange={e => setInvoiceFormData({ ...invoiceFormData, type: e.target.value })}
-                  >
+                  <select value={invoiceFormData.type} onChange={e => setInvoiceFormData({ ...invoiceFormData, type: e.target.value })}>
                     <option value="Invoice">Tax Invoice</option>
                     <option value="Quote">Commercial Quote</option>
                   </select>
                 </div>
                 <div className="form-group-circuit">
-                  <label>Amount ($) *</label>
-                  <input 
-                    type="number" 
-                    required 
-                    min="0"
-                    value={invoiceFormData.amount} 
-                    onChange={e => setInvoiceFormData({ ...invoiceFormData, amount: e.target.value })} 
-                  />
+                  <label>Status</label>
+                  <select value={invoiceFormData.status} onChange={e => setInvoiceFormData({ ...invoiceFormData, status: e.target.value })}>
+                    <option value="Draft">Draft</option>
+                    <option value="Sent">Sent</option>
+                    <option value="Paid">Paid</option>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Void">Void</option>
+                  </select>
                 </div>
               </div>
 
-              <div className="form-group-circuit">
-                <label>Related Contact</label>
-                <select 
-                  value={invoiceFormData.contactId} 
-                  onChange={e => setInvoiceFormData({ ...invoiceFormData, contactId: e.target.value })}
-                >
-                  <option value="">Select Contact</option>
-                  {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company})</option>)}
-                </select>
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Related Contact</label>
+                  <select value={invoiceFormData.contactId} onChange={e => setInvoiceFormData({ ...invoiceFormData, contactId: e.target.value })}>
+                    <option value="">No contact</option>
+                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company || "No company"})</option>)}
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Due Date</label>
+                  <input type="date" value={invoiceFormData.dueDate} onChange={e => setInvoiceFormData({ ...invoiceFormData, dueDate: e.target.value })} />
+                </div>
               </div>
 
-              <div className="form-group-circuit">
-                <label>Due Date</label>
-                <input 
-                  type="date" 
-                  value={invoiceFormData.dueDate} 
-                  onChange={e => setInvoiceFormData({ ...invoiceFormData, dueDate: e.target.value })} 
-                />
+              <div className="invoice-lines-editor">
+                <div className="invoice-lines-title">Line items</div>
+                <div className="invoice-lines-head">
+                  <span>Description</span><span>Qty</span><span>Unit price</span><span>Amount</span><span />
+                </div>
+                {invoiceFormData.items.map((item, index) => (
+                  <div className="invoice-line-row" key={index}>
+                    <div className="invoice-line-desc">
+                      <select
+                        value={item.productId || ""}
+                        onChange={e => {
+                          const product = products.find(p => String(p.id) === e.target.value);
+                          updateInvoiceItem(index, {
+                            productId: e.target.value,
+                            description: product ? product.name : item.description,
+                            unitPrice: product ? Number(product.price) || 0 : item.unitPrice
+                          });
+                        }}
+                      >
+                        <option value="">Custom line</option>
+                        {products.filter(p => p.is_active !== false).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      </select>
+                      <input type="text" placeholder="Description" value={item.description} onChange={e => updateInvoiceItem(index, { description: e.target.value })} />
+                    </div>
+                    <input type="number" min="0" step="1" value={item.quantity} onChange={e => updateInvoiceItem(index, { quantity: e.target.value })} />
+                    <input type="number" min="0" step="0.01" value={item.unitPrice} onChange={e => updateInvoiceItem(index, { unitPrice: e.target.value })} />
+                    <span className="invoice-line-total">${((Number(item.quantity) || 0) * (Number(item.unitPrice) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <button type="button" className="action-icon-btn delete" title="Remove line" disabled={invoiceFormData.items.length === 1} onClick={() => removeInvoiceItem(index)}>
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button type="button" className="btn-ghost-dark small" onClick={addInvoiceItem}>
+                  <Plus size={14} /> Add line item
+                </button>
+              </div>
+
+              <div className="invoice-editor-bottom">
+                <div className="form-group-circuit">
+                  <label>Notes</label>
+                  <textarea rows="3" placeholder="Payment terms, purchase order, delivery notes..." value={invoiceFormData.notes} onChange={e => setInvoiceFormData({ ...invoiceFormData, notes: e.target.value })} />
+                </div>
+                <div className="invoice-totals">
+                  <div><span>Subtotal</span><span>${previewInvoiceTotals(invoiceFormData).subtotal.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                  <div><span>Tax rate (%)</span><input type="number" min="0" max="100" step="0.01" value={invoiceFormData.taxRate} onChange={e => setInvoiceFormData({ ...invoiceFormData, taxRate: e.target.value })} /></div>
+                  <div><span>Tax amount</span><span>${previewInvoiceTotals(invoiceFormData).taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                  <div className="invoice-total-row"><span>Total</span><span>${previewInvoiceTotals(invoiceFormData).total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+                </div>
               </div>
 
               <div className="modal-footer-btns">
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsInvoiceModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Issue Document</button>
+                <button type="button" className="btn-ghost-dark" onClick={() => { setIsInvoiceModalOpen(false); resetInvoiceForm(); }}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow" disabled={createInvoiceMutation.isPending || updateInvoiceMutation.isPending}>
+                  {editingInvoice ? (updateInvoiceMutation.isPending ? "Saving..." : "Save Invoice") : (createInvoiceMutation.isPending ? "Creating..." : "Create Invoice")}
+                </button>
               </div>
             </form>
           </div>
