@@ -293,6 +293,9 @@ export const Ticket = sequelize.define(
 );
 
 // Associations
+User.hasMany(Lead, { foreignKey: "owner_id" });
+Lead.belongsTo(User, { foreignKey: "owner_id" });
+
 User.hasMany(Contact, { foreignKey: "userId", onDelete: "CASCADE" });
 Contact.belongsTo(User, { foreignKey: "userId" });
 
