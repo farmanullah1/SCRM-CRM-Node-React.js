@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { AlertCircle, ArrowRight, Zap } from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
+import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function Signup() {
   const { signup } = useAuth();
@@ -31,7 +32,7 @@ export default function Signup() {
     setLoading(true);
     try {
       await signup(name, email, password);
-      navigate("/");
+      navigate("/app");
     } catch (err) {
       setError(err.response?.data?.error || "Unable to register account. Please try again.");
     } finally {
@@ -43,10 +44,8 @@ export default function Signup() {
     <div className="auth-circuit-page">
       <div className="auth-circuit-card">
         <div className="auth-circuit-header">
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
-            <div className="brand-glyph">
-              <Zap size={20} color="#F0FF60" />
-            </div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.85rem" }}>
+            <BrandLogo variant="stacked" size={38} showTagline={false} />
           </div>
           <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
             GET STARTED WITH SCRM

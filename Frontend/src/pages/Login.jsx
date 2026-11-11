@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
-import { AlertCircle, ArrowRight, Zap, Shield, KeyRound, CheckCircle2, ArrowLeft } from "lucide-react";
+import BrandLogo from "../components/BrandLogo";
+import { AlertCircle, ArrowRight, Shield, KeyRound, CheckCircle2, ArrowLeft } from "lucide-react";
 import { forgotPassword, resetPassword } from "../services/api";
 
 export default function Login() {
@@ -40,7 +41,7 @@ export default function Login() {
         setMode("2fa");
         setSuccessMsg(res.message || "Enter the 6-digit verification code sent to your email.");
       } else {
-        navigate("/");
+        navigate("/app");
       }
     } catch (err) {
       setError(err.response?.data?.error || "Invalid email or password. Please try again.");
@@ -56,7 +57,7 @@ export default function Login() {
 
     try {
       await complete2FA(tempToken, otpCode);
-      navigate("/");
+      navigate("/app");
     } catch (err) {
       setError(err.response?.data?.error || "Invalid verification code. Please check your email.");
     } finally {
@@ -108,10 +109,8 @@ export default function Login() {
       <div className="auth-circuit-card">
         {/* Header */}
         <div className="auth-circuit-header">
-          <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.75rem" }}>
-            <div className="brand-glyph">
-              {mode === "2fa" ? <Shield size={20} color="#F0FF60" /> : <Zap size={20} color="#F0FF60" />}
-            </div>
+          <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.85rem" }}>
+            <BrandLogo variant="stacked" size={38} showTagline={false} />
           </div>
           <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
             {mode === "2fa" ? "SECURITY VERIFICATION" : mode === "forgot" ? "ACCOUNT RECOVERY" : "SCRM ACCESS"}

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import BrandLogo from "../components/BrandLogo";
 import { 
   UserPlus, 
   Search, 
@@ -515,10 +516,7 @@ export default function Dashboard() {
       {/* 74px Sticky Top Navbar with Responsive Mobile Controls */}
       <nav className="navbar-circuit">
         <div className="nav-brand" onClick={() => setActiveTab("dashboard")} style={{ cursor: "pointer" }}>
-          <div className="brand-glyph">
-            <Zap size={20} color="#F0FF60" />
-          </div>
-          <span className="brand-title">SCRM</span>
+          <BrandLogo variant="horizontal" size={30} showTagline={true} />
         </div>
 
         {/* Desktop Navigation Links */}
