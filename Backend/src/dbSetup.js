@@ -132,7 +132,59 @@ export async function ensureDatabaseAndSchema() {
       END
     `);
 
-    // 3. Companies table
+    // 3. Organizations & Memberships (Tenant Isolation)
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'organizations')
+      BEGIN
+        CREATE TABLE [organizations] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [name] NVARCHAR(150) NOT NULL,
+          [domain] NVARCHAR(150) NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'organization_members')
+      BEGIN
+        CREATE TABLE [organization_members] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [organization_id] INT NOT NULL,
+          [user_id] INT NOT NULL,
+          [role] NVARCHAR(50) DEFAULT 'member',
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
+    // 4. Standalone Leads Table (Formal Separation of Unqualified Prospects from Contacts)
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'leads')
+      BEGIN
+        CREATE TABLE [leads] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [first_name] NVARCHAR(100) NULL,
+          [last_name] NVARCHAR(100) NULL,
+          [name] NVARCHAR(150) NOT NULL,
+          [email] NVARCHAR(255) NOT NULL,
+          [phone] NVARCHAR(50) NULL,
+          [company_name] NVARCHAR(150) NULL,
+          [title] NVARCHAR(100) NULL,
+          [source] NVARCHAR(100) DEFAULT 'Website',
+          [status] NVARCHAR(50) DEFAULT 'New',
+          [estimated_value] DECIMAL(12,2) DEFAULT 0.00,
+          [disqualification_reason] NVARCHAR(300) NULL,
+          [notes] NVARCHAR(MAX) NULL,
+          [owner_id] INT NULL,
+          [converted_contact_id] INT NULL,
+          [converted_deal_id] INT NULL,
+          [converted_at] DATETIMEOFFSET NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
+    // 5. Companies table
     await crmSequelize.query(`
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'companies')
       BEGIN

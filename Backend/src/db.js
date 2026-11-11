@@ -65,7 +65,55 @@ export const User = sequelize.define(
   { tableName: "users", timestamps: true }
 );
 
-// 3. Companies Model
+// 3. Organizations Model (Tenant Scoping)
+export const Organization = sequelize.define(
+  "Organization",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    name: { type: DataTypes.STRING(150), allowNull: false },
+    domain: { type: DataTypes.STRING(150), allowNull: true }
+  },
+  { tableName: "organizations", timestamps: true }
+);
+
+// Organization Memberships
+export const OrganizationMember = sequelize.define(
+  "OrganizationMember",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    organization_id: { type: DataTypes.INTEGER, allowNull: false },
+    user_id: { type: DataTypes.INTEGER, allowNull: false },
+    role: { type: DataTypes.STRING(50), defaultValue: "member" }
+  },
+  { tableName: "organization_members", timestamps: true, updatedAt: false }
+);
+
+// 4. Standalone Leads Model (Unqualified Prospects)
+export const Lead = sequelize.define(
+  "Lead",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    first_name: { type: DataTypes.STRING(100), allowNull: true },
+    last_name: { type: DataTypes.STRING(100), allowNull: true },
+    name: { type: DataTypes.STRING(150), allowNull: false },
+    email: { type: DataTypes.STRING(255), allowNull: false, validate: { isEmail: true } },
+    phone: { type: DataTypes.STRING(50), allowNull: true },
+    company_name: { type: DataTypes.STRING(150), allowNull: true },
+    title: { type: DataTypes.STRING(100), allowNull: true },
+    source: { type: DataTypes.STRING(100), defaultValue: "Website" },
+    status: { type: DataTypes.STRING(50), defaultValue: "New" }, // New, Contacted, Engaged, Qualified, Converted, Disqualified
+    estimated_value: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
+    disqualification_reason: { type: DataTypes.STRING(300), allowNull: true },
+    notes: { type: DataTypes.TEXT, allowNull: true },
+    owner_id: { type: DataTypes.INTEGER, allowNull: true },
+    converted_contact_id: { type: DataTypes.INTEGER, allowNull: true },
+    converted_deal_id: { type: DataTypes.INTEGER, allowNull: true },
+    converted_at: { type: DataTypes.DATE, allowNull: true }
+  },
+  { tableName: "leads", timestamps: true }
+);
+
+// 5. Companies Model
 export const Company = sequelize.define(
   "Company",
   {

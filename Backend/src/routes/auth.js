@@ -460,4 +460,108 @@ router.get("/roles", authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/auth/setup-admin - Explicit first-run administrator provisioning flow
+// Automatically locked down permanently once an administrator exists.
+router.post("/setup-admin", authLimiter, async (req, res) => {
+  try {
+    const existingAdmin = await User.findOne({ where: { role: "admin" } });
+    if (existingAdmin) {
+      return res.status(403).json({
+        error: "Forbidden: First-run administrator provisioning is locked. An administrator account already exists."
+      });
+    }
+
+    let { name, email, password } = req.body;
+    name = sanitizeString(name);
+    email = sanitizeString(email)?.toLowerCase();
+
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: "Name, email, and password are required for initial administrator setup." });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({ error: "Please provide a valid email address." });
+    }
+
+    const passCheck = validatePasswordStrength(password);
+    if (!passCheck.valid) {
+      return res.status(400).json({ error: passCheck.message });
+    }
+
+    const adminRole = await Role.findOne({ where: { role_name: "admin" } });
+    const salt = await bcrypt.genSalt(12);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    const newAdmin = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      role: "admin",
+      role_id: adminRole ? adminRole.id : 1,
+      two_factor_enabled: false
+    });
+
+    const tokens = generateTokens(newAdmin);
+    newAdmin.refresh_token = tokens.refreshToken;
+    await newAdmin.save();
+
+    await logAudit(newAdmin.id, "INITIAL_ADMIN_PROVISIONED", "User", newAdmin.id, { email: newAdmin.email });
+
+    res.status(201).json({
+      message: "First-run administrator account created successfully. Endpoint is now permanently locked.",
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      user: {
+        id: newAdmin.id,
+        name: newAdmin.name,
+        email: newAdmin.email,
+        role: "admin",
+        twoFactorEnabled: false
+      }
+    });
+  } catch (err) {
+    console.error("Admin Setup Error:", err);
+    res.status(500).json({ error: "Initial admin provisioning failed", details: err.message });
+  }
+});
+
+// POST /api/auth/logout - Session revocation and token invalidation
+router.post("/logout", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id);
+    if (user) {
+      user.refresh_token = null;
+      await user.save();
+      await logAudit(user.id, "USER_LOGOUT", "Auth", user.id, { email: user.email });
+    }
+    res.json({ message: "Session successfully terminated and revoked." });
+  } catch (err) {
+    res.status(500).json({ error: "Logout failed", details: err.message });
+  }
+});
+
+// GET /api/auth/sessions - Inspect active session details for security center
+router.get("/sessions", authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, {
+      attributes: ["id", "name", "email", "role", "two_factor_enabled", "updatedAt"]
+    });
+
+    res.json({
+      sessions: [
+        {
+          id: `sess-${user.id}`,
+          ip: req.ip || "127.0.0.1",
+          userAgent: req.headers["user-agent"] || "Web Browser",
+          lastActive: user.updatedAt,
+          current: true,
+          twoFactorActive: Boolean(user.two_factor_enabled)
+        }
+      ]
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to retrieve active sessions." });
+  }
+});
+
 export default router;
