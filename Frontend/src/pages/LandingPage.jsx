@@ -57,18 +57,21 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="scrm-landing-page" style={{ minHeight: "100vh", backgroundColor: "#181818", color: "#DFDFDF" }}>
+    <div className="scrm-landing-page" style={{ minHeight: "100vh", backgroundColor: "transparent", color: "#DFDFDF", position: "relative" }}>
       {/* Authenticated User Banner if logged in */}
       {user && (
         <div style={{
-          backgroundColor: "#303018",
+          backgroundColor: "rgba(48, 48, 24, 0.85)",
+          backdropFilter: "blur(10px)",
           borderBottom: "1px solid #4F5101",
           padding: "8px 24px",
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
           fontSize: "13px",
-          color: "#DFDFDF"
+          color: "#DFDFDF",
+          position: "relative",
+          zIndex: 60
         }}>
           <div>
             Logged in as <strong style={{ color: "#F0FF60" }}>{user.name}</strong> ({user.role})
@@ -97,8 +100,8 @@ export default function LandingPage() {
         position: "sticky",
         top: 0,
         zIndex: 50,
-        backgroundColor: "rgba(24, 24, 24, 0.94)",
-        backdropFilter: "blur(12px)",
+        backgroundColor: "rgba(24, 24, 24, 0.8)",
+        backdropFilter: "blur(16px)",
         borderBottom: "1px solid #414141",
         padding: "0 28px",
         height: "72px",
@@ -180,13 +183,15 @@ export default function LandingPage() {
         maxWidth: "1200px",
         margin: "0 auto",
         padding: "90px 24px 60px",
-        textAlign: "center"
+        textAlign: "center",
+        position: "relative"
       }}>
-        <div style={{
+        <div className="scrm-float-badge" style={{
           display: "inline-flex",
           alignItems: "center",
           gap: "8px",
-          backgroundColor: "#303018",
+          backgroundColor: "rgba(48, 48, 24, 0.85)",
+          backdropFilter: "blur(8px)",
           border: "1px solid #4F5101",
           borderRadius: "999px",
           padding: "6px 16px",
@@ -194,7 +199,8 @@ export default function LandingPage() {
           fontWeight: 700,
           color: "#FAFF69",
           letterSpacing: "0.1em",
-          marginBottom: "24px"
+          marginBottom: "24px",
+          boxShadow: "0 4px 16px rgba(240, 255, 96, 0.15)"
         }}>
           <Sparkles size={14} color="#F0FF60" /> SOVEREIGN CUSTOMER RELATIONSHIP MANAGEMENT
         </div>
@@ -206,9 +212,10 @@ export default function LandingPage() {
           color: "#FFFFFF",
           letterSpacing: "-0.02em",
           maxWidth: "960px",
-          margin: "0 auto 24px"
+          margin: "0 auto 24px",
+          textShadow: "0 6px 30px rgba(0, 0, 0, 0.7)"
         }}>
-          Fast, Focused, Sovereign CRM Built for <span style={{ color: "#F0FF60" }}>Agile Growth</span>
+          Fast, Focused, Sovereign CRM Built for <span style={{ color: "#F0FF60", textShadow: "0 0 25px rgba(240, 255, 96, 0.35)" }}>Agile Growth</span>
         </h1>
 
         <p style={{
@@ -216,7 +223,8 @@ export default function LandingPage() {
           lineHeight: 1.6,
           color: "#DFDFDF",
           maxWidth: "760px",
-          margin: "0 auto 36px"
+          margin: "0 auto 36px",
+          textShadow: "0 2px 10px rgba(0, 0, 0, 0.6)"
         }}>
           <strong>SCRM</strong> (where <em>S stands for Small</em>) eliminates bloated enterprise complexity. 
           Manage unqualified leads, qualified contacts, deal stage velocity, tasks, and transactional communications 
@@ -226,6 +234,7 @@ export default function LandingPage() {
         <div style={{ display: "flex", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "50px" }}>
           <Link
             to={user ? "/app" : "/signup"}
+            className="btn-primary-yellow interactive-lift"
             style={{
               backgroundColor: "#F0FF60",
               color: "#151515",
@@ -236,16 +245,17 @@ export default function LandingPage() {
               textDecoration: "none",
               display: "inline-flex",
               alignItems: "center",
-              gap: "8px",
-              boxShadow: "0 4px 20px rgba(240, 255, 96, 0.25)"
+              gap: "8px"
             }}
           >
             {user ? "Enter Your Workspace" : "Launch Free Instance"} <ArrowRight size={18} />
           </Link>
           <a
             href="#features"
+            className="btn-ghost-dark interactive-lift"
             style={{
-              backgroundColor: "#202020",
+              backgroundColor: "rgba(32, 32, 32, 0.8)",
+              backdropFilter: "blur(10px)",
               border: "1px solid #414141",
               color: "#DFDFDF",
               fontWeight: 600,
@@ -262,13 +272,14 @@ export default function LandingPage() {
           </a>
         </div>
 
-        {/* Live Interactive CRM Dashboard Preview Frame */}
-        <div style={{
-          backgroundColor: "#202020",
+        {/* Live Interactive CRM Dashboard Preview Frame with Floating Animation */}
+        <div className="scrm-float-card interactive-lift" style={{
+          backgroundColor: "rgba(32, 32, 32, 0.78)",
+          backdropFilter: "blur(14px)",
           border: "1px solid #414141",
-          borderRadius: "12px",
+          borderRadius: "14px",
           overflow: "hidden",
-          boxShadow: "0 20px 50px rgba(0, 0, 0, 0.6)",
+          boxShadow: "0 24px 60px rgba(0, 0, 0, 0.65), 0 0 25px rgba(240, 255, 96, 0.12)",
           textAlign: "left"
         }}>
           {/* Mock Window Header */}
@@ -379,7 +390,7 @@ export default function LandingPage() {
           gap: "24px"
         }}>
           {/* Feature 1 */}
-          <div style={{ backgroundColor: "#202020", border: "1px solid #414141", borderRadius: "10px", padding: "28px" }}>
+          <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "0.1s" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <Users size={22} color="#F0FF60" />
             </div>
@@ -391,7 +402,7 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 2 */}
-          <div style={{ backgroundColor: "#202020", border: "1px solid #414141", borderRadius: "10px", padding: "28px" }}>
+          <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "0.3s" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <TrendingUp size={22} color="#F0FF60" />
             </div>
@@ -403,7 +414,7 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 3 */}
-          <div style={{ backgroundColor: "#202020", border: "1px solid #414141", borderRadius: "10px", padding: "28px" }}>
+          <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "0.5s" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <Clock size={22} color="#F0FF60" />
             </div>
@@ -415,7 +426,7 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 4 */}
-          <div style={{ backgroundColor: "#202020", border: "1px solid #414141", borderRadius: "10px", padding: "28px" }}>
+          <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "0.7s" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <Mail size={22} color="#F0FF60" />
             </div>
@@ -427,7 +438,7 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 5 */}
-          <div style={{ backgroundColor: "#202020", border: "1px solid #414141", borderRadius: "10px", padding: "28px" }}>
+          <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "0.9s" }}>
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <FileText size={22} color="#F0FF60" />
             </div>
@@ -439,7 +450,9 @@ export default function LandingPage() {
           </div>
 
           {/* Feature 6 */}
-          <div style={{ backgroundColor: "#202020", border: "1px solid #414141", borderRadius: "10px", padding: "28px" }}>
+          <div className="interactive-lift scrm-float-gentle" style={{ backgroundColor: "rgba(32, 32, 32, 0.78)", backdropFilter: "blur(12px)", border: "1px solid #414141", borderRadius: "12px", padding: "28px", animationDelay: "1.1s" }}>
+            <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
+              <Lock size={22} color="#F0FF60" />
             <div style={{ width: "42px", height: "42px", borderRadius: "8px", backgroundColor: "#303018", border: "1px solid #4F5101", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "20px" }}>
               <Lock size={22} color="#F0FF60" />
             </div>
@@ -825,3 +838,4 @@ export default function LandingPage() {
     </div>
   );
 }
+

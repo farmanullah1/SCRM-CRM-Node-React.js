@@ -1172,3 +1172,210 @@
     padding-bottom: 1rem;
   }
 }
+
+/* ==========================================================================
+   Floating Animations & Site-Wide Hover Effects
+   ========================================================================== */
+
+@keyframes scrmFloatSlow {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-9px) rotate(0.4deg);
+  }
+}
+
+@keyframes scrmFloatGentle {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes scrmFloatPulse {
+  0%, 100% {
+    transform: translateY(0px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 15px rgba(240, 255, 96, 0.15);
+  }
+  50% {
+    transform: translateY(-8px);
+    box-shadow: 0 18px 45px rgba(0, 0, 0, 0.55), 0 0 30px rgba(240, 255, 96, 0.35);
+  }
+}
+
+@keyframes scrmGlowPulse {
+  0%, 100% {
+    border-color: #4F5101;
+    box-shadow: 0 0 12px rgba(240, 255, 96, 0.2);
+  }
+  50% {
+    border-color: #F0FF60;
+    box-shadow: 0 0 28px rgba(240, 255, 96, 0.45);
+  }
+}
+
+/* Floating Utility Classes */
+.scrm-float-slow {
+  animation: scrmFloatSlow 6s ease-in-out infinite;
+}
+
+.scrm-float-gentle {
+  animation: scrmFloatGentle 4.5s ease-in-out infinite;
+}
+
+.scrm-float-card {
+  animation: scrmFloatPulse 5s ease-in-out infinite;
+}
+
+.scrm-float-badge {
+  animation: scrmFloatGentle 3.5s ease-in-out infinite;
+}
+
+/* Site-wide Universal Hover Effects */
+.interactive-lift {
+  transition: transform 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.24s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.24s ease,
+              background-color 0.24s ease;
+}
+
+.interactive-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 35px rgba(0, 0, 0, 0.5), 0 0 22px rgba(240, 255, 96, 0.2) !important;
+  border-color: #F0FF60 !important;
+}
+
+/* Button Hover Enhancements */
+.btn-primary-yellow {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 15px rgba(240, 255, 96, 0.25);
+}
+
+.btn-primary-yellow:hover {
+  transform: translateY(-2px);
+  background-color: #FAFF69 !important;
+  box-shadow: 0 8px 30px rgba(240, 255, 96, 0.55), 0 0 12px rgba(255, 255, 255, 0.4);
+  filter: brightness(1.05);
+}
+
+.btn-primary-yellow:active {
+  transform: translateY(0);
+}
+
+.btn-ghost-dark {
+  transition: all 0.2s ease;
+}
+
+.btn-ghost-dark:hover {
+  transform: translateY(-2px);
+  background: rgba(240, 255, 96, 0.1) !important;
+  border-color: var(--accent) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4), 0 0 15px rgba(240, 255, 96, 0.25);
+}
+
+.action-icon-btn {
+  transition: all 0.2s ease;
+}
+
+.action-icon-btn:hover {
+  transform: translateY(-2px) scale(1.08);
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(240, 255, 96, 0.15);
+  box-shadow: 0 0 15px rgba(240, 255, 96, 0.3);
+}
+
+.action-icon-btn.delete:hover {
+  border-color: #FB2C36;
+  color: #FB2C36;
+  background: rgba(251, 44, 54, 0.15);
+  box-shadow: 0 0 15px rgba(251, 44, 54, 0.3);
+}
+
+/* Table Row Hover */
+.circuit-table tbody tr {
+  transition: background-color 0.18s ease, transform 0.18s ease;
+}
+
+.circuit-table tbody tr:hover {
+  background-color: rgba(240, 255, 96, 0.04) !important;
+}
+
+/* Metric Cards Hover */
+.metric-card-circuit {
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.metric-card-circuit:hover {
+  transform: translateY(-5px);
+  border-color: #F0FF60;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.4), 0 0 25px rgba(240, 255, 96, 0.18);
+}
+
+/* Form Inputs Hover & Focus */
+.circuit-input, .form-group-circuit input, .form-group-circuit select, .form-group-circuit textarea {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.circuit-input:hover, .form-group-circuit input:hover, .form-group-circuit select:hover, .form-group-circuit textarea:hover {
+  border-color: #4F5101;
+}
+
+.circuit-input:focus, .form-group-circuit input:focus, .form-group-circuit select:focus, .form-group-circuit textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 3px rgba(240, 255, 96, 0.18);
+  outline: none;
+}
+
+/* Status Pill Hover */
+.status-pill {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.status-pill:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px rgba(240, 255, 96, 0.3);
+}
+
+/* In-App Toast Notification */
+.scrm-toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.scrm-toast-bubble {
+  pointer-events: auto;
+  background: #202020;
+  border: 1px solid #F0FF60;
+  border-radius: 8px;
+  padding: 12px 20px;
+  color: #FFFFFF;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), 0 0 20px rgba(240, 255, 96, 0.25);
+  animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
