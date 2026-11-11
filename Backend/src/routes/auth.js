@@ -29,9 +29,10 @@ function generateTokens(user) {
 }
 
 // POST /api/auth/signup - Register new account with high-salt hashing and automated Welcome Email
+// Strictly assigns lowest privilege ('standard_user') by default. Client cannot self-elevate to admin.
 router.post("/signup", authLimiter, async (req, res) => {
   try {
-    let { name, email, password, role } = req.body;
+    let { name, email, password } = req.body;
 
     name = sanitizeString(name);
     email = sanitizeString(email)?.toLowerCase();
@@ -54,9 +55,9 @@ router.post("/signup", authLimiter, async (req, res) => {
       return res.status(409).json({ error: "An account with this email already exists." });
     }
 
-    // Default first user to admin, others to standard_user unless specified
+    // Default first user to admin if empty DB, otherwise standard_user ONLY (client cannot pass role)
     const totalUsers = await User.count();
-    const assignedRole = totalUsers === 0 ? "admin" : (role && ["admin", "manager", "standard_user"].includes(role) ? role : "standard_user");
+    const assignedRole = totalUsers === 0 ? "admin" : "standard_user";
     
     // Find matching role_id from roles table
     const roleRecord = await Role.findOne({ where: { role_name: assignedRole } });
