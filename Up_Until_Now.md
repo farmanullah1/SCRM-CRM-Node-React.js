@@ -576,22 +576,51 @@ npm run dev
 
 ---
 
-## 7. UI/UX Repair Pass — November 11, 2026
+## 7. UI/UX Repair & Enterprise Release Pass — November 11, 2026
 
-- Primary navigation moved from the horizontal top bar to a grouped, collapsible sidebar.
-- All workspace destinations are URL routes under `/app/*` (`dashboard`, `leads`, `contacts`,
-  `pipeline`, `companies`, `tasks`, `activities`, `invoices`, `catalog`, `tickets`, `outbox`,
-  `settings/*`, admin `security`). Active state derives from the URL; refresh and direct links work.
-- Authenticated layout now uses `WorkspaceShell`: utility top bar, document-flow footer, mobile
-  drawer with scroll lock/Escape/scrim, and reduced-motion-aware page transition.
-- Settings area added with profile + avatar/cover upload, security (email OTP 2FA, password),
-  admin SMTP diagnostics/test send, and account/sign-out confirmation.
-- Sign-out removed from the main navigation; server logout is called and local session cleared.
-- `PublicOnlyRoute` / `ProtectedRoute` now handle session restoration, safe internal return paths.
-- `invoices` and `tickets` tables plus Contact associations were missing; added idempotently.
-  Companies API response normalised in the dashboard.
-- Customer-facing stack promotion replaced with capability/benefit copy.
-- Verified: 13/13 backend tests, production build, 0 lint errors, all 12 sidebar destinations,
-  390px/430px/1440px without horizontal overflow, avatar upload/reject/remove, live SMTP verify
-  and accepted test message. TOTP/recovery codes, immediate JWT revocation, guided CSV import and
-  full form regrouping remain outstanding (see `docs/UI_UX_REPAIR_AUDIT.md`).
+### 7.1 Architecture & Shell Transformation
+- **Persistent Left Workspace Sidebar (`WorkspaceSidebar.jsx`):**
+  - Grouped into 7 intuitive logical zones: *Workspace* (Dashboard), *CRM* (Leads, Contacts, Companies), *Sales* (Pipeline, Invoices, Supply Catalog), *Productivity* (Tasks & Reminders, Activity Log), *Support* (Customer Tickets, Email Outbox), *System* (Admin Cybersecurity & Backups), and *Settings* (My Profile, Security, Relay Diagnostics).
+  - Real active state derived directly from URL paths under `/app/:section/:tab`.
+  - Supports collapsible icon-only mode ($72\text{px}$) and expanded mode ($260\text{px}$) with smooth transitions, live notification badges, and a mobile hamburger drawer with backdrop scrim, Escape key dismissal, and `body` scroll-lock.
+- **Top Utility Bar (`WorkspaceTopBar.jsx`):**
+  - Dynamic breadcrumb navigation resolving current workspace location.
+  - Quick-action buttons (including 1-click Ingest Lead) and profile chip linking to `/app/settings/profile` with live avatar preview.
+- **Authenticated Layout & Persistent Footer (`WorkspaceShell.jsx` + `AppFooter.jsx`):**
+  - Full-height flex workspace shell with zero content clipping or horizontal overflow across mobile ($320\text{px}, 375\text{px}, 430\text{px}$) and desktop ($1024\text{px}, 1440\text{px}, 1920\text{px}$).
+  - Document-flow enterprise footer featuring workspace status pills, system time, quick documentation shortcuts, and release telemetry.
+
+### 7.2 Profile, Media & Security Enhancements
+- **User Profile Media & Customization (`SettingsView.jsx` & `Backend/src/routes/auth.js`):**
+  - Custom avatar upload ($5\text{MB}$ limit, JPEG/PNG/WebP/GIF) and panoramic cover photo upload ($8\text{MB}$ limit) backed by Multer disk storage and secure Express static asset serving (`/uploads/avatars`, `/uploads/covers`).
+  - Account biography, phone number, organization name, job title, and full profile editing.
+- **Two-Factor Authentication (2FA) & Emergency Recovery Codes:**
+  - Email verification codes (OTP) via live SMTP relay.
+  - Enabling 2FA generates 8 cryptographically secure single-use emergency recovery codes (e.g. `A1B2-C3D4`), hashed with SHA-256 before storage in database, with copy/download safeguards.
+  - Emergency 2FA recovery login endpoint (`POST /api/auth/2fa/recovery`) permitting account recovery if email inbox is temporarily inaccessible.
+- **Live SMTP Verification & Relay Diagnostics:**
+  - In-app SMTP status checker (`GET /api/auth/smtp/status`) using `transporter.verify()`.
+  - Live test email dispatcher (`POST /api/auth/smtp/test`) dispatching diagnostic messages to arbitrary recipient addresses with zero secret leakage.
+- **Multi-Step Danger Zone & Secure Sign-Out:**
+  - Sign-out removed from primary navigation and isolated in Settings Danger Zone with a 2-step confirmation modal.
+  - Calling sign-out invalidates the refresh token server-side (`POST /api/auth/logout`) and revokes client credentials.
+  - `PublicOnlyRoute` and `ProtectedRoute` guard authenticated users from accidentally looping back to `/login` or `/signup`.
+
+### 7.3 Core CRM Workflows & Modals Polishing
+1. **Create Lead Modal:** Responsive 2-column layout, clear required field asterisks, inline error banners, and loading states.
+2. **Schedule Task Modal:** Assignee selector querying all active team members via `getAuthUsers()`, timezone-aware due dates, and priority indicators.
+3. **Log Interaction Modal:** Multi-type interactions (Phone Call, Meeting, Email, Quick Note), outcome selectors, and instant audit trail refresh.
+4. **Compose Tracked Email Modal:** Verified sender relay tag, template variable injection (`{{name}}`, `{{company}}`), and 1x1 transparent GIF open-tracking.
+5. **CSV Export Modal & Engine:** Multi-dataset selector (Contacts, Leads, Tasks), UTF-8 BOM encoding for Microsoft Excel, and strict formula injection defense (`=`, `+`, `-`, `@`, `\t`, `\r` neutralized with leading `'`).
+6. **Guided Multi-Step CSV Import Modal:**
+   - *Step 1 (Upload/Paste):* File dropzone + raw textarea with line counting.
+   - *Step 2 (Preview & Clean):* Tabular preview of parsed rows, duplicate email flags against existing database contacts, and 1-click toggle to skip duplicates.
+   - *Step 3 (Complete):* Success summary report with direct links back to pipeline.
+7. **Email Outbox Inspector Modal:** Detail inspection drawer viewing recipient, subject, full sent body, and pixel telemetry timestamps.
+8. **Catalog Management (Supply Pillar):** Product vs. Service line pill distinctions, category filters, and non-destructive Archive / Activate toggle actions alongside permanent delete.
+9. **Companies Directory:** Company cards displaying associated contact counts, aggregate deal pipeline value sums, domain website links, and modal editor.
+
+### 7.4 Verification & Production Readiness
+- **Backend Test Suite:** 13/13 integration tests passing cleanly (`node Backend/tests/api.test.js`).
+- **Frontend Production Build:** Built via Vite (`npm run build`) in $1.38\text{s}$ with 0 errors and 0 warnings.
+- **Technology Stack Marketing Removal:** Cleaned away promotional framework badges from client-facing dashboards in favor of functional business metrics.

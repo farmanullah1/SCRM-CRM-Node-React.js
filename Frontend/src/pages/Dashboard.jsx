@@ -2907,56 +2907,150 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* MODAL 8: CSV BULK IMPORT */}
+      {/* MODAL 8: GUIDED MULTI-STEP CSV BULK IMPORT */}
       {isImportModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsImportModalOpen(false)}>
-          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+        <div className="modal-overlay-circuit" onClick={handleResetImportModal}>
+          <div className="modal-box-circuit interactive-lift" style={{ maxWidth: "680px" }} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                 <Upload size={18} color="#F0FF60" />
-                <h3>Bulk Import Contacts via CSV</h3>
+                <h3>Bulk Import Contacts (Step {importStep} of 3)</h3>
               </div>
-              <button className="modal-close-btn" onClick={() => setIsImportModalOpen(false)}>×</button>
+              <button className="modal-close-btn" onClick={handleResetImportModal}>×</button>
             </div>
             {importFormError && <div className="error-banner">{importFormError}</div>}
             
-            <p style={{ color: "var(--text-body)", fontSize: "13px", margin: "10px 0" }}>
-              Choose a <code>.csv</code> file or paste comma-separated rows. Required columns: <code>Name, Email, Phone, Company, Stage, Value, LeadSource, Tags</code>.
-            </p>
-
-            <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
-              <label>Upload .CSV File</label>
-              <input 
-                type="file" 
-                accept=".csv"
-                onChange={handleCSVFileUpload}
-                style={{ padding: "8px", background: "#1c1c1c", border: "1px dashed var(--border-hairline)", borderRadius: "8px", color: "#fff", width: "100%" }}
-              />
+            {/* Step Indicators */}
+            <div style={{ display: "flex", gap: "8px", margin: "14px 0" }}>
+              <div style={{ flex: 1, padding: "6px 10px", borderRadius: "4px", background: importStep >= 1 ? "rgba(240,255,96,0.15)" : "#202020", color: importStep >= 1 ? "var(--accent)" : "#888", fontSize: "11px", fontWeight: 700 }}>
+                1. Upload / Paste
+              </div>
+              <div style={{ flex: 1, padding: "6px 10px", borderRadius: "4px", background: importStep >= 2 ? "rgba(240,255,96,0.15)" : "#202020", color: importStep >= 2 ? "var(--accent)" : "#888", fontSize: "11px", fontWeight: 700 }}>
+                2. Preview & Clean
+              </div>
+              <div style={{ flex: 1, padding: "6px 10px", borderRadius: "4px", background: importStep === 3 ? "rgba(34,197,94,0.15)" : "#202020", color: importStep === 3 ? "#22C55E" : "#888", fontSize: "11px", fontWeight: 700 }}>
+                3. Complete
+              </div>
             </div>
 
-            <div className="form-group-circuit">
-              <label>Or Paste CSV Content</label>
-              <textarea 
-                rows="6"
-                placeholder="John Doe, john@example.com, +1234567890, Acme Corp, Qualified, 5000, Website, Inbound"
-                value={csvText}
-                onChange={e => setCsvText(e.target.value)}
-                style={{ width: "100%", padding: "10px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "8px", color: "#fff", fontFamily: "var(--font-mono)", fontSize: "12px" }}
-              />
-              {csvText.trim() && (
-                <div style={{ color: "var(--accent)", fontSize: "12px", marginTop: "4px" }}>
-                  {csvText.trim().split(/\r?\n/).filter(l => l.trim()).length} line(s) detected in import buffer.
+            {/* STEP 1: Upload or Paste */}
+            {importStep === 1 && (
+              <>
+                <p style={{ color: "var(--text-body)", fontSize: "13px", margin: "10px 0" }}>
+                  Upload a <code>.csv</code> file or paste rows. Headers supported: <code>Name, Email, Phone, Company, Stage, Value, LeadSource, Tags</code>.
+                </p>
+
+                <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
+                  <label>Upload .CSV File</label>
+                  <input 
+                    type="file" 
+                    accept=".csv"
+                    onChange={handleCSVFileUpload}
+                    style={{ padding: "8px", background: "#1c1c1c", border: "1px dashed var(--border-hairline)", borderRadius: "8px", color: "#fff", width: "100%" }}
+                  />
                 </div>
-              )}
-            </div>
 
-            <div className="modal-footer-btns">
-              <button type="button" className="btn-ghost-dark" onClick={() => setIsImportModalOpen(false)}>Cancel</button>
-              <button type="button" className="btn-primary-yellow" onClick={handleProcessCSVImport}>
-                <Upload size={15} />
-                <span>Process Import</span>
-              </button>
-            </div>
+                <div className="form-group-circuit">
+                  <label>Or Paste CSV Content</label>
+                  <textarea 
+                    rows="6"
+                    placeholder="Rachel Adams, rachel@example.com, +1 555-0192, Apex Global, Qualified, 15000, Website, Enterprise&#10;David Kim, david@startup.io, +1 555-0144, Startup Labs, New, 8000, Outbound, High-Growth"
+                    value={csvText}
+                    onChange={e => setCsvText(e.target.value)}
+                    style={{ width: "100%", padding: "10px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "8px", color: "#fff", fontFamily: "var(--font-mono)", fontSize: "12px" }}
+                  />
+                  {csvText.trim() && (
+                    <div style={{ color: "var(--accent)", fontSize: "12px", marginTop: "4px" }}>
+                      {csvText.trim().split(/\r?\n/).filter(l => l.trim()).length} line(s) detected in import buffer.
+                    </div>
+                  )}
+                </div>
+
+                <div className="modal-footer-btns">
+                  <button type="button" className="btn-ghost-dark" onClick={handleResetImportModal}>Cancel</button>
+                  <button type="button" className="btn-primary-yellow" onClick={handleParseCsvForPreview}>
+                    <span>Continue to Preview</span>
+                    <ArrowRight size={14} />
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* STEP 2: Preview & Duplicate Handling */}
+            {importStep === 2 && (
+              <>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", margin: "10px 0" }}>
+                  <span style={{ fontSize: "13px", color: "var(--text-body)" }}>
+                    Parsed <strong>{importParsedPreview.length}</strong> record(s).
+                  </span>
+                  <label style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "12px", cursor: "pointer", color: "var(--accent)" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={importSkipDuplicates} 
+                      onChange={e => setImportSkipDuplicates(e.target.checked)} 
+                    />
+                    Skip existing email duplicates ({importParsedPreview.filter(p => p.isDuplicate).length} flagged)
+                  </label>
+                </div>
+
+                <div style={{ maxHeight: "260px", overflowY: "auto", border: "1px solid var(--border-hairline)", borderRadius: "8px", marginBottom: "16px" }}>
+                  <table className="crm-table" style={{ fontSize: "12px" }}>
+                    <thead>
+                      <tr>
+                        <th>Status</th>
+                        <th>Name</th>
+                        <th>Email</th>
+                        <th>Company</th>
+                        <th>Stage</th>
+                        <th>Value</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {importParsedPreview.map((row, idx) => (
+                        <tr key={idx} style={{ opacity: row.isDuplicate && importSkipDuplicates ? 0.45 : 1 }}>
+                          <td>
+                            {row.isDuplicate ? (
+                              <span style={{ color: "#EF4444", fontSize: "10px", fontWeight: 700 }}>DUPLICATE</span>
+                            ) : (
+                              <span style={{ color: "#22C55E", fontSize: "10px", fontWeight: 700 }}>NEW</span>
+                            )}
+                          </td>
+                          <td>{row.name}</td>
+                          <td>{row.email}</td>
+                          <td>{row.company || "—"}</td>
+                          <td>{row.status}</td>
+                          <td>${Number(row.value).toLocaleString()}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="modal-footer-btns">
+                  <button type="button" className="btn-ghost-dark" onClick={() => setImportStep(1)}>
+                    Back
+                  </button>
+                  <button type="button" className="btn-primary-yellow" onClick={handleExecuteCSVImport}>
+                    <Upload size={14} />
+                    <span>Confirm & Import Records</span>
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* STEP 3: Complete */}
+            {importStep === 3 && (
+              <div style={{ textAlign: "center", padding: "24px 0" }}>
+                <CheckCircle2 size={44} color="#22C55E" style={{ margin: "0 auto 14px auto" }} />
+                <h4 style={{ color: "#fff", fontSize: "16px", marginBottom: "8px" }}>Bulk Import Completed</h4>
+                <p style={{ color: "var(--text-body)", fontSize: "13px", maxWidth: "420px", margin: "0 auto 20px auto" }}>
+                  Your contacts have been ingested into the pipeline with automatic duplicate safeguards and relationship bindings.
+                </p>
+                <button type="button" className="btn-primary-yellow" onClick={handleResetImportModal}>
+                  Close & View Pipeline
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -3216,6 +3310,115 @@ export default function Dashboard() {
                 <button type="submit" className="btn-primary-yellow">Register Product</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 11: EDIT COMPANY */}
+      {isEditCompanyModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsEditCompanyModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Building size={18} color="#F0FF60" />
+                <h3>Edit Company Account</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsEditCompanyModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              updateCompanyMutation.mutate({
+                id: editingCompanyData.id,
+                data: {
+                  name: editingCompanyData.name,
+                  domain: editingCompanyData.domain,
+                  phone: editingCompanyData.phone,
+                  address: editingCompanyData.address
+                }
+              });
+            }}>
+              <div className="form-group-circuit">
+                <label>Company Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={editingCompanyData.name} 
+                  onChange={e => setEditingCompanyData({ ...editingCompanyData, name: e.target.value })} 
+                />
+              </div>
+              <div className="form-group-circuit">
+                <label>Domain / Website</label>
+                <input 
+                  type="text" 
+                  value={editingCompanyData.domain} 
+                  onChange={e => setEditingCompanyData({ ...editingCompanyData, domain: e.target.value })} 
+                />
+              </div>
+              <div className="form-group-circuit">
+                <label>Phone Number</label>
+                <input 
+                  type="tel" 
+                  value={editingCompanyData.phone} 
+                  onChange={e => setEditingCompanyData({ ...editingCompanyData, phone: e.target.value })} 
+                />
+              </div>
+              <div className="form-group-circuit">
+                <label>Office Address</label>
+                <input 
+                  type="text" 
+                  value={editingCompanyData.address} 
+                  onChange={e => setEditingCompanyData({ ...editingCompanyData, address: e.target.value })} 
+                />
+              </div>
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsEditCompanyModalOpen(false)}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow">Update Company</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 12: OUTBOX EMAIL PAYLOAD INSPECT */}
+      {selectedOutboxEmail && (
+        <div className="modal-overlay-circuit" onClick={() => setSelectedOutboxEmail(null)}>
+          <div className="modal-box-circuit interactive-lift" style={{ maxWidth: "620px" }} onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Mail size={18} color="#F0FF60" />
+                <h3>Dispatched Email Details</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setSelectedOutboxEmail(null)}>×</button>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", margin: "14px 0", fontSize: "13px" }}>
+              <div><strong>Recipient:</strong> {selectedOutboxEmail.recipient_email || selectedOutboxEmail.recipientEmail}</div>
+              <div><strong>Subject:</strong> {selectedOutboxEmail.subject}</div>
+              <div><strong>Template:</strong> <span className="tag-pill">{selectedOutboxEmail.template_name || "Custom"}</span></div>
+              <div><strong>Sent At:</strong> {new Date(selectedOutboxEmail.createdAt).toLocaleString()}</div>
+              <div>
+                <strong>Telemetry Receipt:</strong>{" "}
+                {selectedOutboxEmail.is_opened ? (
+                  <span style={{ color: "#22C55E", fontWeight: 700 }}>
+                    Opened at {new Date(selectedOutboxEmail.opened_at).toLocaleString()}
+                  </span>
+                ) : (
+                  <span style={{ color: "var(--accent)", fontWeight: 700 }}>
+                    Delivered (Tracking pixel awaiting recipient view)
+                  </span>
+                )}
+              </div>
+              <div style={{ marginTop: "10px" }}>
+                <label style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase" }}>Dispatched Body</label>
+                <div style={{ padding: "12px", background: "#181818", border: "1px solid var(--border-hairline)", borderRadius: "6px", whiteSpace: "pre-wrap", marginTop: "4px", fontSize: "12px", maxHeight: "200px", overflowY: "auto", fontFamily: "var(--font-mono)" }}>
+                  {selectedOutboxEmail.body || "(No plain-text body preview stored)"}
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer-btns">
+              <button type="button" className="btn-primary-yellow" onClick={() => setSelectedOutboxEmail(null)}>
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
