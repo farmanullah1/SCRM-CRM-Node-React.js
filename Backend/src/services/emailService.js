@@ -8,16 +8,27 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, "../../.env") });
 
-// Determine SMTP configuration status
-const isSmtpConfigured = Boolean(
+// Determine SMTP / Gmail configuration status
+const isGmailConfigured = Boolean(process.env.GMAIL_USER && process.env.GMAIL_APP_PASS);
+const isStandardSmtpConfigured = Boolean(
   process.env.SMTP_HOST &&
   process.env.SMTP_USER &&
   process.env.SMTP_PASS
 );
+const isSmtpConfigured = isGmailConfigured || isStandardSmtpConfigured;
 
 // Create reusable Nodemailer transporter
 let transporter = null;
-if (isSmtpConfigured) {
+if (isGmailConfigured) {
+  transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_APP_PASS
+    }
+  });
+  console.log(`[Email Service] Initialized Gmail SMTP transport for: ${process.env.GMAIL_USER}`);
+} else if (isStandardSmtpConfigured) {
   transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT || "587", 10),
@@ -27,6 +38,7 @@ if (isSmtpConfigured) {
       pass: process.env.SMTP_PASS
     }
   });
+  console.log(`[Email Service] Initialized Standard SMTP transport on ${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587}`);
 }
 
 /**
@@ -111,7 +123,7 @@ export async function sendEmail({
   templateName = "System",
   trackingPixelId = null
 }) {
-  const fromAddress = process.env.SMTP_FROM || `"SCRM Team" <noreply@scrm.enterprise>`;
+  const fromAddress = process.env.SMTP_FROM || (process.env.GMAIL_USER ? `"SCRM Enterprise" <${process.env.GMAIL_USER}>` : `"SCRM Team" <noreply@scrm.enterprise>`);
   let status = "Sent";
 
   if (isSmtpConfigured && transporter) {

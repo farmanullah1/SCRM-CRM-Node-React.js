@@ -32,10 +32,13 @@ function generateTokens(user) {
 // Strictly assigns lowest privilege ('standard_user') by default. Client cannot self-elevate to admin.
 router.post("/signup", authLimiter, async (req, res) => {
   try {
-    let { name, email, password } = req.body;
+    let { name, email, password, phone, company_name, title } = req.body;
 
     name = sanitizeString(name);
     email = sanitizeString(email)?.toLowerCase();
+    phone = phone ? sanitizeString(phone) : null;
+    company_name = company_name ? sanitizeString(company_name) : null;
+    title = title ? sanitizeString(title) : null;
 
     if (!name || !email || !password) {
       return res.status(400).json({ error: "Name, email, and password are required." });
@@ -70,6 +73,9 @@ router.post("/signup", authLimiter, async (req, res) => {
     const user = await User.create({
       name,
       email,
+      phone,
+      company_name,
+      title,
       password: hashedPassword,
       role: assignedRole,
       role_id: roleId,
@@ -93,6 +99,9 @@ router.post("/signup", authLimiter, async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        company_name: user.company_name,
+        title: user.title,
         role: user.role,
         role_id: user.role_id,
         twoFactorEnabled: false
@@ -165,6 +174,9 @@ router.post("/login", authLimiter, async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        company_name: user.company_name,
+        title: user.title,
         role: user.role,
         role_id: user.role_id,
         twoFactorEnabled: Boolean(user.two_factor_enabled)
@@ -222,6 +234,9 @@ router.post("/2fa/verify", authLimiter, async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        company_name: user.company_name,
+        title: user.title,
         role: user.role,
         role_id: user.role_id,
         twoFactorEnabled: true
@@ -338,12 +353,27 @@ router.put("/profile", authenticateToken, async (req, res) => {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found." });
 
-    const { name, currentPassword, newPassword } = req.body;
+    const { name, phone, company_name, title, currentPassword, newPassword } = req.body;
     let modifiedDetails = [];
 
     if (name) {
       user.name = sanitizeString(name);
       modifiedDetails.push("Name updated");
+    }
+
+    if (phone !== undefined) {
+      user.phone = phone ? sanitizeString(phone) : null;
+      modifiedDetails.push("Phone updated");
+    }
+
+    if (company_name !== undefined) {
+      user.company_name = company_name ? sanitizeString(company_name) : null;
+      modifiedDetails.push("Company updated");
+    }
+
+    if (title !== undefined) {
+      user.title = title ? sanitizeString(title) : null;
+      modifiedDetails.push("Title updated");
     }
 
     if (newPassword) {
@@ -379,6 +409,9 @@ router.put("/profile", authenticateToken, async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone,
+        company_name: user.company_name,
+        title: user.title,
         role: user.role,
         twoFactorEnabled: Boolean(user.two_factor_enabled)
       }
@@ -418,7 +451,7 @@ router.post("/refresh", async (req, res) => {
 router.get("/me", authenticateToken, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, {
-      attributes: ["id", "name", "email", "role", "role_id", "two_factor_enabled", "createdAt"]
+      attributes: ["id", "name", "email", "phone", "company_name", "title", "role", "role_id", "two_factor_enabled", "createdAt"]
     });
 
     if (!user) {

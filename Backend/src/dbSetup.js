@@ -129,6 +129,12 @@ export async function ensureDatabaseAndSchema() {
           ALTER TABLE [users] ADD [reset_password_token] NVARCHAR(100) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'reset_password_expires')
           ALTER TABLE [users] ADD [reset_password_expires] DATETIMEOFFSET NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'phone')
+          ALTER TABLE [users] ADD [phone] NVARCHAR(50) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'company_name')
+          ALTER TABLE [users] ADD [company_name] NVARCHAR(150) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'title')
+          ALTER TABLE [users] ADD [title] NVARCHAR(100) NULL;
       END
     `);
 

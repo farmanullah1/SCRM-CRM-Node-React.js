@@ -57,8 +57,8 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const signup = async (name, email, password) => {
-    const data = await signupUser({ name, email, password });
+  const signup = async (name, email, password, phone, company_name, title) => {
+    const data = await signupUser({ name, email, password, phone, company_name, title });
     localStorage.setItem("crm_token", data.token);
     if (data.refreshToken) {
       localStorage.setItem("crm_refresh_token", data.refreshToken);

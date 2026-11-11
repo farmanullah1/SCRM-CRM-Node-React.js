@@ -1,15 +1,24 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import BrandLogo from "../components/BrandLogo";
 import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function Signup() {
-  const { signup } = useAuth();
+  const { user, signup } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      navigate("/app", { replace: true });
+    }
+  }, [user, navigate]);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [companyName, setCompanyName] = useState("");
+  const [title, setTitle] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,7 +40,7 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      await signup(name, email, password);
+      await signup(name, email, password, phone, companyName, title);
       navigate("/app");
     } catch (err) {
       setError(err.response?.data?.error || "Unable to register account. Please try again.");
@@ -42,7 +51,7 @@ export default function Signup() {
 
   return (
     <div className="auth-circuit-page">
-      <div className="auth-circuit-card">
+      <div className="auth-circuit-card" style={{ maxWidth: "520px" }}>
         <div className="auth-circuit-header">
           <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.85rem" }}>
             <BrandLogo variant="stacked" size={38} showTagline={false} />
@@ -51,7 +60,7 @@ export default function Signup() {
             GET STARTED WITH SCRM
           </div>
           <h2 className="auth-circuit-title">Create Account</h2>
-          <p className="auth-circuit-sub">Start managing contacts, pipeline deals, and scheduled tasks.</p>
+          <p className="auth-circuit-sub">Provision your sales workspace, team contacts, and pipeline deals.</p>
         </div>
 
         {error && (
@@ -63,7 +72,7 @@ export default function Signup() {
 
         <form onSubmit={handleSubmit}>
           <div className="circuit-form-group">
-            <label className="circuit-label">Full Name</label>
+            <label className="circuit-label">Full Name *</label>
             <input
               type="text"
               required
@@ -75,7 +84,7 @@ export default function Signup() {
           </div>
 
           <div className="circuit-form-group">
-            <label className="circuit-label">Work Email</label>
+            <label className="circuit-label">Work Email *</label>
             <input
               type="email"
               required
@@ -86,39 +95,81 @@ export default function Signup() {
             />
           </div>
 
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="circuit-form-group">
+              <label className="circuit-label">Phone Number</label>
+              <input
+                type="tel"
+                className="circuit-input"
+                placeholder="+1 (555) 234-5678"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            <div className="circuit-form-group">
+              <label className="circuit-label">Job Title / Role</label>
+              <input
+                type="text"
+                className="circuit-input"
+                placeholder="e.g. Head of Growth"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+              />
+            </div>
+          </div>
+
           <div className="circuit-form-group">
-            <label className="circuit-label">Password</label>
+            <label className="circuit-label">Company / Organization</label>
             <input
-              type="password"
-              required
-              minLength={6}
+              type="text"
               className="circuit-input"
-              placeholder="Minimum 6 characters"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              placeholder="e.g. Black Mesa Technologies"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
             />
           </div>
 
-          <div className="circuit-form-group" style={{ marginBottom: "2rem" }}>
-            <label className="circuit-label">Confirm Password</label>
-            <input
-              type="password"
-              required
-              className="circuit-input"
-              placeholder="Re-enter password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-            />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "1.75rem" }}>
+            <div className="circuit-form-group">
+              <label className="circuit-label">Password *</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                className="circuit-input"
+                placeholder="Min 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            </div>
+
+            <div className="circuit-form-group">
+              <label className="circuit-label">Confirm Password *</label>
+              <input
+                type="password"
+                required
+                className="circuit-input"
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
           </div>
 
-          <button type="submit" className="btn-primary-yellow" style={{ width: "100%", height: "48px", justifyContent: "center" }} disabled={loading}>
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary-yellow interactive-lift"
+            style={{ width: "100%", height: "48px", justifyContent: "center" }}
+          >
             <span>{loading ? "Creating Account..." : "Create SCRM Account"}</span>
             {!loading && <ArrowRight size={18} />}
           </button>
         </form>
 
-        <p className="auth-switch-text">
-          Already registered?
+        <p className="auth-switch-text" style={{ marginTop: "1.25rem", textAlign: "center" }}>
+          Already registered?{" "}
           <Link to="/login" className="auth-cyan-link">
             Sign In Here
           </Link>

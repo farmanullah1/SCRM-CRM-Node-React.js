@@ -116,11 +116,38 @@ export default function Dashboard() {
     setTimeout(() => setToastMessage(""), 4000);
   };
 
-  // Profile & 2FA Settings State
+  // Profile & Settings State
   const [profileName, setProfileName] = useState(user?.name || "");
+  const [profilePhone, setProfilePhone] = useState(user?.phone || "");
+  const [profileCompany, setProfileCompany] = useState(user?.company_name || "");
+  const [profileTitle, setProfileTitle] = useState(user?.title || "");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
+
+  // Sync profile fields with user context changes
+  React.useEffect(() => {
+    if (user) {
+      setProfileName(user.name || "");
+      setProfilePhone(user.phone || "");
+      setProfileCompany(user.company_name || "");
+      setProfileTitle(user.title || "");
+    }
+  }, [user]);
+
+  // Sign-Out Confirmation Modal
+  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
+
+  // Form Error States
+  const [leadFormError, setLeadFormError] = useState("");
+  const [taskFormError, setTaskFormError] = useState("");
+  const [activityFormError, setActivityFormError] = useState("");
+  const [emailFormError, setEmailFormError] = useState("");
+  const [importFormError, setImportFormError] = useState("");
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportScope, setExportScope] = useState("contacts");
 
   // Filter States
   const [searchTerm, setSearchTerm] = useState("");
@@ -347,9 +374,10 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       setIsLeadModalOpen(false);
       setEditingLead(null);
+      setLeadFormError("");
       showToast("Inbound lead captured successfully!");
     },
-    onError: (err) => showToast(err.response?.data?.error || "Failed to create lead.")
+    onError: (err) => setLeadFormError(err.response?.data?.error || "Failed to create lead.")
   });
 
   const updateLeadMutation = useMutation({
@@ -358,9 +386,10 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["leads"] });
       setIsLeadModalOpen(false);
       setEditingLead(null);
+      setLeadFormError("");
       showToast("Lead updated successfully.");
     },
-    onError: (err) => showToast(err.response?.data?.error || "Failed to update lead.")
+    onError: (err) => setLeadFormError(err.response?.data?.error || "Failed to update lead.")
   });
 
   const deleteLeadMutation = useMutation({
@@ -394,6 +423,8 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsContactModalOpen(false);
+      setContactFormError("");
+      showToast("Contact & deal created successfully!");
     },
     onError: (err) => setContactFormError(err.response?.data?.error || "Failed to create contact.")
   });
@@ -405,6 +436,8 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsContactModalOpen(false);
+      setContactFormError("");
+      showToast("Contact updated successfully.");
     },
     onError: (err) => setContactFormError(err.response?.data?.error || "Failed to update contact.")
   });
@@ -414,6 +447,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
+      showToast("Contact deleted.");
     }
   });
 
@@ -435,6 +469,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["companies"] });
       setIsCompanyModalOpen(false);
+      showToast("Company created successfully.");
     }
   });
 
@@ -443,7 +478,18 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setIsTaskModalOpen(false);
-    }
+      setTaskFormError("");
+      setTaskFormData({
+        title: "",
+        description: "",
+        dueDate: "",
+        priority: "Medium",
+        status: "Pending",
+        contactId: ""
+      });
+      showToast("Task scheduled successfully!");
+    },
+    onError: (err) => setTaskFormError(err.response?.data?.error || "Failed to schedule task.")
   });
 
   const updateTaskMutation = useMutation({
@@ -461,7 +507,17 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsActivityModalOpen(false);
-    }
+      setActivityFormError("");
+      setActivityFormData({
+        contactId: "",
+        type: "Call",
+        title: "",
+        description: "",
+        outcome: "Interested"
+      });
+      showToast("Interaction logged successfully!");
+    },
+    onError: (err) => setActivityFormError(err.response?.data?.error || "Failed to log interaction.")
   });
 
   const createInvoiceMutation = useMutation({
@@ -469,6 +525,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["invoices"] });
       setIsInvoiceModalOpen(false);
+      showToast("Invoice created.");
     }
   });
 
@@ -477,6 +534,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tickets"] });
       setIsTicketModalOpen(false);
+      showToast("Support ticket created.");
     }
   });
 
@@ -505,8 +563,16 @@ export default function Dashboard() {
       queryClient.invalidateQueries({ queryKey: ["emailLogs"] });
       queryClient.invalidateQueries({ queryKey: ["activities"] });
       setIsEmailModalOpen(false);
-      showToast("Email dispatched and tracking pixel attached!");
-    }
+      setEmailFormError("");
+      setEmailFormData({
+        contactId: "",
+        recipientEmail: "",
+        subject: "",
+        body: ""
+      });
+      showToast("Email dispatched successfully with tracking pixel attached!");
+    },
+    onError: (err) => setEmailFormError(err.response?.data?.error || "Email delivery failed. Verify SMTP configuration.")
   });
 
   const mergeContactsMutation = useMutation({
@@ -541,47 +607,127 @@ export default function Dashboard() {
     mutationFn: updateProfile,
     onSuccess: (data) => {
       setProfileMessage(data.message || "Profile successfully updated!");
+      setProfileError("");
       setCurrentPassword("");
       setNewPassword("");
+      setConfirmPassword("");
       if (refreshUser) refreshUser();
+      showToast("Profile settings saved successfully!");
     },
-    onError: (err) => setProfileMessage(err.response?.data?.error || "Failed to update profile.")
+    onError: (err) => {
+      setProfileError(err.response?.data?.error || "Failed to update profile.");
+      setProfileMessage("");
+    }
   });
 
-  // Export to CSV
-  const handleExportCSV = () => {
-    if (contacts.length === 0) {
-      showToast("No contacts to export.");
-      return;
+  // Export to CSV with Multiple Entity Support & UTF-8 BOM
+  const handleExportCSV = (scope = "contacts") => {
+    try {
+      let headers = [];
+      let rows = [];
+      let filename = "";
+
+      if (scope === "leads") {
+        if (leads.length === 0) {
+          showToast("No leads available to export.");
+          return;
+        }
+        headers = ["ID", "Name", "Email", "Phone", "Company", "Title", "Status", "Source", "Estimated Value", "Created At"];
+        rows = leads.map(l => [
+          l.id,
+          `"${(l.name || "").replace(/"/g, '""')}"`,
+          `"${(l.email || "").replace(/"/g, '""')}"`,
+          `"${(l.phone || "").replace(/"/g, '""')}"`,
+          `"${(l.company_name || "").replace(/"/g, '""')}"`,
+          `"${(l.title || "").replace(/"/g, '""')}"`,
+          `"${l.status || "New"}"`,
+          `"${(l.source || "").replace(/"/g, '""')}"`,
+          l.estimated_value || 0,
+          `"${l.created_at || ""}"`
+        ]);
+        filename = `SCRM_Leads_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+      } else if (scope === "tasks") {
+        if (tasks.length === 0) {
+          showToast("No tasks available to export.");
+          return;
+        }
+        headers = ["ID", "Title", "Status", "Priority", "Due Date", "Contact ID", "Description"];
+        rows = tasks.map(t => [
+          t.id,
+          `"${(t.title || "").replace(/"/g, '""')}"`,
+          `"${t.status || "Pending"}"`,
+          `"${t.priority || "Medium"}"`,
+          `"${t.dueDate || ""}"`,
+          t.contactId || "",
+          `"${(t.description || "").replace(/"/g, '""')}"`
+        ]);
+        filename = `SCRM_Tasks_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+      } else {
+        if (contacts.length === 0) {
+          showToast("No contacts available to export.");
+          return;
+        }
+        headers = ["ID", "Name", "Email", "Phone", "Company", "Status", "Value", "LeadSource", "Tags", "Expected Close Date"];
+        rows = contacts.map(c => [
+          c.id,
+          `"${(c.name || "").replace(/"/g, '""')}"`,
+          `"${(c.email || "").replace(/"/g, '""')}"`,
+          `"${(c.phone || "").replace(/"/g, '""')}"`,
+          `"${(c.company || "").replace(/"/g, '""')}"`,
+          `"${c.status || "New"}"`,
+          c.value || 0,
+          `"${(c.leadSource || "").replace(/"/g, '""')}"`,
+          `"${(c.tags || "").replace(/"/g, '""')}"`,
+          `"${c.expectedCloseDate || ""}"`
+        ]);
+        filename = `SCRM_Contacts_Export_${new Date().toISOString().slice(0, 10)}.csv`;
+      }
+
+      // Prepend UTF-8 BOM so Excel opens UTF-8 characters correctly
+      const csvString = "\uFEFF" + [headers.join(","), ...rows.map(e => e.join(","))].join("\r\n");
+      const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.setAttribute("href", url);
+      link.setAttribute("download", filename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setIsExportModalOpen(false);
+      showToast(`Exported ${rows.length} records to ${filename}`);
+    } catch (err) {
+      showToast("Failed to export CSV: " + err.message);
     }
-    const headers = ["ID", "Name", "Email", "Phone", "Company", "Status", "Value", "LeadSource", "Tags"];
-    const rows = contacts.map(c => [
-      c.id,
-      `"${c.name}"`,
-      `"${c.email}"`,
-      `"${c.phone || ""}"`,
-      `"${c.company || ""}"`,
-      `"${c.status}"`,
-      c.value || 0,
-      `"${c.leadSource || ""}"`,
-      `"${c.tags || ""}"`
-    ]);
-    const csvContent = "data:text/csv;charset=utf-8," + [headers.join(","), ...rows.map(e => e.join(","))].join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `SCRM_Contacts_Export_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    showToast("Contacts exported to CSV successfully.");
   };
 
-  // Import CSV text
+  // Import CSV text & file upload
+  const handleCSVFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCsvText(event.target.result);
+      setImportFormError("");
+    };
+    reader.onerror = () => {
+      setImportFormError("Failed to read the selected file.");
+    };
+    reader.readAsText(file);
+  };
+
   const handleProcessCSVImport = async () => {
-    if (!csvText.trim()) return;
+    setImportFormError("");
+    if (!csvText.trim()) {
+      setImportFormError("Please upload a CSV file or paste CSV rows into the text area.");
+      return;
+    }
     try {
-      const lines = csvText.trim().split("\n");
+      const lines = csvText.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
+      if (lines.length === 0) {
+        setImportFormError("CSV content is empty.");
+        return;
+      }
       const parsedContacts = [];
       for (let i = 0; i < lines.length; i++) {
         if (i === 0 && (lines[i].toLowerCase().includes("name") || lines[i].toLowerCase().includes("email"))) continue;
@@ -600,17 +746,18 @@ export default function Dashboard() {
         }
       }
       if (parsedContacts.length === 0) {
-        showToast("No valid contacts found in CSV text.");
+        setImportFormError("No valid rows found. Each row requires at least Name and Email (e.g. Rachel Adams, rachel@example.com).");
         return;
       }
       const res = await bulkImportContacts(parsedContacts);
-      showToast(res.message);
+      showToast(res.message || `Successfully imported ${parsedContacts.length} contacts!`);
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
       setIsImportModalOpen(false);
       setCsvText("");
+      setImportFormError("");
     } catch (e) {
-      showToast("Import error: " + (e.response?.data?.error || e.message));
+      setImportFormError("Import error: " + (e.response?.data?.error || e.message));
     }
   };
 
@@ -650,21 +797,21 @@ export default function Dashboard() {
         <div className="nav-tab-links">
           <button 
             className={`nav-tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
-            onClick={() => setActiveTab("dashboard")}
+            onClick={() => { setActiveTab("dashboard"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <TrendingUp size={15} />
             <span>Dashboard</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "leads" ? "active" : ""}`}
-            onClick={() => setActiveTab("leads")}
+            onClick={() => { setActiveTab("leads"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Target size={15} />
             <span>Leads ({leads.length})</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "contacts" ? "active" : ""}`}
-            onClick={() => setActiveTab("contacts")}
+            onClick={() => { setActiveTab("contacts"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Users size={15} />
             <span>Contacts ({contacts.length})</span>
@@ -676,21 +823,21 @@ export default function Dashboard() {
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "pipeline" ? "active" : ""}`}
-            onClick={() => setActiveTab("pipeline")}
+            onClick={() => { setActiveTab("pipeline"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Layers size={15} />
             <span>Pipeline</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "companies" ? "active" : ""}`}
-            onClick={() => setActiveTab("companies")}
+            onClick={() => { setActiveTab("companies"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Building size={15} />
             <span>Companies ({companies.length})</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "tasks" ? "active" : ""}`}
-            onClick={() => setActiveTab("tasks")}
+            onClick={() => { setActiveTab("tasks"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Calendar size={15} />
             <span>Tasks ({pendingTasks.length})</span>
@@ -702,43 +849,50 @@ export default function Dashboard() {
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "activities" ? "active" : ""}`}
-            onClick={() => setActiveTab("activities")}
+            onClick={() => { setActiveTab("activities"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Clock size={15} />
             <span>Activity Log</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "invoices" ? "active" : ""}`}
-            onClick={() => setActiveTab("invoices")}
+            onClick={() => { setActiveTab("invoices"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <FileText size={15} />
             <span>Invoices</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "catalog" ? "active" : ""}`}
-            onClick={() => setActiveTab("catalog")}
+            onClick={() => { setActiveTab("catalog"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Package size={15} />
             <span>Catalog ({products.length})</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "tickets" ? "active" : ""}`}
-            onClick={() => setActiveTab("tickets")}
+            onClick={() => { setActiveTab("tickets"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <LifeBuoy size={15} />
             <span>Tickets ({openTickets.length})</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "emails" ? "active" : ""}`}
-            onClick={() => setActiveTab("emails")}
+            onClick={() => { setActiveTab("emails"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <Mail size={15} />
             <span>Outbox</span>
           </button>
+          <button 
+            className={`nav-tab-btn ${activeTab === "settings" ? "active" : ""}`}
+            onClick={() => { setActiveTab("settings"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+          >
+            <Sliders size={15} />
+            <span>Settings</span>
+          </button>
           {user?.role === "admin" && (
             <button 
               className={`nav-tab-btn ${activeTab === "security" ? "active" : ""}`}
-              onClick={() => setActiveTab("security")}
+              onClick={() => { setActiveTab("security"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
             >
               <ShieldCheck size={15} color="#F0FF60" />
               <span>Security & Backup</span>
@@ -750,6 +904,7 @@ export default function Dashboard() {
         <div className="nav-right-items">
           <button className="btn-primary-yellow" onClick={() => { 
             setEditingLead(null); 
+            setLeadFormError("");
             setLeadFormData({
               name: "",
               email: "",
@@ -766,8 +921,18 @@ export default function Dashboard() {
             <UserPlus size={16} />
             <span>New Lead</span>
           </button>
-          <button className="action-icon-btn delete" onClick={logout} title="Sign Out">
-            <LogOut size={16} />
+          <button 
+            className={`nav-profile-pill ${activeTab === "settings" ? "active" : ""}`} 
+            onClick={() => { setActiveTab("settings"); window.scrollTo({ top: 0, behavior: "smooth" }); }} 
+            title="User Profile & Settings"
+          >
+            <div className="nav-profile-avatar">
+              {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+            </div>
+            <div className="nav-profile-info">
+              <span className="nav-profile-name">{user?.name || "User"}</span>
+              <span className="nav-profile-role">{user?.role || "standard_user"}</span>
+            </div>
           </button>
           {/* Mobile Menu Hamburger */}
           <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -779,120 +944,135 @@ export default function Dashboard() {
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div className="mobile-nav-drawer">
-          <button onClick={() => { setActiveTab("dashboard"); setMobileMenuOpen(false); }}>Dashboard</button>
-          <button onClick={() => { setActiveTab("leads"); setMobileMenuOpen(false); }}>Leads ({leads.length})</button>
-          <button onClick={() => { setActiveTab("contacts"); setMobileMenuOpen(false); }}>Contacts ({contacts.length})</button>
-          <button onClick={() => { setActiveTab("pipeline"); setMobileMenuOpen(false); }}>Pipeline Kanban</button>
-          <button onClick={() => { setActiveTab("companies"); setMobileMenuOpen(false); }}>Companies ({companies.length})</button>
-          <button onClick={() => { setActiveTab("tasks"); setMobileMenuOpen(false); }}>Tasks ({pendingTasks.length})</button>
-          <button onClick={() => { setActiveTab("activities"); setMobileMenuOpen(false); }}>Activity Log</button>
-          <button onClick={() => { setActiveTab("invoices"); setMobileMenuOpen(false); }}>Invoices & Quotes</button>
-          <button onClick={() => { setActiveTab("catalog"); setMobileMenuOpen(false); }}>Supply Catalog ({products.length})</button>
-          <button onClick={() => { setActiveTab("tickets"); setMobileMenuOpen(false); }}>Support Tickets ({openTickets.length})</button>
-          <button onClick={() => { setActiveTab("emails"); setMobileMenuOpen(false); }}>Outbox</button>
+          <button className={activeTab === "dashboard" ? "active" : ""} onClick={() => { setActiveTab("dashboard"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Dashboard</button>
+          <button className={activeTab === "leads" ? "active" : ""} onClick={() => { setActiveTab("leads"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Leads ({leads.length})</button>
+          <button className={activeTab === "contacts" ? "active" : ""} onClick={() => { setActiveTab("contacts"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Contacts ({contacts.length})</button>
+          <button className={activeTab === "pipeline" ? "active" : ""} onClick={() => { setActiveTab("pipeline"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Pipeline Kanban</button>
+          <button className={activeTab === "companies" ? "active" : ""} onClick={() => { setActiveTab("companies"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Companies ({companies.length})</button>
+          <button className={activeTab === "tasks" ? "active" : ""} onClick={() => { setActiveTab("tasks"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Tasks ({pendingTasks.length})</button>
+          <button className={activeTab === "activities" ? "active" : ""} onClick={() => { setActiveTab("activities"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Activity Log</button>
+          <button className={activeTab === "invoices" ? "active" : ""} onClick={() => { setActiveTab("invoices"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Invoices & Quotes</button>
+          <button className={activeTab === "catalog" ? "active" : ""} onClick={() => { setActiveTab("catalog"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Supply Catalog ({products.length})</button>
+          <button className={activeTab === "tickets" ? "active" : ""} onClick={() => { setActiveTab("tickets"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Support Tickets ({openTickets.length})</button>
+          <button className={activeTab === "emails" ? "active" : ""} onClick={() => { setActiveTab("emails"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Outbox</button>
+          <button className={activeTab === "settings" ? "active" : ""} onClick={() => { setActiveTab("settings"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Settings & Profile</button>
           {user?.role === "admin" && (
-            <button onClick={() => { setActiveTab("security"); setMobileMenuOpen(false); }}>Security & Backup</button>
+            <button className={activeTab === "security" ? "active" : ""} onClick={() => { setActiveTab("security"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Security & Backup</button>
           )}
         </div>
       )}
 
       <main className="crm-layout">
-        {/* Top Hero Section */}
-        <header className="crm-hero">
-          <div className="eyebrow">ENTERPRISE CRM // OPERATOR: {user?.name || "ADMIN"} ({user?.role?.toUpperCase() || "ADMIN"})</div>
-          <h1 className="hero-display-stack">
-            DRIVE DEALS.<br />
-            AUTOMATE TASKS.<br />
-            <span className="yellow-text">COMPLETE VISIBILITY.</span>
-          </h1>
-          <p className="hero-lead-text">
-            Enterprise CRM platform with idempotent SQL migrations, RBAC access control, lead-to-deal conversion, email open tracking, automated duplicate detection, and automated database snapshots.
-          </p>
-
-          <div className="hero-three-button-row">
-            <button className="btn-primary-yellow interactive-lift" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
-              <UserPlus size={17} />
-              <span>Create Lead</span>
-            </button>
-            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsTaskModalOpen(true)}>
-              <Plus size={17} color="#F0FF60" />
-              <span>Schedule Task</span>
-            </button>
-            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsActivityModalOpen(true)}>
-              <Phone size={16} color="#F0FF60" />
-              <span>Log Interaction</span>
-            </button>
-            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsEmailModalOpen(true)}>
-              <Mail size={16} color="#F0FF60" />
-              <span>Compose Email</span>
-            </button>
-            <button className="btn-ghost-dark interactive-lift" onClick={handleExportCSV}>
-              <Download size={16} />
-              <span>Export CSV</span>
-            </button>
-            <button className="btn-ghost-dark interactive-lift" onClick={() => setIsImportModalOpen(true)}>
-              <Upload size={16} />
-              <span>Import CSV</span>
-            </button>
-          </div>
-        </header>
-
-        {/* 4-Up High Impact Telemetry Grid */}
-        <section className="metrics-4up-grid">
-          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("contacts")} style={{ cursor: "pointer" }}>
-            <div className="metric-icon-badge"><Users size={22} /></div>
-            <div className="metric-val">{contacts.length}</div>
-            <div className="metric-lbl">Total Contacts & Leads</div>
-            <div className="metric-sub">Across all pipeline stages</div>
-          </div>
-
-          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
-            <div className="metric-icon-badge"><DollarSign size={22} /></div>
-            <div className="metric-val" style={{ color: "var(--accent)" }}>
-              ${totalPipelineValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-            </div>
-            <div className="metric-lbl">Active Pipeline Value</div>
-            <div className="metric-sub">{proposalCount} deals in Proposal stage</div>
-          </div>
-
-          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("pipeline")} style={{ cursor: "pointer" }}>
-            <div className="metric-icon-badge"><ShieldCheck size={22} /></div>
-            <div className="metric-val" style={{ color: "var(--semantic-success)" }}>
-              ${wonValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
-            </div>
-            <div className="metric-lbl">Won Deals Revenue</div>
-            <div className="metric-sub">{wonCount} closed won contracts ({dealMetrics.winRate || "0%"})</div>
-          </div>
-
-          <div className="metric-card-circuit interactive-lift" onClick={() => setActiveTab("tasks")} style={{ cursor: "pointer" }}>
-            <div className="metric-icon-badge"><Calendar size={22} /></div>
-            <div className="metric-val" style={{ color: taskStats.overdue > 0 ? "var(--semantic-error)" : "var(--accent-bright)" }}>
-              {pendingTasks.length}
-            </div>
-            <div className="metric-lbl">Pending Tasks</div>
-            <div className="metric-sub">{taskStats.overdue > 0 ? `${taskStats.overdue} overdue alerts!` : `${openTickets.length} open tickets`}</div>
-          </div>
-        </section>
-
-        {/* Duplicate Contacts Alert Banner */}
-        {duplicatesData.count > 0 && (
-          <div className="duplicate-alert-banner">
-            <div className="banner-left">
-              <AlertCircle size={20} color="#F0FF60" />
-              <div>
-                <strong>Automated Duplicate Detection:</strong> {duplicatesData.count} potential duplicate contacts identified by matching email or phone.
-              </div>
-            </div>
-            <button className="btn-primary-yellow" onClick={() => setIsDuplicateModalOpen(true)}>
-              <GitMerge size={16} />
-              <span>Review & Merge Duplicates</span>
-            </button>
-          </div>
-        )}
-
         {/* TAB 1: DASHBOARD OVERVIEW */}
         {activeTab === "dashboard" && (
           <div className="dashboard-view-stack">
+            {/* Top Hero Section */}
+            <header className="crm-hero">
+              <div className="eyebrow">ENTERPRISE CRM // OPERATOR: {user?.name || "OPERATOR"} ({user?.role?.toUpperCase() || "STANDARD_USER"})</div>
+              <h1 className="hero-display-stack">
+                DRIVE DEALS.<br />
+                AUTOMATE TASKS.<br />
+                <span className="yellow-text">COMPLETE VISIBILITY.</span>
+              </h1>
+              <p className="hero-lead-text">
+                All-in-one relationship intelligence and revenue operations. Track deals, schedule priority follow-ups, dispatch verified email campaigns, and analyze sales performance in real time.
+              </p>
+
+              <div className="hero-three-button-row">
+                <button className="btn-primary-yellow interactive-lift" onClick={() => { 
+                  setEditingLead(null); 
+                  setLeadFormError("");
+                  setLeadFormData({
+                    name: "",
+                    email: "",
+                    phone: "",
+                    company_name: "",
+                    title: "",
+                    source: "Website",
+                    status: "New",
+                    estimated_value: 10000,
+                    notes: ""
+                  });
+                  setIsLeadModalOpen(true); 
+                }}>
+                  <UserPlus size={17} />
+                  <span>Create Lead</span>
+                </button>
+                <button className="btn-ghost-dark interactive-lift" onClick={() => { setTaskFormError(""); setIsTaskModalOpen(true); }}>
+                  <Plus size={17} color="#F0FF60" />
+                  <span>Schedule Task</span>
+                </button>
+                <button className="btn-ghost-dark interactive-lift" onClick={() => { setActivityFormError(""); setIsActivityModalOpen(true); }}>
+                  <Phone size={16} color="#F0FF60" />
+                  <span>Log Interaction</span>
+                </button>
+                <button className="btn-ghost-dark interactive-lift" onClick={() => { setEmailFormError(""); setIsEmailModalOpen(true); }}>
+                  <Mail size={16} color="#F0FF60" />
+                  <span>Compose Email</span>
+                </button>
+                <button className="btn-ghost-dark interactive-lift" onClick={() => setIsExportModalOpen(true)}>
+                  <Download size={16} />
+                  <span>Export CSV</span>
+                </button>
+                <button className="btn-ghost-dark interactive-lift" onClick={() => { setImportFormError(""); setIsImportModalOpen(true); }}>
+                  <Upload size={16} />
+                  <span>Import CSV</span>
+                </button>
+              </div>
+            </header>
+
+            {/* 4-Up High Impact Telemetry Grid */}
+            <section className="metrics-4up-grid">
+              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("contacts"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+                <div className="metric-icon-badge"><Users size={22} /></div>
+                <div className="metric-val">{contacts.length}</div>
+                <div className="metric-lbl">Total Contacts & Leads</div>
+                <div className="metric-sub">Across all pipeline stages</div>
+              </div>
+
+              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("pipeline"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+                <div className="metric-icon-badge"><DollarSign size={22} /></div>
+                <div className="metric-val" style={{ color: "var(--accent)" }}>
+                  ${totalPipelineValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                </div>
+                <div className="metric-lbl">Active Pipeline Value</div>
+                <div className="metric-sub">{proposalCount} deals in Proposal stage</div>
+              </div>
+
+              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("pipeline"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+                <div className="metric-icon-badge"><ShieldCheck size={22} /></div>
+                <div className="metric-val" style={{ color: "var(--semantic-success)" }}>
+                  ${wonValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
+                </div>
+                <div className="metric-lbl">Won Deals Revenue</div>
+                <div className="metric-sub">{wonCount} closed won contracts ({dealMetrics.winRate || "0%"})</div>
+              </div>
+
+              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("tasks"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+                <div className="metric-icon-badge"><Calendar size={22} /></div>
+                <div className="metric-val" style={{ color: taskStats.overdue > 0 ? "var(--semantic-error)" : "var(--accent-bright)" }}>
+                  {pendingTasks.length}
+                </div>
+                <div className="metric-lbl">Pending Tasks</div>
+                <div className="metric-sub">{taskStats.overdue > 0 ? `${taskStats.overdue} overdue alerts!` : `${openTickets.length} open tickets`}</div>
+              </div>
+            </section>
+
+            {/* Duplicate Contacts Alert Banner */}
+            {duplicatesData.count > 0 && (
+              <div className="duplicate-alert-banner">
+                <div className="banner-left">
+                  <AlertCircle size={20} color="#F0FF60" />
+                  <div>
+                    <strong>Automated Duplicate Detection:</strong> {duplicatesData.count} potential duplicate contacts identified by matching email or phone.
+                  </div>
+                </div>
+                <button className="btn-primary-yellow" onClick={() => setIsDuplicateModalOpen(true)}>
+                  <GitMerge size={16} />
+                  <span>Review & Merge Duplicates</span>
+                </button>
+              </div>
+            )}
             <div className="asymmetric-2up-grid">
               {/* Pipeline Overview Card */}
               <div className="card-circuit interactive-lift">
@@ -1816,83 +1996,231 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
 
-              {/* User Security & 2FA Configuration Card */}
-              <div className="card-circuit interactive-lift" style={{ gridColumn: "1 / -1", marginTop: "20px" }}>
-                <div className="card-header-bar">
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+        {/* TAB 11: ACCOUNT SETTINGS & PREFERENCES */}
+        {activeTab === "settings" && (
+          <div className="settings-view-stack">
+            <div className="settings-view-header">
+              <h2 className="settings-view-title">Account Settings & System Preferences</h2>
+              <p className="settings-view-subtitle">
+                Manage your user profile, security credentials, two-factor authentication, and active sessions.
+              </p>
+            </div>
+
+            {profileMessage && (
+              <div style={{ padding: "12px 16px", background: "rgba(240, 255, 96, 0.12)", border: "1px solid var(--border-yellow-adjacent)", borderRadius: "8px", color: "var(--accent)", fontSize: "14px", fontWeight: "600" }}>
+                ✓ {profileMessage}
+              </div>
+            )}
+            {profileError && (
+              <div style={{ padding: "12px 16px", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: "8px", color: "#EF4444", fontSize: "14px", fontWeight: "600" }}>
+                ⚠ {profileError}
+              </div>
+            )}
+
+            <div className="settings-grid">
+              {/* Profile Details Card */}
+              <div className="settings-card interactive-lift">
+                <div className="settings-card-header">
+                  <div className="settings-card-title">
+                    <Users size={18} color="#F0FF60" />
+                    <span>Personal Profile</span>
+                  </div>
+                  <span className="tag-pill" style={{ textTransform: "uppercase" }}>{user?.role || "standard_user"}</span>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  setProfileError("");
+                  setProfileMessage("");
+                  updateProfileMutation.mutate({
+                    name: profileName,
+                    phone: profilePhone,
+                    company_name: profileCompany,
+                    title: profileTitle
+                  });
+                }}>
+                  <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
+                    <label>Full Name *</label>
+                    <input
+                      type="text"
+                      required
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
+                    <label>Work Email (Primary ID)</label>
+                    <input
+                      type="email"
+                      disabled
+                      value={user?.email || ""}
+                      style={{ opacity: 0.65, cursor: "not-allowed" }}
+                    />
+                  </div>
+
+                  <div className="form-row-2col" style={{ marginBottom: "12px" }}>
+                    <div className="form-group-circuit">
+                      <label>Phone Number</label>
+                      <input
+                        type="tel"
+                        placeholder="+1 555-0199"
+                        value={profilePhone}
+                        onChange={(e) => setProfilePhone(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group-circuit">
+                      <label>Job Title</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Sales Director"
+                        value={profileTitle}
+                        onChange={(e) => setProfileTitle(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="form-group-circuit" style={{ marginBottom: "16px" }}>
+                    <label>Company / Organization</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Acme Enterprise"
+                      value={profileCompany}
+                      onChange={(e) => setProfileCompany(e.target.value)}
+                    />
+                  </div>
+
+                  <button type="submit" className="btn-primary-yellow" disabled={updateProfileMutation.isPending}>
+                    {updateProfileMutation.isPending ? "Saving..." : "Save Profile Details"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Two-Factor Authentication Card */}
+              <div className="settings-card interactive-lift">
+                <div className="settings-card-header">
+                  <div className="settings-card-title">
                     <ShieldCheck size={18} color="#F0FF60" />
-                    <span className="card-title">User Account & Two-Factor Authentication (2FA)</span>
+                    <span>Two-Factor Authentication (2FA)</span>
                   </div>
                   <span className={`status-badge ${user?.twoFactorEnabled ? "won" : "in-progress"}`}>
-                    {user?.twoFactorEnabled ? "2FA Active (Protected)" : "2FA Disabled"}
+                    {user?.twoFactorEnabled ? "Active (Protected)" : "Disabled"}
                   </span>
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "24px", marginTop: "16px" }}>
-                  <div>
-                    <h4 style={{ color: "#F0FF60", fontSize: "14px", marginBottom: "8px" }}>Two-Step Verification (Email OTP)</h4>
-                    <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6" }}>
-                      When enabled, logging into SCRM requires a 6-digit one-time verification code dispatched to your registered email (<code>{user?.email}</code>).
-                    </p>
-                    <button
-                      className={user?.twoFactorEnabled ? "btn-ghost-dark" : "btn-primary-yellow"}
-                      style={{ marginTop: "14px" }}
-                      onClick={() => toggle2FAMutation.mutate()}
-                    >
-                      <ShieldCheck size={16} />
-                      <span>{user?.twoFactorEnabled ? "Disable Two-Factor Auth" : "Enable Two-Factor Auth"}</span>
-                    </button>
+
+                <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6" }}>
+                  Protect your SCRM account against unauthorized access. When active, signing into your account requires entering a 6-digit one-time code sent directly to your verified email (<code>{user?.email}</code>).
+                </p>
+
+                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "10px" }}>
+                  <button
+                    type="button"
+                    className={user?.twoFactorEnabled ? "btn-ghost-dark" : "btn-primary-yellow"}
+                    onClick={() => toggle2FAMutation.mutate()}
+                    disabled={toggle2FAMutation.isPending}
+                  >
+                    <ShieldCheck size={16} />
+                    <span>{user?.twoFactorEnabled ? "Disable Two-Factor Auth" : "Enable Two-Factor Auth"}</span>
+                  </button>
+                </div>
+
+                <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-hairline)", fontSize: "12px", color: "var(--text-muted)" }}>
+                  SMTP Relay: <strong>Configured & Operational</strong> (Email verification codes dispatch in &lt; 2 seconds).
+                </div>
+              </div>
+
+              {/* Change Password Card */}
+              <div className="settings-card interactive-lift">
+                <div className="settings-card-header">
+                  <div className="settings-card-title">
+                    <Lock size={18} color="#F0FF60" />
+                    <span>Security Credentials</span>
+                  </div>
+                </div>
+
+                <form onSubmit={(e) => {
+                  e.preventDefault();
+                  setProfileError("");
+                  setProfileMessage("");
+                  if (newPassword !== confirmPassword) {
+                    setProfileError("New password and confirmation do not match.");
+                    return;
+                  }
+                  if (newPassword.length < 8) {
+                    setProfileError("Password must be at least 8 characters.");
+                    return;
+                  }
+                  updateProfileMutation.mutate({
+                    currentPassword,
+                    newPassword
+                  });
+                }}>
+                  <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
+                    <label>Current Password *</label>
+                    <input
+                      type="password"
+                      required
+                      placeholder="Enter current password"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                    />
                   </div>
 
-                  <div>
-                    <h4 style={{ color: "#F0FF60", fontSize: "14px", marginBottom: "8px" }}>Update Profile & Credentials</h4>
-                    {profileMessage && (
-                      <div style={{ padding: "8px 12px", background: "rgba(240, 255, 96, 0.1)", border: "1px solid var(--border-yellow-adjacent)", borderRadius: "6px", color: "var(--accent)", fontSize: "12px", marginBottom: "10px" }}>
-                        {profileMessage}
-                      </div>
-                    )}
-                    <form onSubmit={(e) => {
-                      e.preventDefault();
-                      setProfileMessage("");
-                      updateProfileMutation.mutate({
-                        name: profileName,
-                        currentPassword: currentPassword || undefined,
-                        newPassword: newPassword || undefined
-                      });
-                    }}>
-                      <div className="form-group-circuit" style={{ marginBottom: "10px" }}>
-                        <label style={{ fontSize: "12px" }}>Full Name</label>
-                        <input
-                          type="text"
-                          value={profileName}
-                          onChange={(e) => setProfileName(e.target.value)}
-                        />
-                      </div>
-                      <div className="form-row-2col">
-                        <div className="form-group-circuit">
-                          <label style={{ fontSize: "12px" }}>Current Password</label>
-                          <input
-                            type="password"
-                            placeholder="Required for password change"
-                            value={currentPassword}
-                            onChange={(e) => setCurrentPassword(e.target.value)}
-                          />
-                        </div>
-                        <div className="form-group-circuit">
-                          <label style={{ fontSize: "12px" }}>New Password</label>
-                          <input
-                            type="password"
-                            placeholder="Min 8 chars"
-                            value={newPassword}
-                            onChange={(e) => setNewPassword(e.target.value)}
-                          />
-                        </div>
-                      </div>
-                      <button type="submit" className="btn-primary-yellow small" style={{ marginTop: "10px" }}>
-                        Save Profile Changes
-                      </button>
-                    </form>
+                  <div className="form-row-2col" style={{ marginBottom: "16px" }}>
+                    <div className="form-group-circuit">
+                      <label>New Password *</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Min 8 characters"
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                      />
+                    </div>
+                    <div className="form-group-circuit">
+                      <label>Confirm New Password *</label>
+                      <input
+                        type="password"
+                        required
+                        placeholder="Re-type new password"
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                      />
+                    </div>
                   </div>
+
+                  <button type="submit" className="btn-primary-yellow small" disabled={updateProfileMutation.isPending}>
+                    {updateProfileMutation.isPending ? "Updating Password..." : "Update Password"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Danger Zone: Session Sign Out */}
+              <div className="settings-card danger-zone-card interactive-lift">
+                <div className="settings-card-header">
+                  <div className="settings-card-title">
+                    <LogOut size={18} color="#EF4444" />
+                    <span>Danger Zone & Session Management</span>
+                  </div>
+                </div>
+
+                <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6" }}>
+                  Safely conclude your active SCRM session. Terminating the session invalidates your access tokens and clears active local session state.
+                </p>
+
+                <div>
+                  <button
+                    type="button"
+                    className="btn-danger"
+                    onClick={() => setIsSignOutModalOpen(true)}
+                  >
+                    <LogOut size={16} />
+                    <span>Sign Out of SCRM...</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -1908,8 +2236,10 @@ export default function Dashboard() {
               <h3>{editingLead ? "Edit Inbound Lead" : "Ingest New Lead Prospect"}</h3>
               <button className="modal-close-btn" onClick={() => setIsLeadModalOpen(false)}>×</button>
             </div>
+            {leadFormError && <div className="error-banner">{leadFormError}</div>}
             <form onSubmit={e => {
               e.preventDefault();
+              setLeadFormError("");
               if (editingLead) {
                 updateLeadMutation.mutate({ id: editingLead.id, data: leadFormData });
               } else {
@@ -2395,8 +2725,10 @@ export default function Dashboard() {
               <h3>Schedule Task & Follow-Up</h3>
               <button className="modal-close-btn" onClick={() => setIsTaskModalOpen(false)}>×</button>
             </div>
+            {taskFormError && <div className="error-banner">{taskFormError}</div>}
             <form onSubmit={e => {
               e.preventDefault();
+              setTaskFormError("");
               createTaskMutation.mutate(taskFormData);
             }}>
               <div className="form-group-circuit">
@@ -2448,6 +2780,7 @@ export default function Dashboard() {
                 <label>Description</label>
                 <textarea 
                   rows="3" 
+                  placeholder="Action items, prep work, meeting link..."
                   value={taskFormData.description} 
                   onChange={e => setTaskFormData({ ...taskFormData, description: e.target.value })} 
                 />
@@ -2455,7 +2788,9 @@ export default function Dashboard() {
 
               <div className="modal-footer-btns">
                 <button type="button" className="btn-ghost-dark" onClick={() => setIsTaskModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Create Task</button>
+                <button type="submit" className="btn-primary-yellow" disabled={createTaskMutation.isPending}>
+                  {createTaskMutation.isPending ? "Scheduling..." : "Create Task"}
+                </button>
               </div>
             </form>
           </div>
@@ -2470,8 +2805,10 @@ export default function Dashboard() {
               <h3>Log Interaction</h3>
               <button className="modal-close-btn" onClick={() => setIsActivityModalOpen(false)}>×</button>
             </div>
+            {activityFormError && <div className="error-banner">{activityFormError}</div>}
             <form onSubmit={e => {
               e.preventDefault();
+              setActivityFormError("");
               createActivityMutation.mutate(activityFormData);
             }}>
               <div className="form-row-2col">
@@ -2527,6 +2864,7 @@ export default function Dashboard() {
                 <label>Notes</label>
                 <textarea 
                   rows="3" 
+                  placeholder="Discussion takeaways, objections, next steps..."
                   value={activityFormData.description} 
                   onChange={e => setActivityFormData({ ...activityFormData, description: e.target.value })} 
                 />
@@ -2534,7 +2872,9 @@ export default function Dashboard() {
 
               <div className="modal-footer-btns">
                 <button type="button" className="btn-ghost-dark" onClick={() => setIsActivityModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Save Log</button>
+                <button type="submit" className="btn-primary-yellow" disabled={createActivityMutation.isPending}>
+                  {createActivityMutation.isPending ? "Saving..." : "Save Log"}
+                </button>
               </div>
             </form>
           </div>
@@ -2552,8 +2892,15 @@ export default function Dashboard() {
               </div>
               <button className="modal-close-btn" onClick={() => setIsEmailModalOpen(false)}>×</button>
             </div>
+            {emailFormError && <div className="error-banner">{emailFormError}</div>}
+            
+            <div style={{ padding: "8px 12px", background: "rgba(240, 255, 96, 0.08)", border: "1px solid var(--border-hairline)", borderRadius: "6px", fontSize: "12px", color: "var(--accent)", marginBottom: "14px" }}>
+              SMTP Sender Relay: <strong>farmanullah1224@gmail.com</strong> (Live Gmail Service)
+            </div>
+
             <form onSubmit={e => {
               e.preventDefault();
+              setEmailFormError("");
               sendEmailMutation.mutate(emailFormData);
             }}>
               <div className="form-group-circuit">
@@ -2581,6 +2928,7 @@ export default function Dashboard() {
                 <input 
                   type="email" 
                   required
+                  placeholder="recipient@client.com"
                   value={emailFormData.recipientEmail} 
                   onChange={e => setEmailFormData({ ...emailFormData, recipientEmail: e.target.value })} 
                 />
@@ -2591,6 +2939,7 @@ export default function Dashboard() {
                 <input 
                   type="text" 
                   required
+                  placeholder="e.g. Following up on proposal discussion"
                   value={emailFormData.subject} 
                   onChange={e => setEmailFormData({ ...emailFormData, subject: e.target.value })} 
                 />
@@ -2601,16 +2950,21 @@ export default function Dashboard() {
                 <textarea 
                   rows="6" 
                   required
+                  placeholder="Write message content here..."
                   value={emailFormData.body} 
                   onChange={e => setEmailFormData({ ...emailFormData, body: e.target.value })} 
                 />
               </div>
 
+              <div style={{ fontSize: "11px", color: "var(--text-muted)", marginBottom: "14px" }}>
+                ℹ Open-tracking telemetry pixel will automatically be appended to track client read receipts.
+              </div>
+
               <div className="modal-footer-btns">
                 <button type="button" className="btn-ghost-dark" onClick={() => setIsEmailModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">
+                <button type="submit" className="btn-primary-yellow" disabled={sendEmailMutation.isPending}>
                   <Send size={15} />
-                  <span>Send & Track Open</span>
+                  <span>{sendEmailMutation.isPending ? "Sending via SMTP..." : "Send & Track Open"}</span>
                 </button>
               </div>
             </form>
@@ -2623,23 +2977,82 @@ export default function Dashboard() {
         <div className="modal-overlay-circuit" onClick={() => setIsImportModalOpen(false)}>
           <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Bulk Import Contacts via CSV</h3>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Upload size={18} color="#F0FF60" />
+                <h3>Bulk Import Contacts via CSV</h3>
+              </div>
               <button className="modal-close-btn" onClick={() => setIsImportModalOpen(false)}>×</button>
             </div>
+            {importFormError && <div className="error-banner">{importFormError}</div>}
+            
             <p style={{ color: "var(--text-body)", fontSize: "13px", margin: "10px 0" }}>
-              Paste comma-separated rows. Required columns: <code>Name, Email, Phone, Company, Stage, Value, LeadSource, Tags</code>.
+              Choose a <code>.csv</code> file or paste comma-separated rows. Required columns: <code>Name, Email, Phone, Company, Stage, Value, LeadSource, Tags</code>.
             </p>
-            <textarea 
-              rows="7"
-              placeholder="John Doe, john@example.com, +1234567890, Acme Corp, Qualified, 5000, Website, Inbound"
-              value={csvText}
-              onChange={e => setCsvText(e.target.value)}
-              style={{ width: "100%", padding: "10px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "8px", color: "#fff", fontFamily: "var(--font-mono)", fontSize: "12px" }}
-            />
+
+            <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
+              <label>Upload .CSV File</label>
+              <input 
+                type="file" 
+                accept=".csv"
+                onChange={handleCSVFileUpload}
+                style={{ padding: "8px", background: "#1c1c1c", border: "1px dashed var(--border-hairline)", borderRadius: "8px", color: "#fff", width: "100%" }}
+              />
+            </div>
+
+            <div className="form-group-circuit">
+              <label>Or Paste CSV Content</label>
+              <textarea 
+                rows="6"
+                placeholder="John Doe, john@example.com, +1234567890, Acme Corp, Qualified, 5000, Website, Inbound"
+                value={csvText}
+                onChange={e => setCsvText(e.target.value)}
+                style={{ width: "100%", padding: "10px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "8px", color: "#fff", fontFamily: "var(--font-mono)", fontSize: "12px" }}
+              />
+              {csvText.trim() && (
+                <div style={{ color: "var(--accent)", fontSize: "12px", marginTop: "4px" }}>
+                  {csvText.trim().split(/\r?\n/).filter(l => l.trim()).length} line(s) detected in import buffer.
+                </div>
+              )}
+            </div>
+
             <div className="modal-footer-btns">
               <button type="button" className="btn-ghost-dark" onClick={() => setIsImportModalOpen(false)}>Cancel</button>
               <button type="button" className="btn-primary-yellow" onClick={handleProcessCSVImport}>
-                Process Import
+                <Upload size={15} />
+                <span>Process Import</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8B: EXPORT CSV DIALOG */}
+      {isExportModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsExportModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <Download size={18} color="#F0FF60" />
+                <h3>Export SCRM Data to CSV</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setIsExportModalOpen(false)}>×</button>
+            </div>
+            <p style={{ color: "var(--text-body)", fontSize: "13px", margin: "10px 0" }}>
+              Export clean, RFC-4180 compliant CSV files with UTF-8 BOM encoding for seamless Microsoft Excel and spreadsheet software compatibility.
+            </p>
+            <div className="form-group-circuit" style={{ margin: "16px 0" }}>
+              <label>Select Dataset to Export</label>
+              <select value={exportScope} onChange={e => setExportScope(e.target.value)}>
+                <option value="contacts">Contacts & Deals Pipeline ({contacts.length} records)</option>
+                <option value="leads">Inbound Prospect Leads ({leads.length} records)</option>
+                <option value="tasks">Assigned & Pending Tasks ({tasks.length} records)</option>
+              </select>
+            </div>
+            <div className="modal-footer-btns">
+              <button type="button" className="btn-ghost-dark" onClick={() => setIsExportModalOpen(false)}>Cancel</button>
+              <button type="button" className="btn-primary-yellow" onClick={() => handleExportCSV(exportScope)}>
+                <Download size={15} />
+                <span>Download CSV File</span>
               </button>
             </div>
           </div>
@@ -2868,6 +3281,44 @@ export default function Dashboard() {
                 <button type="submit" className="btn-primary-yellow">Register Product</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 11: CONFIRM SIGN OUT */}
+      {isSignOutModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsSignOutModalOpen(false)}>
+          <div className="modal-box-circuit signout-modal-box interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="signout-modal-icon">
+              <LogOut size={28} />
+            </div>
+            <h3 style={{ fontSize: "1.25rem", fontWeight: "800", color: "#FFFFFF", marginBottom: "8px" }}>
+              Confirm Session Sign-Out
+            </h3>
+            <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6", marginBottom: "20px" }}>
+              Are you sure you want to sign out of your SCRM session? Any unsaved edits in open dialogs will be discarded.
+            </p>
+            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+              <button 
+                type="button" 
+                className="btn-ghost-dark" 
+                onClick={() => setIsSignOutModalOpen(false)}
+              >
+                Stay Logged In
+              </button>
+              <button 
+                type="button" 
+                className="btn-danger" 
+                onClick={() => {
+                  setIsSignOutModalOpen(false);
+                  logout();
+                  showToast("You have been signed out successfully.");
+                }}
+              >
+                <LogOut size={15} />
+                <span>Yes, Sign Out</span>
+              </button>
+            </div>
           </div>
         </div>
       )}

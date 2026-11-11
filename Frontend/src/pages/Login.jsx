@@ -6,8 +6,14 @@ import { AlertCircle, ArrowRight, Shield, KeyRound, CheckCircle2, ArrowLeft } fr
 import { forgotPassword, resetPassword } from "../services/api";
 
 export default function Login() {
-  const { login, complete2FA } = useAuth();
+  const { user, login, complete2FA } = useAuth();
   const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (user) {
+      navigate("/app", { replace: true });
+    }
+  }, [user, navigate]);
 
   // Mode: "login" | "2fa" | "forgot"
   const [mode, setMode] = useState("login");
