@@ -386,7 +386,7 @@ export default function Dashboard() {
     }
   });
 
-  const convertLeadMutation = useMutation({
+  const convertContactToDealMutation = useMutation({
     mutationFn: convertLeadToDeal,
     onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
@@ -2105,7 +2105,7 @@ export default function Dashboard() {
             </p>
             <form onSubmit={e => {
               e.preventDefault();
-              convertLeadMutation.mutate({
+              convertContactToDealMutation.mutate({
                 id: convertingContact.id,
                 data: {
                   dealTitle: convertDealTitle,
