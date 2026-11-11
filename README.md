@@ -410,3 +410,17 @@ uploaded to the API under `/uploads` and served by Express.
 See `docs/UI_UX_REPAIR_AUDIT.md` for the repair matrix, verification evidence and the list of
 unfinished specification items (notably TOTP/recovery codes, immediate JWT revocation, guided CSV
 mapping and full form regrouping).
+
+---
+
+## Deal pipeline and contact records (November 2026)
+
+The sales pipeline is now driven by deal records, not contact statuses:
+
+- Every kanban card is a deal with its own title, value, stage, primary contact and expected close date.
+- Deals can be created, edited, moved between stages, and deleted by administrators from the pipeline.
+- Dashboard pipeline value, won revenue, win rate and stage distribution are computed from deals.
+- Clicking a contact opens a 360 record with contact details, linked deals, linked tasks and activity history.
+- Tasks can be edited (title, status, priority, assignee, due date) instead of only completed or deleted.
+
+See `docs/UI_UX_REPAIR_AUDIT.md` for the full change record and verification evidence.

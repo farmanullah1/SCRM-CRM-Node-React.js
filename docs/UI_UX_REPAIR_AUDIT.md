@@ -156,3 +156,40 @@ These items from the specification are **not** complete and are not presented as
 **Backend:** `db.js`, `dbSetup.js`, `server.js`, `routes/auth.js`, `services/emailService.js`.
 
 **Docs:** this audit; `Up_Until_Now.md` and `README.md` receive a short implementation note.
+
+---
+
+## 8. Core CRM model follow-up (November 2026)
+
+The pipeline previously rendered **contact rows with deal stages**, even though a separate `Deal`
+model and API existed. Contacts also carried deal value and close dates, so pipeline totals and
+conversion results disagreed. This pass separated the two concepts.
+
+### Changes
+
+| Area | Change |
+|---|---|
+| Pipeline | Kanban columns are grouped by `Deal.stage_name`; cards show deal title, amount, primary contact and close date. Stage moves call `PUT /api/deals/:id`. |
+| Deal CRUD | Added a New/Edit Deal dialog (title, value, stage, contact, close date, notes); administrators can delete deals. |
+| Dashboard | Open pipeline, won revenue, win count and stage distribution now read deal metrics instead of contact values; the marketing hero and promo band were replaced with an operational header, activity feed and closing-soon list. |
+| Contact 360 | Contact names open a record dialog with email/phone/company/owner/tags, linked deals, linked tasks, notes and per-contact activity. Quick actions edit the contact, email it, schedule a task, or convert it when no deal exists. |
+| Tasks | Tasks can be edited and re-statused from the task board; the modal supports status, assignee and priority changes. |
+| RBAC | `GET /api/deals/metrics` now applies the same owner scope as the pipeline listing for standard users. |
+| Copy | Contact forms and tables now describe lifecycle stage and estimated value instead of pipeline value; auth/audit events are excluded from the dashboard activity feed. |
+
+### Verification
+
+- `cd Frontend && npm run build` — passed (chunk-size warning only).
+- `cd Backend && node --test tests/api.test.js` — passed, exit 0.
+- Seeded a disposable contact, deal and task: dashboard showed `$24,000` open pipeline, Proposal `1`, the closing-soon item and CRM activity; pipeline rendered the deal under Proposal at 1440px.
+- Contact 360 showed the linked deal, linked task, owner, tags and activity; no horizontal overflow.
+- Created a second deal through the UI: modal closed, `Deal added to the pipeline.` toast shown and the card appeared on the board.
+- Edited the task status to In Progress: modal closed, `Task updated.` toast shown and the card badge updated.
+- Mobile 390×844: one-column metrics, zero horizontal overflow, footer in document flow.
+
+### Remaining
+
+- Pipeline uses a stage `<select>` rather than pointer drag-and-drop.
+- Deal metrics are not time-windowed (no month/quarter filters or forecasting).
+- Leads and companies remain workspace-wide; contacts and deals are owner-scoped for standard users.
+- No pagination on the contacts table or activity feed.
