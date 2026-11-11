@@ -47,6 +47,11 @@ import {
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { 
+  getLeads,
+  createLead,
+  updateLead,
+  deleteLead,
+  convertLead,
   getContacts, 
   createContact, 
   updateContact, 
@@ -135,6 +140,28 @@ export default function Dashboard() {
   const [convertDealTitle, setConvertDealTitle] = useState("");
   const [convertDealValue, setConvertDealValue] = useState(5000);
 
+  // Standalone Lead Management State
+  const [leadSearchTerm, setLeadSearchTerm] = useState("");
+  const [leadStatusFilter, setLeadStatusFilter] = useState("All");
+  const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
+  const [editingLead, setEditingLead] = useState(null);
+  const [leadFormData, setLeadFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    company_name: "",
+    title: "",
+    source: "Website",
+    status: "New",
+    estimated_value: 10000,
+    notes: ""
+  });
+  const [isLeadConvertModalOpen, setIsLeadConvertModalOpen] = useState(false);
+  const [convertingLead, setConvertingLead] = useState(null);
+  const [leadConvertTitle, setLeadConvertTitle] = useState("");
+  const [leadConvertValue, setLeadConvertValue] = useState(10000);
+  const [leadConvertStage, setLeadConvertStage] = useState("Qualified");
+
   // Company Modal State
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [companyFormData, setCompanyFormData] = useState({
@@ -205,6 +232,12 @@ export default function Dashboard() {
   const [csvText, setCsvText] = useState("");
 
   // Queries
+  const { data: leadsData = { leads: [], totalCount: 0 }, refetch: refetchLeads } = useQuery({
+    queryKey: ["leads", { status: leadStatusFilter, search: leadSearchTerm }],
+    queryFn: () => getLeads({ status: leadStatusFilter, search: leadSearchTerm })
+  });
+  const leads = Array.isArray(leadsData) ? leadsData : (leadsData.leads || []);
+
   const { data: contacts = [], isLoading: isContactsLoading, refetch: refetchContacts } = useQuery({
     queryKey: ["contacts", { search: searchTerm, status: statusFilter, leadSource: leadSourceFilter }],
     queryFn: () => getContacts({ search: searchTerm, status: statusFilter, leadSource: leadSourceFilter })
@@ -280,6 +313,49 @@ export default function Dashboard() {
   });
 
   // Mutations
+  const createLeadMutation = useMutation({
+    mutationFn: createLead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      setIsLeadModalOpen(false);
+      setEditingLead(null);
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed to create lead.")
+  });
+
+  const updateLeadMutation = useMutation({
+    mutationFn: updateLead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      setIsLeadModalOpen(false);
+      setEditingLead(null);
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed to update lead.")
+  });
+
+  const deleteLeadMutation = useMutation({
+    mutationFn: deleteLead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed to delete lead.")
+  });
+
+  const convertLeadMutation = useMutation({
+    mutationFn: convertLead,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["leads"] });
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsLeadConvertModalOpen(false);
+      setConvertingLead(null);
+      alert("Lead successfully converted to Contact, Company, and Deal!");
+    },
+    onError: (err) => alert(err.response?.data?.error || "Failed to convert lead.")
+  });
+
   const createContactMutation = useMutation({
     mutationFn: createContact,
     onSuccess: () => {
@@ -527,6 +603,13 @@ export default function Dashboard() {
           >
             <TrendingUp size={15} />
             <span>Dashboard</span>
+          </button>
+          <button 
+            className={`nav-tab-btn ${activeTab === "leads" ? "active" : ""}`}
+            onClick={() => setActiveTab("leads")}
+          >
+            <Target size={15} />
+            <span>Leads ({leads.length})</span>
           </button>
           <button 
             className={`nav-tab-btn ${activeTab === "contacts" ? "active" : ""}`}
