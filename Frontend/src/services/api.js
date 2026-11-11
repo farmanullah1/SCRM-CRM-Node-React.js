@@ -1,7 +1,16 @@
 import axios from "axios";
 
+const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, "");
+
+export const assetUrl = (value) => {
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  return `${API_ORIGIN}${value.startsWith("/") ? "" : "/"}${value}`;
+};
+
 const API = axios.create({
-  baseURL: "http://localhost:5000/api",
+  baseURL: API_BASE_URL,
   headers: {
     "Content-Type": "application/json"
   }
@@ -25,7 +34,7 @@ API.interceptors.response.use(
       const refreshToken = localStorage.getItem("crm_refresh_token");
       if (refreshToken) {
         try {
-          const res = await axios.post("http://localhost:5000/api/auth/refresh", { refreshToken });
+          const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
           if (res.data.token) {
             localStorage.setItem("crm_token", res.data.token);
             if (res.data.refreshToken) {
@@ -65,9 +74,24 @@ export const signupUser = async (userData) => (await API.post("/auth/signup", us
 export const getCurrentUser = async () => (await API.get("/auth/me")).data;
 export const getUsers = async () => (await API.get("/auth/users")).data;
 export const getRoles = async () => (await API.get("/auth/roles")).data;
+export const logoutUser = async () => (await API.post("/auth/logout")).data;
+export const uploadProfileAvatar = async (file) => {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  return (await API.post("/auth/profile/avatar", formData, { headers: { "Content-Type": "multipart/form-data" } })).data;
+};
+export const removeProfileAvatar = async () => (await API.delete("/auth/profile/avatar")).data;
+export const uploadProfileCover = async (file) => {
+  const formData = new FormData();
+  formData.append("cover", file);
+  return (await API.post("/auth/profile/cover", formData, { headers: { "Content-Type": "multipart/form-data" } })).data;
+};
+export const removeProfileCover = async () => (await API.delete("/auth/profile/cover")).data;
+export const getSmtpStatus = async () => (await API.get("/auth/smtp/status")).data;
+export const sendSmtpTest = async (recipient) => (await API.post("/auth/smtp/test", { recipient })).data;
 
 // Companies
-export const getCompanies = async () => (await API.get("/companies")).data;
+export const getCompanies = async () => (await API.get("/companies")).data.companies;
 export const getCompanyById = async (id) => (await API.get(`/companies/${id}`)).data;
 export const createCompany = async (data) => (await API.post("/companies", data)).data;
 export const updateCompany = async ({ id, data }) => (await API.put(`/companies/${id}`, data)).data;
@@ -92,6 +116,8 @@ export const mergeContacts = async ({ primaryId, duplicateId }) => (await API.po
 export const getContactDuplicates = async () => (await API.get("/contacts/duplicates")).data;
 export const convertLeadToDeal = async ({ id, data }) => (await API.post(`/contacts/${id}/convert`, data || {})).data;
 export const getContactActivities = async (id) => (await API.get(`/contacts/${id}/activities`)).data;
+
+export const getAuthUsers = async () => (await API.get("/auth/users")).data;
 
 // Deals & Pipeline
 export const getPipelineStages = async () => (await API.get("/deals/stages")).data;
@@ -149,6 +175,8 @@ export const getProducts = async () => (await API.get("/catalog/products")).data
 export const createProduct = async (data) => (await API.post("/catalog/products", data)).data;
 export const updateProduct = async ({ id, data }) => (await API.put(`/catalog/products/${id}`, data)).data;
 export const deleteProduct = async (id) => (await API.delete(`/catalog/products/${id}`)).data;
+export const archiveProduct = async (id) => (await API.put(`/catalog/products/${id}`, { is_active: false })).data;
+export const activateProduct = async (id) => (await API.put(`/catalog/products/${id}`, { is_active: true })).data;
 export const getSuppliers = async () => (await API.get("/catalog/suppliers")).data;
 export const createSupplier = async (data) => (await API.post("/catalog/suppliers", data)).data;
 

@@ -40,7 +40,7 @@ export default function LandingPage() {
     },
     {
       q: "Is my business customer data completely sovereign?",
-      a: "Yes. SCRM operates directly on your Microsoft SQL Server instance. Your contacts, deals, invoices, and communication histories remain strictly in your private database with zero telemetry leakage to third parties."
+      a: "Yes. Your contacts, deals, invoices and communication history stay in your private workspace database. SCRM does not send customer data to third-party analytics services."
     },
     {
       q: "How does the Lead to Deal conversion workflow operate?",
@@ -48,7 +48,7 @@ export default function LandingPage() {
     },
     {
       q: "What security measures protect our user authentication?",
-      a: "SCRM enforces enterprise-grade security: bcrypt password hashing with 12 salt rounds, strict IP rate limiting against brute-force attacks, short-lived JWT access tokens with secure refresh token rotation, granular Role-Based Access Control (Admin, Manager, Standard User), and optional email 2-Step Verification (2FA OTP)."
+      a: "SCRM protects accounts with hashed credentials, rate-limited sign-in, short-lived sessions that renew securely, role-based access for admins, managers and standard users, and optional email two-step verification."
     },
     {
       q: "Can I import existing contacts from CSV spreadsheets?",
@@ -229,7 +229,7 @@ export default function LandingPage() {
           <strong>SCRM</strong> is organized around six foundational product pillars: 
           <span style={{ color: "#F0FF60", fontWeight: 700 }}> Secure · Supply · Social · Software · Small · Site</span>.
           Eliminate bloated enterprise complexity while managing unqualified leads, qualified contacts, deal stage velocity, 
-          and transactional communications with sovereign control on a resilient Microsoft SQL Server foundation.
+          and transactional communications with sovereign control on a resilient, privately hosted data foundation.
         </p>
 
         <div style={{ display: "flex", justifyContent: "center", gap: "16px", flexWrap: "wrap", marginBottom: "50px" }}>
@@ -392,7 +392,7 @@ export default function LandingPage() {
               letter: "S",
               name: "Secure",
               role: "Security-First CRM Architecture",
-              desc: "12-round bcrypt hashing, optional email 2FA/TOTP verification, session revocation, automated daily database snapshots, and granular RBAC.",
+              desc: "Hashed credentials, optional email two-step verification, session controls, automated data snapshots, and role-based access for every team.",
               status: "Available"
             },
             {
@@ -581,7 +581,7 @@ export default function LandingPage() {
             <p style={{ color: "#DFDFDF", fontSize: "14px", lineHeight: 1.6, marginBottom: "16px" }}>
               Granular RBAC (Admin, Manager, Standard User), short-lived JWTs with refresh token rotation, optional email 2FA OTP, audit trail logging, and one-click database snapshot triggers.
             </p>
-            <div style={{ fontSize: "12px", color: "#FAFF69", fontWeight: 600 }}>MSSQL Point-in-Time Snapshots</div>
+            <div style={{ fontSize: "12px", color: "#FAFF69", fontWeight: 600 }}>Point-in-Time Data Snapshots</div>
           </div>
         </div>
       </section>
@@ -616,7 +616,7 @@ export default function LandingPage() {
             </p>
             <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: "10px" }}>
               <li style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: 700 }}>
-                <CheckCircle2 size={18} color="#151515" /> Zero vendor lock-in with standard SQL Server schema
+                <CheckCircle2 size={18} color="#151515" /> Zero vendor lock-in with a portable, standard data model
               </li>
               <li style={{ display: "flex", alignItems: "center", gap: "10px", fontWeight: 700 }}>
                 <CheckCircle2 size={18} color="#151515" /> Direct CSV data portability and deduplication
@@ -639,24 +639,24 @@ export default function LandingPage() {
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: "14px", fontSize: "14px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #414141", paddingBottom: "10px" }}>
-                <span>Database Engine</span>
-                <strong style={{ color: "#FFFFFF" }}>Microsoft SQL Server 2022</strong>
+                <span>Data ownership</span>
+                <strong style={{ color: "#FFFFFF" }}>Your private workspace data</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #414141", paddingBottom: "10px" }}>
-                <span>Backend Core</span>
-                <strong style={{ color: "#FFFFFF" }}>Node.js Express + Sequelize ORM</strong>
+                <span>Deployment</span>
+                <strong style={{ color: "#FFFFFF" }}>Self-hosted or managed</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #414141", paddingBottom: "10px" }}>
-                <span>Frontend Engine</span>
-                <strong style={{ color: "#FFFFFF" }}>React 19 + Vite 8 (Electric Obsidian)</strong>
+                <span>Team access</span>
+                <strong style={{ color: "#FFFFFF" }}>Admin, manager and standard roles</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", borderBottom: "1px solid #414141", paddingBottom: "10px" }}>
-                <span>Security Suite</span>
-                <strong style={{ color: "#FFFFFF" }}>Bcrypt-12, JWT Rotation, 2FA OTP</strong>
+                <span>Account security</span>
+                <strong style={{ color: "#FFFFFF" }}>Optional email two-step verification</strong>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span>Communications</span>
-                <strong style={{ color: "#FFFFFF" }}>Nodemailer SMTP + Pixel Tracking</strong>
+                <span>Customer communication</span>
+                <strong style={{ color: "#FFFFFF" }}>Real email sending with an audit trail</strong>
               </div>
             </div>
           </div>
@@ -766,7 +766,7 @@ export default function LandingPage() {
                 <li style={{ display: "flex", alignItems: "center", gap: "8px" }}><CheckCircle2 size={16} color="#F0FF60" /> Visual Kanban Pipeline</li>
                 <li style={{ display: "flex", alignItems: "center", gap: "8px" }}><CheckCircle2 size={16} color="#F0FF60" /> Tasks, Reminders & Meeting Logs</li>
                 <li style={{ display: "flex", alignItems: "center", gap: "8px" }}><CheckCircle2 size={16} color="#F0FF60" /> Invoicing & Support Tickets</li>
-                <li style={{ display: "flex", alignItems: "center", gap: "8px" }}><CheckCircle2 size={16} color="#F0FF60" /> Microsoft SQL Server Durability</li>
+                <li style={{ display: "flex", alignItems: "center", gap: "8px" }}><CheckCircle2 size={16} color="#F0FF60" /> Private, self-hosted data storage</li>
                 <li style={{ display: "flex", alignItems: "center", gap: "8px" }}><CheckCircle2 size={16} color="#F0FF60" /> 2FA & Security Audit Logs</li>
               </ul>
             </div>
@@ -940,9 +940,9 @@ export default function LandingPage() {
               <span>All Systems Operational</span>
             </div>
             <span style={{ color: "#414141" }}>|</span>
-            <span style={{ color: "#9E9E9E" }}>Database: MSSQL 2022</span>
+            <span style={{ color: "#9E9E9E" }}>Private by design</span>
             <span style={{ color: "#414141" }}>|</span>
-            <span style={{ color: "#9E9E9E" }}>Node.js / React 19</span>
+            <span style={{ color: "#9E9E9E" }}>Secure · Supply · Social</span>
           </div>
         </div>
 

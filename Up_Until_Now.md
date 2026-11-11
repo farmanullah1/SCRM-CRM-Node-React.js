@@ -573,3 +573,25 @@ npm run dev
 ---
 
 *Document compiled, updated, and verified for SCRM (Small Customer Relationship Management) Enterprise Architecture.*
+
+---
+
+## 7. UI/UX Repair Pass — November 11, 2026
+
+- Primary navigation moved from the horizontal top bar to a grouped, collapsible sidebar.
+- All workspace destinations are URL routes under `/app/*` (`dashboard`, `leads`, `contacts`,
+  `pipeline`, `companies`, `tasks`, `activities`, `invoices`, `catalog`, `tickets`, `outbox`,
+  `settings/*`, admin `security`). Active state derives from the URL; refresh and direct links work.
+- Authenticated layout now uses `WorkspaceShell`: utility top bar, document-flow footer, mobile
+  drawer with scroll lock/Escape/scrim, and reduced-motion-aware page transition.
+- Settings area added with profile + avatar/cover upload, security (email OTP 2FA, password),
+  admin SMTP diagnostics/test send, and account/sign-out confirmation.
+- Sign-out removed from the main navigation; server logout is called and local session cleared.
+- `PublicOnlyRoute` / `ProtectedRoute` now handle session restoration, safe internal return paths.
+- `invoices` and `tickets` tables plus Contact associations were missing; added idempotently.
+  Companies API response normalised in the dashboard.
+- Customer-facing stack promotion replaced with capability/benefit copy.
+- Verified: 13/13 backend tests, production build, 0 lint errors, all 12 sidebar destinations,
+  390px/430px/1440px without horizontal overflow, avatar upload/reject/remove, live SMTP verify
+  and accepted test message. TOTP/recovery codes, immediate JWT revocation, guided CSV import and
+  full form regrouping remain outstanding (see `docs/UI_UX_REPAIR_AUDIT.md`).

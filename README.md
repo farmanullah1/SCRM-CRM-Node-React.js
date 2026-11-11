@@ -395,3 +395,18 @@ node tests/api.test.js
 This project is licensed under the **MIT License**.
 
 Built with precision for small teams requiring enterprise-level capability. **SCRM — Small CRM, Massive Impact.**
+
+---
+
+## Workspace navigation and settings (November 2026)
+
+The authenticated application uses a persistent, collapsible sidebar with URL-addressable sections:
+`/app/dashboard`, `/app/leads`, `/app/contacts`, `/app/pipeline`, `/app/companies`, `/app/tasks`,
+`/app/activities`, `/app/invoices`, `/app/catalog`, `/app/tickets`, `/app/outbox`, and
+`/app/settings/{profile,security,email,account}`. An admin-only `/app/security` page hosts backup
+tools. Sign-out lives in Settings and requires confirmation. Profile photos and cover images are
+uploaded to the API under `/uploads` and served by Express.
+
+See `docs/UI_UX_REPAIR_AUDIT.md` for the repair matrix, verification evidence and the list of
+unfinished specification items (notably TOTP/recovery codes, immediate JWT revocation, guided CSV
+mapping and full form regrouping).

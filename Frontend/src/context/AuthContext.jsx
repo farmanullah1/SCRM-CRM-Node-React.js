@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { loginUser, signupUser, getCurrentUser, verify2FALogin } from "../services/api";
+import { loginUser, signupUser, getCurrentUser, verify2FALogin, logoutUser } from "../services/api";
 
 const AuthContext = createContext(null);
 
@@ -80,12 +80,22 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
+  const logout = async () => {
+    let serverRevoked = false;
+    try {
+      if (localStorage.getItem("crm_token")) {
+        await logoutUser();
+        serverRevoked = true;
+      }
+    } catch {
+      serverRevoked = false;
+    }
     localStorage.removeItem("crm_token");
     localStorage.removeItem("crm_refresh_token");
     localStorage.removeItem("crm_user");
     setToken(null);
     setUser(null);
+    return { serverRevoked };
   };
 
   return (

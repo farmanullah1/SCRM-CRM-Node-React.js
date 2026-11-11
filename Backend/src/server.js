@@ -34,7 +34,9 @@ const PORT = process.env.PORT || 5000;
 app.use(
   helmet({
     contentSecurityPolicy: false, // Allow inline styles & canvases for high-performance dashboard
-    crossOriginEmbedderPolicy: false
+    crossOriginEmbedderPolicy: false,
+    // Uploaded profile images are served from the API origin and rendered by the frontend origin.
+    crossOriginResourcePolicy: { policy: "cross-origin" }
   })
 );
 

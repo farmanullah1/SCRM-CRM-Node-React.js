@@ -21,6 +21,7 @@ export default function Signup() {
   const [title, setTitle] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -33,8 +34,13 @@ export default function Signup() {
       return;
     }
 
-    if (password.length < 6) {
-      setError("Password must contain at least 6 characters.");
+    if (password.length < 8) {
+      setError("Password must contain at least 8 characters.");
+      return;
+    }
+
+    if (!termsAccepted) {
+      setError("Please accept the Terms of Service and Privacy Policy to continue.");
       return;
     }
 
@@ -72,27 +78,27 @@ export default function Signup() {
 
         <form onSubmit={handleSubmit}>
           <div className="circuit-form-group">
-            <label className="circuit-label">Full Name *</label>
-            <input
-              type="text"
-              required
-              className="circuit-input"
-              placeholder="e.g. Alex Vance"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
+            <label className="circuit-label">Full Name *</label>              <input
+                type="text"
+                required
+                autoComplete="name"
+                className="circuit-input"
+                placeholder="e.g. Alex Vance"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
           </div>
 
           <div className="circuit-form-group">
-            <label className="circuit-label">Work Email *</label>
-            <input
-              type="email"
-              required
-              className="circuit-input"
-              placeholder="alex@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
+            <label className="circuit-label">Work Email *</label>              <input
+                type="email"
+                required
+                autoComplete="email"
+                className="circuit-input"
+                placeholder="alex@company.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
@@ -100,6 +106,7 @@ export default function Signup() {
               <label className="circuit-label">Phone Number</label>
               <input
                 type="tel"
+                autoComplete="tel"
                 className="circuit-input"
                 placeholder="+1 (555) 234-5678"
                 value={phone}
@@ -136,9 +143,10 @@ export default function Signup() {
               <input
                 type="password"
                 required
-                minLength={6}
+                minLength={8}
                 className="circuit-input"
-                placeholder="Min 6 characters"
+                autoComplete="new-password"
+                placeholder="Min 8 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -150,12 +158,26 @@ export default function Signup() {
                 type="password"
                 required
                 className="circuit-input"
+                autoComplete="new-password"
                 placeholder="Re-enter password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
               />
             </div>
           </div>
+
+          <label className="signup-terms">
+            <input
+              type="checkbox"
+              required
+              checked={termsAccepted}
+              onChange={(e) => setTermsAccepted(e.target.checked)}
+            />
+            <span>
+              I agree to the Terms of Service and Privacy Policy and consent to this account's
+              workspace data being stored so I can use the CRM.
+            </span>
+          </label>
 
           <button
             type="submit"

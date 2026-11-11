@@ -135,6 +135,14 @@ export async function ensureDatabaseAndSchema() {
           ALTER TABLE [users] ADD [company_name] NVARCHAR(150) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'title')
           ALTER TABLE [users] ADD [title] NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'avatar_url')
+          ALTER TABLE [users] ADD [avatar_url] NVARCHAR(500) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'cover_url')
+          ALTER TABLE [users] ADD [cover_url] NVARCHAR(500) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'bio')
+          ALTER TABLE [users] ADD [bio] NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'recovery_codes_json')
+          ALTER TABLE [users] ADD [recovery_codes_json] NVARCHAR(MAX) NULL;
       END
     `);
 
@@ -475,6 +483,41 @@ export async function ensureDatabaseAndSchema() {
           [ip_address] NVARCHAR(50) NULL,
           [is_processed] BIT DEFAULT 0,
           [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+    `);
+
+    // 15. Invoices / Quotes and Support Tickets
+    await crmSequelize.query(`
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'invoices')
+      BEGIN
+        CREATE TABLE [invoices] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [userId] INT NOT NULL,
+          [contactId] INT NULL,
+          [invoiceNumber] NVARCHAR(50) NOT NULL,
+          [type] NVARCHAR(20) DEFAULT 'Invoice',
+          [amount] DECIMAL(12,2) DEFAULT 0.00,
+          [status] NVARCHAR(20) DEFAULT 'Draft',
+          [dueDate] DATETIMEOFFSET NULL,
+          [items] NVARCHAR(MAX) NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'tickets')
+      BEGIN
+        CREATE TABLE [tickets] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [userId] INT NOT NULL,
+          [contactId] INT NULL,
+          [ticketNumber] NVARCHAR(50) NOT NULL,
+          [subject] NVARCHAR(250) NOT NULL,
+          [description] NVARCHAR(MAX) NULL,
+          [priority] NVARCHAR(20) DEFAULT 'Medium',
+          [status] NVARCHAR(20) DEFAULT 'Open',
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
       END
     `);

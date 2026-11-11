@@ -293,11 +293,70 @@ export async function send2FAVerificationEmail(user, otpCode) {
   });
 }
 
+/**
+ * Diagnostic: Verify SMTP Connection
+ */
+export async function verifySmtpConnection() {
+  if (!transporter) {
+    return {
+      connected: false,
+      configured: false,
+      message: "No SMTP transporter configured. Please set GMAIL_USER & GMAIL_APP_PASS or SMTP credentials in .env"
+    };
+  }
+  try {
+    await transporter.verify();
+    return {
+      connected: true,
+      configured: true,
+      relay: isGmailConfigured ? "Gmail Service Relay" : `Standard SMTP (${process.env.SMTP_HOST}:${process.env.SMTP_PORT || 587})`,
+      fromAddress: process.env.GMAIL_USER || process.env.SMTP_FROM || process.env.SMTP_USER,
+      message: "SMTP connection verified successfully."
+    };
+  } catch (err) {
+    return {
+      connected: false,
+      configured: true,
+      error: err.message,
+      message: `SMTP connection verification failed: ${err.message}`
+    };
+  }
+}
+
+/**
+ * Diagnostic: Send Real Test Email
+ */
+export async function sendTestEmail(recipientEmail) {
+  const bodyHtml = `
+    <p>This is a real diagnostic test message dispatched from your <strong>SCRM Enterprise</strong> platform.</p>
+    <p>If you are receiving this message, your SMTP relay and credential configuration are functioning correctly and ready for customer communications.</p>
+    <div style="background: #252525; border-left: 3px solid #F0FF60; padding: 12px; margin: 16px 0; font-family: monospace; font-size: 13px;">
+      <div><strong>Dispatched At:</strong> ${new Date().toISOString()}</div>
+      <div><strong>Relay Type:</strong> ${isGmailConfigured ? "Gmail Service Relay" : "Standard SMTP"}</div>
+      <div><strong>Recipient:</strong> ${recipientEmail}</div>
+    </div>
+  `;
+  const html = buildBrandedEmailHtml({
+    title: "SCRM SMTP Diagnostics Test",
+    preheader: "Your SCRM email relay is operational.",
+    bodyHtml
+  });
+  return sendEmail({
+    to: recipientEmail,
+    subject: "SCRM Diagnostic: Real SMTP Test Delivery",
+    html,
+    text: `SCRM Diagnostic: Real SMTP Test Delivery sent to ${recipientEmail} at ${new Date().toISOString()}`,
+    templateName: "SMTP_Diagnostics_Test"
+  });
+}
+
 export default {
   sendEmail,
   sendWelcomeEmail,
   sendSecurityAlertEmail,
   sendPasswordResetEmail,
   send2FAVerificationEmail,
+  verifySmtpConnection,
+  sendTestEmail,
   buildBrandedEmailHtml
 };

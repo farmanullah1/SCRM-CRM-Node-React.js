@@ -6,13 +6,32 @@ import { sanitizeString } from "../middleware/security.js";
 const router = express.Router();
 router.use(authenticateToken);
 
-// GET /api/companies - List all companies
+// GET /api/companies - List all companies with associated contact count and total deal value
 router.get("/", async (req, res) => {
   try {
     const companies = await Company.findAll({
+      include: [
+        {
+          model: Contact,
+          attributes: ["id", "value"]
+        }
+      ],
       order: [["name", "ASC"]]
     });
-    res.json({ companies });
+
+    const enriched = companies.map(c => {
+      const plain = c.toJSON();
+      const contactList = plain.Contacts || [];
+      const contactCount = contactList.length;
+      const totalDealValue = contactList.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+      return {
+        ...plain,
+        contactCount,
+        totalDealValue
+      };
+    });
+
+    res.json({ companies: enriched });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch companies", details: err.message });
   }

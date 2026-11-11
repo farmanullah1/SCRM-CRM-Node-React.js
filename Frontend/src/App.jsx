@@ -9,10 +9,19 @@ import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 
+function SessionLoading() {
+  return (
+    <div className="app-loading" role="status" aria-live="polite">
+      <span className="app-loading-mark" aria-hidden="true" />
+      <span>Restoring your session…</span>
+    </div>
+  );
+}
+
 function PublicOnlyRoute({ children }) {
   const { user, loading } = useAuth();
-  if (loading) return null;
-  if (user) return <Navigate to="/app" replace />;
+  if (loading) return <SessionLoading />;
+  if (user) return <Navigate to="/app/dashboard" replace />;
   return children;
 }
 
@@ -32,9 +41,9 @@ function App() {
             {/* Public Landing Page at '/' for unauthenticated visitors */}
             <Route path="/" element={<LandingPage />} />
 
-            {/* Authenticated Application Workspace at '/app' */}
+            {/* Authenticated workspace. Section and settings tab are URL-driven. */}
             <Route
-              path="/app"
+              path="/app/:section?/:tab?"
               element={
                 <ProtectedRoute>
                   <Dashboard />

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import BrandLogo from "../components/BrandLogo";
 import { AlertCircle, ArrowRight, Shield, KeyRound, CheckCircle2, ArrowLeft } from "lucide-react";
@@ -8,12 +8,19 @@ import { forgotPassword, resetPassword } from "../services/api";
 export default function Login() {
   const { user, login, complete2FA } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // Only internal workspace destinations are honoured after authentication.
+  const returnTo = String(location.state?.from || "").startsWith("/app/")
+    ? location.state.from
+    : "/app/dashboard";
+  const stateMessage = location.state?.message || "";
 
   React.useEffect(() => {
     if (user) {
-      navigate("/app", { replace: true });
+      navigate(returnTo, { replace: true });
     }
-  }, [user, navigate]);
+  }, [user, navigate, returnTo]);
 
   // Mode: "login" | "2fa" | "forgot"
   const [mode, setMode] = useState("login");
@@ -47,7 +54,7 @@ export default function Login() {
         setMode("2fa");
         setSuccessMsg(res.message || "Enter the 6-digit verification code sent to your email.");
       } else {
-        navigate("/app");
+        navigate(returnTo, { replace: true });
       }
     } catch (err) {
       setError(err.response?.data?.error || "Invalid email or password. Please try again.");
@@ -63,7 +70,7 @@ export default function Login() {
 
     try {
       await complete2FA(tempToken, otpCode);
-      navigate("/app");
+      navigate(returnTo, { replace: true });
     } catch (err) {
       setError(err.response?.data?.error || "Invalid verification code. Please check your email.");
     } finally {
@@ -140,10 +147,10 @@ export default function Login() {
           </div>
         )}
 
-        {successMsg && (
-          <div style={{ background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.4)", borderRadius: "8px", padding: "10px 14px", marginBottom: "1.25rem", color: "#22C55E", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
+        {(successMsg || stateMessage) && (
+          <div role="status" style={{ background: "rgba(34, 197, 94, 0.12)", border: "1px solid rgba(34, 197, 94, 0.4)", borderRadius: "8px", padding: "10px 14px", marginBottom: "1.25rem", color: "#22C55E", fontSize: "13px", display: "flex", alignItems: "center", gap: "8px" }}>
             <CheckCircle2 size={16} />
-            <span>{successMsg}</span>
+            <span>{successMsg || stateMessage}</span>
           </div>
         )}
 
@@ -155,6 +162,7 @@ export default function Login() {
               <input
                 type="email"
                 required
+                autoComplete="email"
                 className="circuit-input"
                 placeholder="you@company.com"
                 value={email}
@@ -181,6 +189,7 @@ export default function Login() {
               <input
                 type="password"
                 required
+                autoComplete="current-password"
                 className="circuit-input"
                 placeholder="Enter your password"
                 value={password}

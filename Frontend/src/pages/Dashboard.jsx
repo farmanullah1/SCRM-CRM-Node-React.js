@@ -1,6 +1,10 @@
 import React, { useState, useMemo } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import BrandLogo from "../components/BrandLogo";
+import WorkspaceShell from "../components/WorkspaceShell";
+import SettingsView from "../components/SettingsView";
+import useModalAccessibility from "../hooks/useModalAccessibility";
 import { 
   UserPlus, 
   Search, 
@@ -42,8 +46,6 @@ import {
   Eye,
   Sliders,
   ExternalLink,
-  Menu,
-  X,
   Package
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -91,11 +93,15 @@ import {
   testAutomationRule,
   getCalendarSync,
   triggerCalendarSync,
-  toggle2FA,
-  updateProfile,
   getProducts,
   createProduct,
-  deleteProduct
+  updateProduct,
+  deleteProduct,
+  archiveProduct,
+  activateProduct,
+  updateCompany,
+  deleteCompany,
+  getAuthUsers
 } from "../services/api";
 import "../App.css";
 
@@ -105,9 +111,68 @@ export default function Dashboard() {
   const { user, logout, refreshUser } = useAuth();
   const queryClient = useQueryClient();
 
-  // Navigation Tabs: 'dashboard' | 'contacts' | 'pipeline' | 'companies' | 'tasks' | 'activities' | 'invoices' | 'tickets' | 'emails' | 'security'
-  const [activeTab, setActiveTab] = useState("dashboard");
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // URL-driven workspace navigation: /app/:section and /app/settings/:tab
+  const { section } = useParams();
+  const navigate = useNavigate();
+
+  const SECTION_TO_TAB = {
+    dashboard: "dashboard",
+    leads: "leads",
+    contacts: "contacts",
+    pipeline: "pipeline",
+    companies: "companies",
+    tasks: "tasks",
+    activities: "activities",
+    invoices: "invoices",
+    catalog: "catalog",
+    tickets: "tickets",
+    outbox: "emails",
+    settings: "settings",
+    profile: "settings",
+    security: "security"
+  };
+
+  const TAB_TO_PATH = {
+    dashboard: "/app/dashboard",
+    leads: "/app/leads",
+    contacts: "/app/contacts",
+    pipeline: "/app/pipeline",
+    companies: "/app/companies",
+    tasks: "/app/tasks",
+    activities: "/app/activities",
+    invoices: "/app/invoices",
+    catalog: "/app/catalog",
+    tickets: "/app/tickets",
+    emails: "/app/outbox",
+    settings: "/app/settings/profile",
+    profile: "/app/settings/profile",
+    security: "/app/security"
+  };
+
+  const activeTab = SECTION_TO_TAB[section] || "dashboard";
+  const navigateTo = (tab, options) => navigate(TAB_TO_PATH[tab] || "/app/dashboard", options);
+
+  React.useEffect(() => {
+    const knownSections = [
+      "dashboard",
+      "leads",
+      "contacts",
+      "pipeline",
+      "companies",
+      "tasks",
+      "activities",
+      "invoices",
+      "catalog",
+      "tickets",
+      "outbox",
+      "settings",
+      "profile",
+      "security"
+    ];
+    if (!section || !knownSections.includes(section)) {
+      navigate("/app/dashboard", { replace: true });
+    }
+  }, [section, navigate]);
 
   // In-App Toast Notification
   const [toastMessage, setToastMessage] = useState("");
@@ -115,30 +180,6 @@ export default function Dashboard() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 4000);
   };
-
-  // Profile & Settings State
-  const [profileName, setProfileName] = useState(user?.name || "");
-  const [profilePhone, setProfilePhone] = useState(user?.phone || "");
-  const [profileCompany, setProfileCompany] = useState(user?.company_name || "");
-  const [profileTitle, setProfileTitle] = useState(user?.title || "");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [profileMessage, setProfileMessage] = useState("");
-  const [profileError, setProfileError] = useState("");
-
-  // Sync profile fields with user context changes
-  React.useEffect(() => {
-    if (user) {
-      setProfileName(user.name || "");
-      setProfilePhone(user.phone || "");
-      setProfileCompany(user.company_name || "");
-      setProfileTitle(user.title || "");
-    }
-  }, [user]);
-
-  // Sign-Out Confirmation Modal
-  const [isSignOutModalOpen, setIsSignOutModalOpen] = useState(false);
 
   // Form Error States
   const [leadFormError, setLeadFormError] = useState("");
@@ -292,10 +333,13 @@ export default function Dashboard() {
     queryFn: () => getContacts({ search: searchTerm, status: statusFilter, leadSource: leadSourceFilter })
   });
 
-  const { data: companies = [], refetch: refetchCompanies } = useQuery({
+  const { data: companiesResponse = { companies: [] }, refetch: refetchCompanies } = useQuery({
     queryKey: ["companies"],
     queryFn: getCompanies
   });
+  const companies = Array.isArray(companiesResponse)
+    ? companiesResponse
+    : companiesResponse.companies || [];
 
   const { data: dealsData = { deals: [], totalsByStage: {}, totalPipelineValue: 0 }, refetch: refetchDeals } = useQuery({
     queryKey: ["deals"],
@@ -366,6 +410,28 @@ export default function Dashboard() {
     queryKey: ["calendarSync"],
     queryFn: getCalendarSync
   });
+
+  const { data: teamUsersData = { users: [] } } = useQuery({
+    queryKey: ["authUsers"],
+    queryFn: getAuthUsers
+  });
+  const teamUsers = teamUsersData.users || [];
+
+  // Outbox preview modal state
+  const [selectedOutboxEmail, setSelectedOutboxEmail] = useState(null);
+
+  // Catalog category filter state
+  const [catalogCategoryFilter, setCatalogCategoryFilter] = useState("All");
+
+  // Company detail / edit modal state
+  const [selectedCompanyDetail, setSelectedCompanyDetail] = useState(null);
+  const [isEditCompanyModalOpen, setIsEditCompanyModalOpen] = useState(false);
+  const [editingCompanyData, setEditingCompanyData] = useState({ id: null, name: "", domain: "", phone: "", address: "" });
+
+  // CSV Import Step State (1: Upload/Paste, 2: Preview & Duplicate Handling, 3: Success Summary)
+  const [importStep, setImportStep] = useState(1);
+  const [importParsedPreview, setImportParsedPreview] = useState([]);
+  const [importSkipDuplicates, setImportSkipDuplicates] = useState(true);
 
   // Mutations
   const createLeadMutation = useMutation({
@@ -471,6 +537,44 @@ export default function Dashboard() {
       setIsCompanyModalOpen(false);
       showToast("Company created successfully.");
     }
+  });
+
+  const updateCompanyMutation = useMutation({
+    mutationFn: updateCompany,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      setIsEditCompanyModalOpen(false);
+      showToast("Company details updated.");
+    },
+    onError: (err) => showToast("Failed to update company: " + (err.response?.data?.error || err.message))
+  });
+
+  const deleteCompanyMutation = useMutation({
+    mutationFn: deleteCompany,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["companies"] });
+      setSelectedCompanyDetail(null);
+      showToast("Company removed.");
+    },
+    onError: (err) => showToast("Failed to delete company: " + (err.response?.data?.error || err.message))
+  });
+
+  const archiveProductMutation = useMutation({
+    mutationFn: archiveProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      showToast("Item marked as archived.");
+    },
+    onError: (err) => showToast("Archive failed: " + (err.response?.data?.error || err.message))
+  });
+
+  const activateProductMutation = useMutation({
+    mutationFn: activateProduct,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["products"] });
+      showToast("Item restored to active catalog.");
+    },
+    onError: (err) => showToast("Activation failed: " + (err.response?.data?.error || err.message))
   });
 
   const createTaskMutation = useMutation({
@@ -594,33 +698,18 @@ export default function Dashboard() {
     }
   });
 
-  const toggle2FAMutation = useMutation({
-    mutationFn: toggle2FA,
-    onSuccess: (data) => {
-      showToast(data.message);
-      if (refreshUser) refreshUser();
-    },
-    onError: (err) => showToast(err.response?.data?.error || "Failed to toggle 2FA")
-  });
-
-  const updateProfileMutation = useMutation({
-    mutationFn: updateProfile,
-    onSuccess: (data) => {
-      setProfileMessage(data.message || "Profile successfully updated!");
-      setProfileError("");
-      setCurrentPassword("");
-      setNewPassword("");
-      setConfirmPassword("");
-      if (refreshUser) refreshUser();
-      showToast("Profile settings saved successfully!");
-    },
-    onError: (err) => {
-      setProfileError(err.response?.data?.error || "Failed to update profile.");
-      setProfileMessage("");
+  // Safe CSV Cell Formatter (RFC-4180 + Excel DDE Formula Injection Protection)
+  const formatCsvCell = (val) => {
+    if (val === null || val === undefined) return '""';
+    let str = String(val);
+    // Neutralize formula injection risk if starting with =, +, -, @, tab, or carriage return
+    if (/^[=+\-@\t\r]/.test(str)) {
+      str = "'" + str;
     }
-  });
+    return `"${str.replace(/"/g, '""')}"`;
+  };
 
-  // Export to CSV with Multiple Entity Support & UTF-8 BOM
+  // Export to CSV with Multiple Entity Support, Formula Injection Defense & UTF-8 BOM
   const handleExportCSV = (scope = "contacts") => {
     try {
       let headers = [];
@@ -635,15 +724,15 @@ export default function Dashboard() {
         headers = ["ID", "Name", "Email", "Phone", "Company", "Title", "Status", "Source", "Estimated Value", "Created At"];
         rows = leads.map(l => [
           l.id,
-          `"${(l.name || "").replace(/"/g, '""')}"`,
-          `"${(l.email || "").replace(/"/g, '""')}"`,
-          `"${(l.phone || "").replace(/"/g, '""')}"`,
-          `"${(l.company_name || "").replace(/"/g, '""')}"`,
-          `"${(l.title || "").replace(/"/g, '""')}"`,
-          `"${l.status || "New"}"`,
-          `"${(l.source || "").replace(/"/g, '""')}"`,
+          formatCsvCell(l.name),
+          formatCsvCell(l.email),
+          formatCsvCell(l.phone),
+          formatCsvCell(l.company_name),
+          formatCsvCell(l.title),
+          formatCsvCell(l.status || "New"),
+          formatCsvCell(l.source),
           l.estimated_value || 0,
-          `"${l.created_at || ""}"`
+          formatCsvCell(l.created_at)
         ]);
         filename = `SCRM_Leads_Export_${new Date().toISOString().slice(0, 10)}.csv`;
       } else if (scope === "tasks") {
@@ -654,12 +743,12 @@ export default function Dashboard() {
         headers = ["ID", "Title", "Status", "Priority", "Due Date", "Contact ID", "Description"];
         rows = tasks.map(t => [
           t.id,
-          `"${(t.title || "").replace(/"/g, '""')}"`,
-          `"${t.status || "Pending"}"`,
-          `"${t.priority || "Medium"}"`,
-          `"${t.dueDate || ""}"`,
+          formatCsvCell(t.title),
+          formatCsvCell(t.status || "Pending"),
+          formatCsvCell(t.priority || "Medium"),
+          formatCsvCell(t.dueDate),
           t.contactId || "",
-          `"${(t.description || "").replace(/"/g, '""')}"`
+          formatCsvCell(t.description)
         ]);
         filename = `SCRM_Tasks_Export_${new Date().toISOString().slice(0, 10)}.csv`;
       } else {
@@ -670,15 +759,15 @@ export default function Dashboard() {
         headers = ["ID", "Name", "Email", "Phone", "Company", "Status", "Value", "LeadSource", "Tags", "Expected Close Date"];
         rows = contacts.map(c => [
           c.id,
-          `"${(c.name || "").replace(/"/g, '""')}"`,
-          `"${(c.email || "").replace(/"/g, '""')}"`,
-          `"${(c.phone || "").replace(/"/g, '""')}"`,
-          `"${(c.company || "").replace(/"/g, '""')}"`,
-          `"${c.status || "New"}"`,
+          formatCsvCell(c.name),
+          formatCsvCell(c.email),
+          formatCsvCell(c.phone),
+          formatCsvCell(c.company),
+          formatCsvCell(c.status || "New"),
           c.value || 0,
-          `"${(c.leadSource || "").replace(/"/g, '""')}"`,
-          `"${(c.tags || "").replace(/"/g, '""')}"`,
-          `"${c.expectedCloseDate || ""}"`
+          formatCsvCell(c.leadSource),
+          formatCsvCell(c.tags),
+          formatCsvCell(c.expectedCloseDate)
         ]);
         filename = `SCRM_Contacts_Export_${new Date().toISOString().slice(0, 10)}.csv`;
       }
@@ -695,7 +784,7 @@ export default function Dashboard() {
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
       setIsExportModalOpen(false);
-      showToast(`Exported ${rows.length} records to ${filename}`);
+      showToast(`Exported ${rows.length} records safely to ${filename}`);
     } catch (err) {
       showToast("Failed to export CSV: " + err.message);
     }
@@ -716,49 +805,82 @@ export default function Dashboard() {
     reader.readAsText(file);
   };
 
-  const handleProcessCSVImport = async () => {
+  // Step 1 -> Step 2: Parse and Preview CSV rows
+  const handleParseCsvForPreview = () => {
     setImportFormError("");
     if (!csvText.trim()) {
-      setImportFormError("Please upload a CSV file or paste CSV rows into the text area.");
+      setImportFormError("Please upload a CSV file or paste CSV content.");
       return;
     }
+    const lines = csvText.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
+    if (lines.length === 0) {
+      setImportFormError("CSV content is empty.");
+      return;
+    }
+
+    const parsed = [];
+    const existingEmails = new Set(contacts.map(c => (c.email || "").toLowerCase().trim()));
+
+    for (let i = 0; i < lines.length; i++) {
+      if (i === 0 && (lines[i].toLowerCase().includes("name") || lines[i].toLowerCase().includes("email"))) {
+        continue; // skip header line
+      }
+      const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
+      if (cols[0] && cols[1]) {
+        const emailLower = cols[1].toLowerCase().trim();
+        const isDuplicate = existingEmails.has(emailLower);
+        parsed.push({
+          name: cols[0],
+          email: cols[1],
+          phone: cols[2] || "",
+          company: cols[3] || "",
+          status: cols[4] || "New",
+          value: Number(cols[5]) || 0,
+          leadSource: cols[6] || "CSV Import",
+          tags: cols[7] || "Imported",
+          isDuplicate
+        });
+      }
+    }
+
+    if (parsed.length === 0) {
+      setImportFormError("No valid records found. Each record requires at least Name and Email.");
+      return;
+    }
+
+    setImportParsedPreview(parsed);
+    setImportStep(2);
+  };
+
+  // Step 2 -> Step 3: Execute Import
+  const handleExecuteCSVImport = async () => {
+    setImportFormError("");
     try {
-      const lines = csvText.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
-      if (lines.length === 0) {
-        setImportFormError("CSV content is empty.");
+      const recordsToImport = importSkipDuplicates 
+        ? importParsedPreview.filter(p => !p.isDuplicate)
+        : importParsedPreview;
+
+      if (recordsToImport.length === 0) {
+        setImportFormError("All parsed records are duplicates and skip duplicates is checked.");
         return;
       }
-      const parsedContacts = [];
-      for (let i = 0; i < lines.length; i++) {
-        if (i === 0 && (lines[i].toLowerCase().includes("name") || lines[i].toLowerCase().includes("email"))) continue;
-        const cols = lines[i].split(",").map(c => c.trim().replace(/^"|"$/g, ""));
-        if (cols[0] && cols[1]) {
-          parsedContacts.push({
-            name: cols[0],
-            email: cols[1],
-            phone: cols[2] || "",
-            company: cols[3] || "",
-            status: cols[4] || "New",
-            value: Number(cols[5]) || 0,
-            leadSource: cols[6] || "CSV Import",
-            tags: cols[7] || "Imported"
-          });
-        }
-      }
-      if (parsedContacts.length === 0) {
-        setImportFormError("No valid rows found. Each row requires at least Name and Email (e.g. Rachel Adams, rachel@example.com).");
-        return;
-      }
-      const res = await bulkImportContacts(parsedContacts);
-      showToast(res.message || `Successfully imported ${parsedContacts.length} contacts!`);
+
+      const res = await bulkImportContacts(recordsToImport);
       queryClient.invalidateQueries({ queryKey: ["contacts"] });
       queryClient.invalidateQueries({ queryKey: ["duplicates"] });
-      setIsImportModalOpen(false);
-      setCsvText("");
-      setImportFormError("");
+      showToast(res.message || `Imported ${recordsToImport.length} contacts!`);
+      setImportStep(3);
     } catch (e) {
       setImportFormError("Import error: " + (e.response?.data?.error || e.message));
     }
+  };
+
+  const handleResetImportModal = () => {
+    setIsImportModalOpen(false);
+    setImportStep(1);
+    setCsvText("");
+    setImportParsedPreview([]);
+    setImportFormError("");
   };
 
   // Stage change trigger
@@ -777,6 +899,59 @@ export default function Dashboard() {
     setIsConvertModalOpen(true);
   };
 
+  const openNewLead = () => {
+    setEditingLead(null);
+    setLeadFormError("");
+    setLeadFormData({
+      name: "",
+      email: "",
+      phone: "",
+      company_name: "",
+      title: "",
+      source: "Website",
+      status: "New",
+      estimated_value: 10000,
+      notes: ""
+    });
+    navigateTo("leads");
+    setIsLeadModalOpen(true);
+  };
+
+  const anyModalOpen =
+    isLeadModalOpen ||
+    isLeadConvertModalOpen ||
+    isContactModalOpen ||
+    isConvertModalOpen ||
+    isCompanyModalOpen ||
+    isDuplicateModalOpen ||
+    isTaskModalOpen ||
+    isActivityModalOpen ||
+    isEmailModalOpen ||
+    isImportModalOpen ||
+    isExportModalOpen ||
+    isInvoiceModalOpen ||
+    isTicketModalOpen ||
+    isProductModalOpen;
+
+  const closeAllModals = () => {
+    setIsLeadModalOpen(false);
+    setIsLeadConvertModalOpen(false);
+    setIsContactModalOpen(false);
+    setIsConvertModalOpen(false);
+    setIsCompanyModalOpen(false);
+    setIsDuplicateModalOpen(false);
+    setIsTaskModalOpen(false);
+    setIsActivityModalOpen(false);
+    setIsEmailModalOpen(false);
+    setIsImportModalOpen(false);
+    setIsExportModalOpen(false);
+    setIsInvoiceModalOpen(false);
+    setIsTicketModalOpen(false);
+    setIsProductModalOpen(false);
+  };
+
+  useModalAccessibility(anyModalOpen, closeAllModals);
+
   // Metrics
   const totalPipelineValue = contacts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
   const wonValue = contacts.filter(c => c.status === "Won").reduce((sum, c) => sum + (Number(c.value) || 0), 0);
@@ -787,182 +962,18 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* 74px Sticky Top Navbar with Responsive Mobile Controls */}
-      <nav className="navbar-circuit">
-        <div className="nav-brand" onClick={() => setActiveTab("dashboard")} style={{ cursor: "pointer" }}>
-          <BrandLogo variant="horizontal" size={30} showTagline={true} />
-        </div>
-
-        {/* Desktop Navigation Links */}
-        <div className="nav-tab-links">
-          <button 
-            className={`nav-tab-btn ${activeTab === "dashboard" ? "active" : ""}`}
-            onClick={() => { setActiveTab("dashboard"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <TrendingUp size={15} />
-            <span>Dashboard</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "leads" ? "active" : ""}`}
-            onClick={() => { setActiveTab("leads"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Target size={15} />
-            <span>Leads ({leads.length})</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "contacts" ? "active" : ""}`}
-            onClick={() => { setActiveTab("contacts"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Users size={15} />
-            <span>Contacts ({contacts.length})</span>
-            {duplicatesData.count > 0 && (
-              <span className="badge-alert" title="Duplicates Detected">
-                {duplicatesData.count}
-              </span>
-            )}
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "pipeline" ? "active" : ""}`}
-            onClick={() => { setActiveTab("pipeline"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Layers size={15} />
-            <span>Pipeline</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "companies" ? "active" : ""}`}
-            onClick={() => { setActiveTab("companies"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Building size={15} />
-            <span>Companies ({companies.length})</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "tasks" ? "active" : ""}`}
-            onClick={() => { setActiveTab("tasks"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Calendar size={15} />
-            <span>Tasks ({pendingTasks.length})</span>
-            {taskStats.overdue > 0 && (
-              <span className="badge-overdue" title="Overdue Tasks">
-                !
-              </span>
-            )}
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "activities" ? "active" : ""}`}
-            onClick={() => { setActiveTab("activities"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Clock size={15} />
-            <span>Activity Log</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "invoices" ? "active" : ""}`}
-            onClick={() => { setActiveTab("invoices"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <FileText size={15} />
-            <span>Invoices</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "catalog" ? "active" : ""}`}
-            onClick={() => { setActiveTab("catalog"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Package size={15} />
-            <span>Catalog ({products.length})</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "tickets" ? "active" : ""}`}
-            onClick={() => { setActiveTab("tickets"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <LifeBuoy size={15} />
-            <span>Tickets ({openTickets.length})</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "emails" ? "active" : ""}`}
-            onClick={() => { setActiveTab("emails"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Mail size={15} />
-            <span>Outbox</span>
-          </button>
-          <button 
-            className={`nav-tab-btn ${activeTab === "settings" ? "active" : ""}`}
-            onClick={() => { setActiveTab("settings"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-          >
-            <Sliders size={15} />
-            <span>Settings</span>
-          </button>
-          {user?.role === "admin" && (
-            <button 
-              className={`nav-tab-btn ${activeTab === "security" ? "active" : ""}`}
-              onClick={() => { setActiveTab("security"); window.scrollTo({ top: 0, behavior: "smooth" }); }}
-            >
-              <ShieldCheck size={15} color="#F0FF60" />
-              <span>Security & Backup</span>
-            </button>
-          )}
-        </div>
-
-        {/* Right Action Bar */}
-        <div className="nav-right-items">
-          <button className="btn-primary-yellow" onClick={() => { 
-            setEditingLead(null); 
-            setLeadFormError("");
-            setLeadFormData({
-              name: "",
-              email: "",
-              phone: "",
-              company_name: "",
-              title: "",
-              source: "Website",
-              status: "New",
-              estimated_value: 10000,
-              notes: ""
-            });
-            setIsLeadModalOpen(true); 
-          }}>
-            <UserPlus size={16} />
-            <span>New Lead</span>
-          </button>
-          <button 
-            className={`nav-profile-pill ${activeTab === "settings" ? "active" : ""}`} 
-            onClick={() => { setActiveTab("settings"); window.scrollTo({ top: 0, behavior: "smooth" }); }} 
-            title="User Profile & Settings"
-          >
-            <div className="nav-profile-avatar">
-              {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div className="nav-profile-info">
-              <span className="nav-profile-name">{user?.name || "User"}</span>
-              <span className="nav-profile-role">{user?.role || "standard_user"}</span>
-            </div>
-          </button>
-          {/* Mobile Menu Hamburger */}
-          <button className="mobile-menu-toggle" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
-        </div>
-      </nav>
-
-      {/* Mobile Drawer Menu */}
-      {mobileMenuOpen && (
-        <div className="mobile-nav-drawer">
-          <button className={activeTab === "dashboard" ? "active" : ""} onClick={() => { setActiveTab("dashboard"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Dashboard</button>
-          <button className={activeTab === "leads" ? "active" : ""} onClick={() => { setActiveTab("leads"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Leads ({leads.length})</button>
-          <button className={activeTab === "contacts" ? "active" : ""} onClick={() => { setActiveTab("contacts"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Contacts ({contacts.length})</button>
-          <button className={activeTab === "pipeline" ? "active" : ""} onClick={() => { setActiveTab("pipeline"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Pipeline Kanban</button>
-          <button className={activeTab === "companies" ? "active" : ""} onClick={() => { setActiveTab("companies"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Companies ({companies.length})</button>
-          <button className={activeTab === "tasks" ? "active" : ""} onClick={() => { setActiveTab("tasks"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Tasks ({pendingTasks.length})</button>
-          <button className={activeTab === "activities" ? "active" : ""} onClick={() => { setActiveTab("activities"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Activity Log</button>
-          <button className={activeTab === "invoices" ? "active" : ""} onClick={() => { setActiveTab("invoices"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Invoices & Quotes</button>
-          <button className={activeTab === "catalog" ? "active" : ""} onClick={() => { setActiveTab("catalog"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Supply Catalog ({products.length})</button>
-          <button className={activeTab === "tickets" ? "active" : ""} onClick={() => { setActiveTab("tickets"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Support Tickets ({openTickets.length})</button>
-          <button className={activeTab === "emails" ? "active" : ""} onClick={() => { setActiveTab("emails"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Outbox</button>
-          <button className={activeTab === "settings" ? "active" : ""} onClick={() => { setActiveTab("settings"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Settings & Profile</button>
-          {user?.role === "admin" && (
-            <button className={activeTab === "security" ? "active" : ""} onClick={() => { setActiveTab("security"); setMobileMenuOpen(false); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Security & Backup</button>
-          )}
-        </div>
-      )}
-
-      <main className="crm-layout">
+      <WorkspaceShell
+        user={user}
+        counts={{
+          leads: leads.length,
+          contacts: contacts.length,
+          companies: companies.length,
+          tasks: pendingTasks.length,
+          catalog: products.length,
+          tickets: openTickets.length
+        }}
+        onNewLead={openNewLead}
+      >
         {/* TAB 1: DASHBOARD OVERVIEW */}
         {activeTab === "dashboard" && (
           <div className="dashboard-view-stack">
@@ -1023,14 +1034,14 @@ export default function Dashboard() {
 
             {/* 4-Up High Impact Telemetry Grid */}
             <section className="metrics-4up-grid">
-              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("contacts"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("contacts"); ; }} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><Users size={22} /></div>
                 <div className="metric-val">{contacts.length}</div>
                 <div className="metric-lbl">Total Contacts & Leads</div>
                 <div className="metric-sub">Across all pipeline stages</div>
               </div>
 
-              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("pipeline"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("pipeline"); ; }} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><DollarSign size={22} /></div>
                 <div className="metric-val" style={{ color: "var(--accent)" }}>
                   ${totalPipelineValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
@@ -1039,7 +1050,7 @@ export default function Dashboard() {
                 <div className="metric-sub">{proposalCount} deals in Proposal stage</div>
               </div>
 
-              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("pipeline"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("pipeline"); ; }} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><ShieldCheck size={22} /></div>
                 <div className="metric-val" style={{ color: "var(--semantic-success)" }}>
                   ${wonValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
@@ -1048,7 +1059,7 @@ export default function Dashboard() {
                 <div className="metric-sub">{wonCount} closed won contracts ({dealMetrics.winRate || "0%"})</div>
               </div>
 
-              <div className="metric-card-circuit interactive-lift" onClick={() => { setActiveTab("tasks"); window.scrollTo({ top: 0, behavior: "smooth" }); }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("tasks"); ; }} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><Calendar size={22} /></div>
                 <div className="metric-val" style={{ color: taskStats.overdue > 0 ? "var(--semantic-error)" : "var(--accent-bright)" }}>
                   {pendingTasks.length}
@@ -1078,7 +1089,7 @@ export default function Dashboard() {
               <div className="card-circuit interactive-lift">
                 <div className="card-header-bar">
                   <span className="card-title">Deal Pipeline Distribution</span>
-                  <button className="btn-ghost-dark small" onClick={() => setActiveTab("pipeline")}>View Board</button>
+                  <button className="btn-ghost-dark small" onClick={() => navigateTo("pipeline")}>View Board</button>
                 </div>
                 <div className="pipeline-progress-stack">
                   {STAGES.map(stg => {
@@ -1134,14 +1145,14 @@ export default function Dashboard() {
                 <div className="inverted-copy">
                   <h3 className="inverted-title">ENTERPRISE CRM WORKFLOW AUTOMATION</h3>
                   <p className="inverted-desc">
-                    Round-robin lead routing, automated duplicate resolution, tracking pixels, and instant Lead-to-Deal conversions with Microsoft SQL Server integrity.
+                    Round-robin lead routing, automated duplicate resolution, engagement tracking and instant lead-to-deal conversion, backed by a consistent and auditable record of every customer interaction.
                   </p>
                 </div>
                 <div className="inverted-actions">
                   <button className="btn-dark-on-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
                     Add Record
                   </button>
-                  <button className="btn-outline-on-yellow" onClick={() => setActiveTab("security")}>
+                  <button className="btn-outline-on-yellow" onClick={() => navigateTo("security")}>
                     Security Audit
                   </button>
                 </div>
@@ -1543,7 +1554,12 @@ export default function Dashboard() {
         {activeTab === "companies" && (
           <div className="companies-view-stack">
             <div className="toolbar-circuit">
-              <span className="card-title">Client & Partner Companies</span>
+              <div>
+                <span className="card-title">Client & Partner Companies</span>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  Accounts, linked contacts, and collective deal valuation
+                </div>
+              </div>
               <button className="btn-primary-yellow" onClick={() => setIsCompanyModalOpen(true)}>
                 <Building size={16} />
                 <span>Add Company</span>
@@ -1551,21 +1567,63 @@ export default function Dashboard() {
             </div>
 
             <div className="asymmetric-2up-grid">
-              {companies.map(comp => (
-                <div key={comp.id} className="card-circuit interactive-lift">
-                  <div className="card-header-bar">
-                    <span className="card-title">{comp.name}</span>
-                    <span className="tag-pill">{comp.domain || "Enterprise"}</span>
+              {companies.map(comp => {
+                const count = comp.contactCount ?? (contacts.filter(c => c.company && c.company.toLowerCase() === comp.name.toLowerCase()).length);
+                const dealSum = comp.totalDealValue ?? (contacts.filter(c => c.company && c.company.toLowerCase() === comp.name.toLowerCase()).reduce((acc, curr) => acc + (Number(curr.value) || 0), 0));
+                return (
+                  <div key={comp.id} className="card-circuit interactive-lift">
+                    <div className="card-header-bar">
+                      <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                        <Building size={18} color="#F0FF60" />
+                        <span className="card-title">{comp.name}</span>
+                      </div>
+                      <span className="tag-pill">{comp.domain || "Enterprise"}</span>
+                    </div>
+                    <div style={{ marginTop: "12px", color: "var(--text-body)", fontSize: "13px", display: "flex", flexDirection: "column", gap: "6px" }}>
+                      <div><strong>Domain:</strong> {comp.domain ? <a href={`https://${comp.domain}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>{comp.domain}</a> : "—"}</div>
+                      <div><strong>Phone:</strong> {comp.phone || "—"}</div>
+                      <div><strong>HQ Address:</strong> {comp.address || "—"}</div>
+                      <div style={{ display: "flex", gap: "12px", marginTop: "8px", padding: "8px 10px", background: "rgba(0,0,0,0.3)", borderRadius: "6px" }}>
+                        <div><span style={{ color: "var(--text-muted)", fontSize: "11px" }}>CONTACTS</span>: <strong>{count}</strong></div>
+                        <div><span style={{ color: "var(--text-muted)", fontSize: "11px" }}>TOTAL DEALS</span>: <strong>${dealSum.toLocaleString()}</strong></div>
+                      </div>
+                      <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--text-muted)" }}>
+                        Created: {new Date(comp.createdAt).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px", borderTop: "1px solid var(--border-hairline)", paddingTop: "10px" }}>
+                      <button 
+                        className="btn-ghost-dark small" 
+                        onClick={() => {
+                          setEditingCompanyData({
+                            id: comp.id,
+                            name: comp.name,
+                            domain: comp.domain || "",
+                            phone: comp.phone || "",
+                            address: comp.address || ""
+                          });
+                          setIsEditCompanyModalOpen(true);
+                        }}
+                      >
+                        <Edit3 size={13} />
+                        <span>Edit</span>
+                      </button>
+                      <button 
+                        className="btn-ghost-dark small" 
+                        style={{ color: "#EF4444" }}
+                        onClick={() => {
+                          if (window.confirm(`Delete company record for ${comp.name}? Associated contacts will remain.`)) {
+                            deleteCompanyMutation.mutate(comp.id);
+                          }
+                        }}
+                      >
+                        <Trash2 size={13} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ marginTop: "12px", color: "var(--text-body)", fontSize: "14px" }}>
-                    <p>Phone: {comp.phone || "—"}</p>
-                    <p>Address: {comp.address || "—"}</p>
-                    <p style={{ marginTop: "8px", fontSize: "12px", color: "var(--text-muted)" }}>
-                      Created: {new Date(comp.createdAt).toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {companies.length === 0 && (
                 <div className="empty-state-notice">No companies listed yet. Click "Add Company" above.</div>
               )}
@@ -1730,13 +1788,26 @@ export default function Dashboard() {
               <div>
                 <span className="card-title">Commercial Products & Services Catalog</span>
                 <div style={{ fontSize: "12px", color: "#9E9E9E", marginTop: "2px" }}>
-                  Supply Pillar · Fixed line items, standardized SKU pricing, and stock catalog
+                  Supply Pillar · Standardized pricing, product vs. service lines, and stock controls
                 </div>
               </div>
-              <button className="btn-primary-yellow" onClick={() => setIsProductModalOpen(true)}>
-                <Plus size={16} />
-                <span>Add Product / Service</span>
-              </button>
+              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                <select 
+                  value={catalogCategoryFilter} 
+                  onChange={e => setCatalogCategoryFilter(e.target.value)}
+                  style={{ padding: "6px 12px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "6px", color: "#fff", fontSize: "13px" }}
+                >
+                  <option value="All">All Categories</option>
+                  <option value="Services">Services Only</option>
+                  <option value="Hardware">Hardware Only</option>
+                  <option value="Software License">Software License</option>
+                  <option value="Subscription">Subscription</option>
+                </select>
+                <button className="btn-primary-yellow" onClick={() => setIsProductModalOpen(true)}>
+                  <Plus size={16} />
+                  <span>Add Product / Service</span>
+                </button>
+              </div>
             </div>
 
             <div className="table-container-circuit">
@@ -1744,6 +1815,7 @@ export default function Dashboard() {
                 <thead>
                   <tr>
                     <th>Item Name</th>
+                    <th>Type / Line</th>
                     <th>SKU</th>
                     <th>Category</th>
                     <th>Unit Price</th>
@@ -1753,43 +1825,81 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products.map(p => (
-                    <tr key={p.id}>
-                      <td><strong>{p.name}</strong></td>
-                      <td><span style={{ fontFamily: "monospace", fontSize: "12px", color: "#FAFF69" }}>{p.sku || "—"}</span></td>
-                      <td>{p.category || "Services"}</td>
-                      <td className="value-cell">${(Number(p.price) || 0).toLocaleString()}</td>
-                      <td>{p.unit || "unit"}</td>
-                      <td>
-                        <span style={{
-                          fontSize: "11px",
-                          fontWeight: 700,
-                          padding: "3px 8px",
-                          borderRadius: "4px",
-                          backgroundColor: p.is_active ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)",
-                          color: p.is_active ? "#22C55E" : "#9E9E9E"
-                        }}>
-                          {p.is_active ? "Active" : "Archived"}
-                        </span>
-                      </td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          className="action-icon-btn delete"
-                          onClick={() => {
-                            if (window.confirm(`Delete product ${p.name}?`)) {
-                              deleteProductMutation.mutate(p.id);
-                            }
-                          }}
-                          title="Delete Product"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {products
+                    .filter(p => catalogCategoryFilter === "All" || p.category === catalogCategoryFilter)
+                    .map(p => {
+                      const isService = p.category === "Services" || p.category === "Subscription";
+                      return (
+                        <tr key={p.id}>
+                          <td><strong>{p.name}</strong></td>
+                          <td>
+                            <span style={{
+                              fontSize: "10px",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              padding: "2px 6px",
+                              borderRadius: "4px",
+                              backgroundColor: isService ? "rgba(96,165,250,0.15)" : "rgba(240,255,96,0.15)",
+                              color: isService ? "#60A5FA" : "#F0FF60",
+                              fontWeight: 700
+                            }}>
+                              {isService ? "Service" : "Product"}
+                            </span>
+                          </td>
+                          <td><span style={{ fontFamily: "monospace", fontSize: "12px", color: "#FAFF69" }}>{p.sku || "—"}</span></td>
+                          <td>{p.category || "Services"}</td>
+                          <td className="value-cell">${(Number(p.price) || 0).toLocaleString()}</td>
+                          <td>{p.unit || "unit"}</td>
+                          <td>
+                            <span style={{
+                              fontSize: "11px",
+                              fontWeight: 700,
+                              padding: "3px 8px",
+                              borderRadius: "4px",
+                              backgroundColor: p.is_active ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)",
+                              color: p.is_active ? "#22C55E" : "#9E9E9E"
+                            }}>
+                              {p.is_active ? "Active" : "Archived"}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <div style={{ display: "inline-flex", gap: "6px" }}>
+                              {p.is_active ? (
+                                <button
+                                  className="action-icon-btn"
+                                  onClick={() => archiveProductMutation.mutate(p.id)}
+                                  title="Archive item (deactivate)"
+                                >
+                                  <Lock size={13} color="#9E9E9E" />
+                                </button>
+                              ) : (
+                                <button
+                                  className="action-icon-btn"
+                                  onClick={() => activateProductMutation.mutate(p.id)}
+                                  title="Restore item to active"
+                                >
+                                  <CheckCircle2 size={13} color="#22C55E" />
+                                </button>
+                              )}
+                              <button
+                                className="action-icon-btn delete"
+                                onClick={() => {
+                                  if (window.confirm(`Permanently delete catalog item ${p.name}?`)) {
+                                    deleteProductMutation.mutate(p.id);
+                                  }
+                                }}
+                                title="Delete Product"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   {products.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="empty-table-cell">
+                      <td colSpan="8" className="empty-table-cell">
                         No products registered in catalog yet. Click "+ Add Product / Service" to build your pricing inventory.
                       </td>
                     </tr>
@@ -1858,7 +1968,12 @@ export default function Dashboard() {
         {activeTab === "emails" && (
           <div className="emails-view-stack">
             <div className="toolbar-circuit">
-              <span className="card-title">Dispatched Emails & Pixel Open Tracking</span>
+              <div>
+                <span className="card-title">Dispatched Emails & Pixel Open Tracking</span>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  Live SMTP relay history with pixel-based receipt confirmation and payload inspection
+                </div>
+              </div>
               <button className="btn-primary-yellow" onClick={() => setIsEmailModalOpen(true)}>
                 <Mail size={16} />
                 <span>Compose Email</span>
@@ -1874,12 +1989,13 @@ export default function Dashboard() {
                     <th>Template</th>
                     <th>Tracking Status</th>
                     <th>Sent At</th>
+                    <th style={{ textAlign: "right" }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {emailLogs.map(em => (
                     <tr key={em.id}>
-                      <td>{em.recipient_email || em.recipientEmail}</td>
+                      <td><strong>{em.recipient_email || em.recipientEmail}</strong></td>
                       <td>{em.subject}</td>
                       <td><span className="tag-pill">{em.template_name || "Custom"}</span></td>
                       <td>
@@ -1894,11 +2010,21 @@ export default function Dashboard() {
                         )}
                       </td>
                       <td>{new Date(em.createdAt).toLocaleString()}</td>
+                      <td style={{ textAlign: "right" }}>
+                        <button
+                          className="btn-ghost-dark small"
+                          onClick={() => setSelectedOutboxEmail(em)}
+                          title="Inspect email payload and tracking telemetry"
+                        >
+                          <Eye size={13} />
+                          <span>Inspect</span>
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {emailLogs.length === 0 && (
                     <tr>
-                      <td colSpan="5" className="empty-table-cell">No emails dispatched yet. Click "Compose Email" above.</td>
+                      <td colSpan="6" className="empty-table-cell">No emails dispatched yet. Click "Compose Email" above.</td>
                     </tr>
                   )}
                 </tbody>
@@ -1967,19 +2093,19 @@ export default function Dashboard() {
                   <div className="security-check-item">
                     <CheckCircle2 size={16} color="#22C55E" />
                     <div>
-                      <strong>SQL Injection Protection:</strong> Fully parameterized queries and Sequelize ORM abstraction against SQL injection.
+                      <strong>Record protection:</strong> Every workspace record is scoped to your account and checked on the server before it is read or changed.
                     </div>
                   </div>
                   <div className="security-check-item">
                     <CheckCircle2 size={16} color="#22C55E" />
                     <div>
-                      <strong>High-Salt Password Hashing:</strong> Enforced bcrypt hashing with 12 salt rounds for all user credentials.
+                      <strong>Credential safety:</strong> Passwords are hashed and never stored in plain text or returned to the browser.
                     </div>
                   </div>
                   <div className="security-check-item">
                     <CheckCircle2 size={16} color="#22C55E" />
                     <div>
-                      <strong>IP Rate Limiting:</strong> Enforced `express-rate-limit` on auth endpoints (15 req/15m) and general API routes.
+                      <strong>Abuse protection:</strong> Sign-in and account-recovery endpoints are rate limited against repeated attempts.
                     </div>
                   </div>
                   <div className="security-check-item">
@@ -1991,7 +2117,7 @@ export default function Dashboard() {
                   <div className="security-check-item">
                     <CheckCircle2 size={16} color="#22C55E" />
                     <div>
-                      <strong>Security Headers (Helmet):</strong> Frameguard, HSTS, NoSniff, and strict CORS policies active.
+                      <strong>Secure transport:</strong> Strict response headers and origin checks protect requests between the browser and the workspace.
                     </div>
                   </div>
                 </div>
@@ -2001,232 +2127,28 @@ export default function Dashboard() {
         )}
 
         {/* TAB 11: ACCOUNT SETTINGS & PREFERENCES */}
-        {activeTab === "settings" && (
-          <div className="settings-view-stack">
-            <div className="settings-view-header">
-              <h2 className="settings-view-title">Account Settings & System Preferences</h2>
-              <p className="settings-view-subtitle">
-                Manage your user profile, security credentials, two-factor authentication, and active sessions.
-              </p>
-            </div>
-
-            {profileMessage && (
-              <div style={{ padding: "12px 16px", background: "rgba(240, 255, 96, 0.12)", border: "1px solid var(--border-yellow-adjacent)", borderRadius: "8px", color: "var(--accent)", fontSize: "14px", fontWeight: "600" }}>
-                ✓ {profileMessage}
-              </div>
-            )}
-            {profileError && (
-              <div style={{ padding: "12px 16px", background: "rgba(239, 68, 68, 0.12)", border: "1px solid rgba(239, 68, 68, 0.4)", borderRadius: "8px", color: "#EF4444", fontSize: "14px", fontWeight: "600" }}>
-                ⚠ {profileError}
-              </div>
-            )}
-
-            <div className="settings-grid">
-              {/* Profile Details Card */}
-              <div className="settings-card interactive-lift">
-                <div className="settings-card-header">
-                  <div className="settings-card-title">
-                    <Users size={18} color="#F0FF60" />
-                    <span>Personal Profile</span>
-                  </div>
-                  <span className="tag-pill" style={{ textTransform: "uppercase" }}>{user?.role || "standard_user"}</span>
-                </div>
-
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  setProfileError("");
-                  setProfileMessage("");
-                  updateProfileMutation.mutate({
-                    name: profileName,
-                    phone: profilePhone,
-                    company_name: profileCompany,
-                    title: profileTitle
-                  });
-                }}>
-                  <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
-                    <label>Full Name *</label>
-                    <input
-                      type="text"
-                      required
-                      value={profileName}
-                      onChange={(e) => setProfileName(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
-                    <label>Work Email (Primary ID)</label>
-                    <input
-                      type="email"
-                      disabled
-                      value={user?.email || ""}
-                      style={{ opacity: 0.65, cursor: "not-allowed" }}
-                    />
-                  </div>
-
-                  <div className="form-row-2col" style={{ marginBottom: "12px" }}>
-                    <div className="form-group-circuit">
-                      <label>Phone Number</label>
-                      <input
-                        type="tel"
-                        placeholder="+1 555-0199"
-                        value={profilePhone}
-                        onChange={(e) => setProfilePhone(e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group-circuit">
-                      <label>Job Title</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Sales Director"
-                        value={profileTitle}
-                        onChange={(e) => setProfileTitle(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group-circuit" style={{ marginBottom: "16px" }}>
-                    <label>Company / Organization</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. Acme Enterprise"
-                      value={profileCompany}
-                      onChange={(e) => setProfileCompany(e.target.value)}
-                    />
-                  </div>
-
-                  <button type="submit" className="btn-primary-yellow" disabled={updateProfileMutation.isPending}>
-                    {updateProfileMutation.isPending ? "Saving..." : "Save Profile Details"}
-                  </button>
-                </form>
-              </div>
-
-              {/* Two-Factor Authentication Card */}
-              <div className="settings-card interactive-lift">
-                <div className="settings-card-header">
-                  <div className="settings-card-title">
-                    <ShieldCheck size={18} color="#F0FF60" />
-                    <span>Two-Factor Authentication (2FA)</span>
-                  </div>
-                  <span className={`status-badge ${user?.twoFactorEnabled ? "won" : "in-progress"}`}>
-                    {user?.twoFactorEnabled ? "Active (Protected)" : "Disabled"}
-                  </span>
-                </div>
-
-                <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6" }}>
-                  Protect your SCRM account against unauthorized access. When active, signing into your account requires entering a 6-digit one-time code sent directly to your verified email (<code>{user?.email}</code>).
-                </p>
-
-                <div style={{ display: "flex", alignItems: "center", gap: "12px", marginTop: "10px" }}>
-                  <button
-                    type="button"
-                    className={user?.twoFactorEnabled ? "btn-ghost-dark" : "btn-primary-yellow"}
-                    onClick={() => toggle2FAMutation.mutate()}
-                    disabled={toggle2FAMutation.isPending}
-                  >
-                    <ShieldCheck size={16} />
-                    <span>{user?.twoFactorEnabled ? "Disable Two-Factor Auth" : "Enable Two-Factor Auth"}</span>
-                  </button>
-                </div>
-
-                <div style={{ marginTop: "16px", paddingTop: "14px", borderTop: "1px solid var(--border-hairline)", fontSize: "12px", color: "var(--text-muted)" }}>
-                  SMTP Relay: <strong>Configured & Operational</strong> (Email verification codes dispatch in &lt; 2 seconds).
-                </div>
-              </div>
-
-              {/* Change Password Card */}
-              <div className="settings-card interactive-lift">
-                <div className="settings-card-header">
-                  <div className="settings-card-title">
-                    <Lock size={18} color="#F0FF60" />
-                    <span>Security Credentials</span>
-                  </div>
-                </div>
-
-                <form onSubmit={(e) => {
-                  e.preventDefault();
-                  setProfileError("");
-                  setProfileMessage("");
-                  if (newPassword !== confirmPassword) {
-                    setProfileError("New password and confirmation do not match.");
-                    return;
-                  }
-                  if (newPassword.length < 8) {
-                    setProfileError("Password must be at least 8 characters.");
-                    return;
-                  }
-                  updateProfileMutation.mutate({
-                    currentPassword,
-                    newPassword
-                  });
-                }}>
-                  <div className="form-group-circuit" style={{ marginBottom: "12px" }}>
-                    <label>Current Password *</label>
-                    <input
-                      type="password"
-                      required
-                      placeholder="Enter current password"
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="form-row-2col" style={{ marginBottom: "16px" }}>
-                    <div className="form-group-circuit">
-                      <label>New Password *</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="Min 8 characters"
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group-circuit">
-                      <label>Confirm New Password *</label>
-                      <input
-                        type="password"
-                        required
-                        placeholder="Re-type new password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <button type="submit" className="btn-primary-yellow small" disabled={updateProfileMutation.isPending}>
-                    {updateProfileMutation.isPending ? "Updating Password..." : "Update Password"}
-                  </button>
-                </form>
-              </div>
-
-              {/* Danger Zone: Session Sign Out */}
-              <div className="settings-card danger-zone-card interactive-lift">
-                <div className="settings-card-header">
-                  <div className="settings-card-title">
-                    <LogOut size={18} color="#EF4444" />
-                    <span>Danger Zone & Session Management</span>
-                  </div>
-                </div>
-
-                <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6" }}>
-                  Safely conclude your active SCRM session. Terminating the session invalidates your access tokens and clears active local session state.
-                </p>
-
-                <div>
-                  <button
-                    type="button"
-                    className="btn-danger"
-                    onClick={() => setIsSignOutModalOpen(true)}
-                  >
-                    <LogOut size={16} />
-                    <span>Sign Out of SCRM...</span>
-                  </button>
-                </div>
-              </div>
-            </div>
+        {activeTab === "security" && user?.role !== "admin" && (
+          <div className="settings-card" role="alert">
+            <h2 className="settings-card-title">Administrator access required</h2>
+            <p className="settings-card-copy">
+              Security and backup tools are restricted to workspace administrators. Ask an administrator
+              if you need access, or return to your dashboard.
+            </p>
+            <button type="button" className="btn-ghost-dark small" onClick={() => navigateTo("dashboard")}>
+              Back to dashboard
+            </button>
           </div>
         )}
-      </main>
+
+        {activeTab === "settings" && (
+          <SettingsView
+            user={user}
+            refreshUser={refreshUser}
+            logout={logout}
+            showToast={showToast}
+          />
+        )}
+      </WorkspaceShell>
 
       {/* MODAL: ADD / EDIT STANDALONE LEAD */}
       {isLeadModalOpen && (
@@ -2766,6 +2688,19 @@ export default function Dashboard() {
               </div>
 
               <div className="form-group-circuit">
+                <label>Assign To Team Member</label>
+                <select 
+                  value={taskFormData.assignedToUserId || ""} 
+                  onChange={e => setTaskFormData({ ...taskFormData, assignedToUserId: e.target.value })}
+                >
+                  <option value="">Assign to Me ({user?.name || "Self"})</option>
+                  {teamUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.name} ({u.role}{u.title ? ` · ${u.title}` : ""})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group-circuit">
                 <label>Related Contact</label>
                 <select 
                   value={taskFormData.contactId} 
@@ -3281,44 +3216,6 @@ export default function Dashboard() {
                 <button type="submit" className="btn-primary-yellow">Register Product</button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 11: CONFIRM SIGN OUT */}
-      {isSignOutModalOpen && (
-        <div className="modal-overlay-circuit" onClick={() => setIsSignOutModalOpen(false)}>
-          <div className="modal-box-circuit signout-modal-box interactive-lift" onClick={e => e.stopPropagation()}>
-            <div className="signout-modal-icon">
-              <LogOut size={28} />
-            </div>
-            <h3 style={{ fontSize: "1.25rem", fontWeight: "800", color: "#FFFFFF", marginBottom: "8px" }}>
-              Confirm Session Sign-Out
-            </h3>
-            <p style={{ color: "var(--text-body)", fontSize: "13px", lineHeight: "1.6", marginBottom: "20px" }}>
-              Are you sure you want to sign out of your SCRM session? Any unsaved edits in open dialogs will be discarded.
-            </p>
-            <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
-              <button 
-                type="button" 
-                className="btn-ghost-dark" 
-                onClick={() => setIsSignOutModalOpen(false)}
-              >
-                Stay Logged In
-              </button>
-              <button 
-                type="button" 
-                className="btn-danger" 
-                onClick={() => {
-                  setIsSignOutModalOpen(false);
-                  logout();
-                  showToast("You have been signed out successfully.");
-                }}
-              >
-                <LogOut size={15} />
-                <span>Yes, Sign Out</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

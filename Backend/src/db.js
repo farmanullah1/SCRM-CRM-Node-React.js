@@ -56,6 +56,10 @@ export const User = sequelize.define(
     phone: { type: DataTypes.STRING(50), allowNull: true },
     company_name: { type: DataTypes.STRING(150), allowNull: true },
     title: { type: DataTypes.STRING(100), allowNull: true },
+    avatar_url: { type: DataTypes.STRING(500), allowNull: true },
+    cover_url: { type: DataTypes.STRING(500), allowNull: true },
+    bio: { type: DataTypes.TEXT, allowNull: true },
+    recovery_codes_json: { type: DataTypes.TEXT, allowNull: true },
     role: { type: DataTypes.STRING(50), defaultValue: "admin" },
     role_id: { type: DataTypes.INTEGER, allowNull: true },
     refresh_token: { type: DataTypes.STRING(500), allowNull: true },
@@ -396,9 +400,13 @@ Task.belongsTo(Contact, { foreignKey: "contactId" });
 
 User.hasMany(Invoice, { foreignKey: "userId", onDelete: "CASCADE" });
 Invoice.belongsTo(User, { foreignKey: "userId" });
+Contact.hasMany(Invoice, { foreignKey: "contactId" });
+Invoice.belongsTo(Contact, { foreignKey: "contactId" });
 
 User.hasMany(Ticket, { foreignKey: "userId", onDelete: "CASCADE" });
 Ticket.belongsTo(User, { foreignKey: "userId" });
+Contact.hasMany(Ticket, { foreignKey: "contactId" });
+Ticket.belongsTo(Contact, { foreignKey: "contactId" });
 
 export async function connectDB() {
   try {
