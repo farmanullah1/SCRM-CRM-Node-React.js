@@ -690,7 +690,21 @@ export default function Dashboard() {
 
         {/* Right Action Bar */}
         <div className="nav-right-items">
-          <button className="btn-primary-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
+          <button className="btn-primary-yellow" onClick={() => { 
+            setEditingLead(null); 
+            setLeadFormData({
+              name: "",
+              email: "",
+              phone: "",
+              company_name: "",
+              title: "",
+              source: "Website",
+              status: "New",
+              estimated_value: 10000,
+              notes: ""
+            });
+            setIsLeadModalOpen(true); 
+          }}>
             <UserPlus size={16} />
             <span>New Lead</span>
           </button>
@@ -708,6 +722,7 @@ export default function Dashboard() {
       {mobileMenuOpen && (
         <div className="mobile-nav-drawer">
           <button onClick={() => { setActiveTab("dashboard"); setMobileMenuOpen(false); }}>Dashboard</button>
+          <button onClick={() => { setActiveTab("leads"); setMobileMenuOpen(false); }}>Leads ({leads.length})</button>
           <button onClick={() => { setActiveTab("contacts"); setMobileMenuOpen(false); }}>Contacts ({contacts.length})</button>
           <button onClick={() => { setActiveTab("pipeline"); setMobileMenuOpen(false); }}>Pipeline Kanban</button>
           <button onClick={() => { setActiveTab("companies"); setMobileMenuOpen(false); }}>Companies ({companies.length})</button>
@@ -893,6 +908,191 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* TAB: LEADS INGESTION & PIPELINE QUALIFICATION */}
+        {activeTab === "leads" && (
+          <div className="contacts-view-stack">
+            <div className="toolbar-circuit">
+              <div className="search-box">
+                <Search size={16} />
+                <input 
+                  type="text" 
+                  placeholder="Search lead name, email, company..." 
+                  value={leadSearchTerm} 
+                  onChange={e => setLeadSearchTerm(e.target.value)} 
+                />
+              </div>
+
+              <div className="filters-row">
+                <select value={leadStatusFilter} onChange={e => setLeadStatusFilter(e.target.value)}>
+                  <option value="All">All Lead Statuses</option>
+                  <option value="New">New</option>
+                  <option value="Contacted">Contacted</option>
+                  <option value="Engaged">Engaged</option>
+                  <option value="Qualified">Qualified</option>
+                  <option value="Converted">Converted</option>
+                  <option value="Disqualified">Disqualified</option>
+                </select>
+
+                <button 
+                  className="btn-primary-yellow"
+                  onClick={() => {
+                    setEditingLead(null);
+                    setLeadFormData({
+                      name: "",
+                      email: "",
+                      phone: "",
+                      company_name: "",
+                      title: "",
+                      source: "Website",
+                      status: "New",
+                      estimated_value: 10000,
+                      notes: ""
+                    });
+                    setIsLeadModalOpen(true);
+                  }}
+                >
+                  <Plus size={16} />
+                  <span>New Lead</span>
+                </button>
+              </div>
+            </div>
+
+            {leads.length === 0 ? (
+              <div className="table-card-circuit empty-state">
+                <Target size={40} color="#F0FF60" />
+                <h3>No Leads Recorded</h3>
+                <p>Ingest inbound prospects here to qualify them before converting to contacts and deals.</p>
+                <button 
+                  className="btn-primary-yellow"
+                  style={{ marginTop: "16px" }}
+                  onClick={() => {
+                    setEditingLead(null);
+                    setLeadFormData({
+                      name: "",
+                      email: "",
+                      phone: "",
+                      company_name: "",
+                      title: "",
+                      source: "Website",
+                      status: "New",
+                      estimated_value: 10000,
+                      notes: ""
+                    });
+                    setIsLeadModalOpen(true);
+                  }}
+                >
+                  <Plus size={16} />
+                  <span>Create First Lead</span>
+                </button>
+              </div>
+            ) : (
+              <div className="table-card-circuit">
+                <table className="circuit-table">
+                  <thead>
+                    <tr>
+                      <th>Lead Prospect</th>
+                      <th>Company & Title</th>
+                      <th>Contact Info</th>
+                      <th>Source</th>
+                      <th>Est. Value</th>
+                      <th>Status</th>
+                      <th style={{ textAlign: "right" }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {leads.map(lead => (
+                      <tr key={lead.id}>
+                        <td>
+                          <div style={{ fontWeight: 700, color: "#FFFFFF" }}>{lead.name}</div>
+                          <div style={{ fontSize: "11px", color: "#9E9E9E" }}>Added {new Date(lead.createdAt).toLocaleDateString()}</div>
+                        </td>
+                        <td>
+                          <div style={{ color: "#FFFFFF" }}>{lead.company_name || "—"}</div>
+                          <div style={{ fontSize: "11px", color: "#9E9E9E" }}>{lead.title || "Prospect"}</div>
+                        </td>
+                        <td>
+                          <div>{lead.email}</div>
+                          <div style={{ fontSize: "11px", color: "#9E9E9E" }}>{lead.phone || "No phone"}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: "12px", color: "#DFDFDF" }}>{lead.source || "Website"}</span>
+                        </td>
+                        <td>
+                          <span style={{ color: "#F0FF60", fontWeight: 700 }}>
+                            ${parseFloat(lead.estimated_value || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                          </span>
+                        </td>
+                        <td>
+                          <span className={`status-pill ${lead.status.toLowerCase()}`}>
+                            {lead.status}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "right" }}>
+                          <div style={{ display: "inline-flex", gap: "6px" }}>
+                            {lead.status !== "Converted" ? (
+                              <button
+                                className="btn-primary-yellow"
+                                style={{ padding: "4px 10px", fontSize: "12px", gap: "4px" }}
+                                onClick={() => {
+                                  setConvertingLead(lead);
+                                  setLeadConvertTitle(`${lead.company_name || lead.name} - Solution Engagement`);
+                                  setLeadConvertValue(lead.estimated_value || 10000);
+                                  setLeadConvertStage("Qualified");
+                                  setIsLeadConvertModalOpen(true);
+                                }}
+                                title="Convert to Contact, Company & Deal"
+                              >
+                                <ArrowRight size={13} />
+                                <span>Convert</span>
+                              </button>
+                            ) : (
+                              <span style={{ fontSize: "11px", color: "#22C55E", padding: "4px 8px", backgroundColor: "rgba(34,197,94,0.1)", borderRadius: "4px" }}>
+                                ✓ Converted
+                              </span>
+                            )}
+                            <button
+                              className="action-icon-btn"
+                              onClick={() => {
+                                setEditingLead(lead);
+                                setLeadFormData({
+                                  name: lead.name,
+                                  email: lead.email,
+                                  phone: lead.phone || "",
+                                  company_name: lead.company_name || "",
+                                  title: lead.title || "",
+                                  source: lead.source || "Website",
+                                  status: lead.status || "New",
+                                  estimated_value: lead.estimated_value || 0,
+                                  notes: lead.notes || ""
+                                });
+                                setIsLeadModalOpen(true);
+                              }}
+                              title="Edit Lead"
+                            >
+                              <Edit3 size={15} />
+                            </button>
+                            <button
+                              className="action-icon-btn delete"
+                              onClick={() => {
+                                if (window.confirm(`Delete lead "${lead.name}"?`)) {
+                                  deleteLeadMutation.mutate(lead.id);
+                                }
+                              }}
+                              title="Delete Lead"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
 
@@ -1563,6 +1763,213 @@ export default function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* MODAL: ADD / EDIT STANDALONE LEAD */}
+      {isLeadModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => setIsLeadModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingLead ? "Edit Inbound Lead" : "Ingest New Lead Prospect"}</h3>
+              <button className="modal-close-btn" onClick={() => setIsLeadModalOpen(false)}>×</button>
+            </div>
+            <form onSubmit={e => {
+              e.preventDefault();
+              if (editingLead) {
+                updateLeadMutation.mutate({ id: editingLead.id, data: leadFormData });
+              } else {
+                createLeadMutation.mutate(leadFormData);
+              }
+            }}>
+              <div className="form-group-circuit">
+                <label>Prospect Name *</label>
+                <input 
+                  type="text" 
+                  required
+                  placeholder="e.g. Rachel Adams"
+                  value={leadFormData.name} 
+                  onChange={e => setLeadFormData({ ...leadFormData, name: e.target.value })} 
+                />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Work Email *</label>
+                  <input 
+                    type="email" 
+                    required
+                    placeholder="rachel@prospect.com"
+                    value={leadFormData.email} 
+                    onChange={e => setLeadFormData({ ...leadFormData, email: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Phone Number</label>
+                  <input 
+                    type="tel" 
+                    placeholder="+1 555-0192"
+                    value={leadFormData.phone} 
+                    onChange={e => setLeadFormData({ ...leadFormData, phone: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Company Organization</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. Apex Global"
+                    value={leadFormData.company_name} 
+                    onChange={e => setLeadFormData({ ...leadFormData, company_name: e.target.value })} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Job Title</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. VP of Operations"
+                    value={leadFormData.title} 
+                    onChange={e => setLeadFormData({ ...leadFormData, title: e.target.value })} 
+                  />
+                </div>
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Lead Source</label>
+                  <select 
+                    value={leadFormData.source} 
+                    onChange={e => setLeadFormData({ ...leadFormData, source: e.target.value })}
+                  >
+                    <option value="Website">Website</option>
+                    <option value="Referral">Referral</option>
+                    <option value="LinkedIn">LinkedIn</option>
+                    <option value="Conference">Conference</option>
+                    <option value="Cold Outbound">Cold Outbound</option>
+                    <option value="Partner">Partner</option>
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Status</label>
+                  <select 
+                    value={leadFormData.status} 
+                    onChange={e => setLeadFormData({ ...leadFormData, status: e.target.value })}
+                  >
+                    <option value="New">New</option>
+                    <option value="Contacted">Contacted</option>
+                    <option value="Engaged">Engaged</option>
+                    <option value="Qualified">Qualified</option>
+                    <option value="Disqualified">Disqualified</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Estimated Value ($ USD)</label>
+                <input 
+                  type="number" 
+                  step="0.01"
+                  value={leadFormData.estimated_value} 
+                  onChange={e => setLeadFormData({ ...leadFormData, estimated_value: parseFloat(e.target.value) || 0 })} 
+                />
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Prospect Notes & Background</label>
+                <textarea 
+                  rows="3"
+                  placeholder="Key context, pain points, budget signals..."
+                  value={leadFormData.notes} 
+                  onChange={e => setLeadFormData({ ...leadFormData, notes: e.target.value })} 
+                />
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsLeadModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary-yellow">
+                  {editingLead ? "Save Changes" : "Ingest Lead"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: 1-CLICK TRANSACTIONAL LEAD CONVERSION */}
+      {isLeadConvertModalOpen && convertingLead && (
+        <div className="modal-overlay-circuit" onClick={() => setIsLeadConvertModalOpen(false)}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Qualify & Convert Lead into Deal</h3>
+              <button className="modal-close-btn" onClick={() => setIsLeadConvertModalOpen(false)}>×</button>
+            </div>
+            <div style={{ backgroundColor: "#303018", border: "1px solid #4F5101", borderRadius: "8px", padding: "14px", marginBottom: "18px", fontSize: "13px", color: "#DFDFDF" }}>
+              <div style={{ fontWeight: 700, color: "#F0FF60", marginBottom: "4px" }}>
+                Transactional Customer Provisioning
+              </div>
+              Qualifying <strong>{convertingLead.name}</strong> will create a Contact profile, bind the Company organization <strong>{convertingLead.company_name || "(Direct)"}</strong>, and initialize a pipeline Deal in one atomic transaction.
+            </div>
+
+            <form onSubmit={e => {
+              e.preventDefault();
+              convertLeadMutation.mutate({
+                id: convertingLead.id,
+                data: {
+                  dealTitle: leadConvertTitle,
+                  dealValue: parseFloat(leadConvertValue) || 10000,
+                  pipelineStage: leadConvertStage
+                }
+              });
+            }}>
+              <div className="form-group-circuit">
+                <label>Pipeline Deal Title *</label>
+                <input 
+                  type="text" 
+                  required
+                  value={leadConvertTitle} 
+                  onChange={e => setLeadConvertTitle(e.target.value)} 
+                />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Deal Value ($ USD) *</label>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    required
+                    value={leadConvertValue} 
+                    onChange={e => setLeadConvertValue(e.target.value)} 
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Pipeline Stage</label>
+                  <select 
+                    value={leadConvertStage} 
+                    onChange={e => setLeadConvertStage(e.target.value)}
+                  >
+                    <option value="Qualified">Qualified</option>
+                    <option value="Proposal">Proposal</option>
+                    <option value="Negotiation">Negotiation</option>
+                    <option value="Won">Won</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn-ghost-dark" onClick={() => setIsLeadConvertModalOpen(false)}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn-primary-yellow">
+                  Confirm Qualification & Convert
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* MODAL 1: ADD / EDIT CONTACT */}
       {isContactModalOpen && (
