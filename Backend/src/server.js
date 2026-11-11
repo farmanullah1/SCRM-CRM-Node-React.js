@@ -6,6 +6,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { connectDB } from "./db.js";
 import authRouter from "./routes/auth.js";
+import leadsRouter from "./routes/leads.js";
 import companiesRouter from "./routes/companies.js";
 import contactsRouter from "./routes/contacts.js";
 import dealsRouter from "./routes/deals.js";
@@ -56,6 +57,7 @@ app.use(express.urlencoded({ extended: true, limit: "15mb" }));
 
 // Route Mounts
 app.use("/api/auth", authRouter);
+app.use("/api/leads", leadsRouter);
 app.use("/api/companies", companiesRouter);
 app.use("/api/contacts", contactsRouter);
 app.use("/api/deals", dealsRouter);

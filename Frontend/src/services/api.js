@@ -73,7 +73,15 @@ export const createCompany = async (data) => (await API.post("/companies", data)
 export const updateCompany = async ({ id, data }) => (await API.put(`/companies/${id}`, data)).data;
 export const deleteCompany = async (id) => (await API.delete(`/companies/${id}`)).data;
 
-// Contacts & Leads
+// Standalone Leads (Unqualified Ingestion & Qualification)
+export const getLeads = async (params = {}) => (await API.get("/leads", { params })).data;
+export const getLeadById = async (id) => (await API.get(`/leads/${id}`)).data;
+export const createLead = async (data) => (await API.post("/leads", data)).data;
+export const updateLead = async ({ id, data }) => (await API.put(`/leads/${id}`, data)).data;
+export const deleteLead = async (id) => (await API.delete(`/leads/${id}`)).data;
+export const convertLead = async ({ id, data }) => (await API.post(`/leads/${id}/convert`, data || {})).data;
+
+// Contacts & Relationships
 export const getContacts = async (params = {}) => (await API.get("/contacts", { params })).data;
 export const getContactById = async (id) => (await API.get(`/contacts/${id}`)).data;
 export const createContact = async (data) => (await API.post("/contacts", data)).data;
