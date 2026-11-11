@@ -61,7 +61,13 @@ router.get("/", async (req, res) => {
 // GET /api/deals/metrics - Sales performance & pipeline metrics
 router.get("/metrics", async (req, res) => {
   try {
-    const deals = await Deal.findAll();
+    // Metrics must honour the same ownership scope as the pipeline listing.
+    const where = {};
+    if (req.user.role === "standard_user" && !req.user.permissions?.view_all) {
+      where.owner_id = req.user.id;
+    }
+
+    const deals = await Deal.findAll({ where });
     
     let totalValue = 0;
     let wonCount = 0;

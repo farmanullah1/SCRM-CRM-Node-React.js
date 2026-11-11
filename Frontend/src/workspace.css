@@ -935,6 +935,256 @@
   }
 }
 
+/* CRM workspace pages ---------------------------------------------------- */
+.workspace-page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.75rem;
+}
+
+.workspace-page-heading {
+  min-width: 0;
+}
+
+.workspace-page-title {
+  margin: 0.35rem 0;
+  font-size: clamp(1.6rem, 2.6vw, 2.3rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--text-heading);
+}
+
+.workspace-page-subtitle {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.5;
+  color: var(--text-muted);
+}
+
+.page-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.dashboard-main-grid,
+.dashboard-lower-grid {
+  display: grid;
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.dashboard-main-grid {
+  grid-template-columns: 1.25fr 1fr;
+}
+
+.dashboard-lower-grid {
+  grid-template-columns: 1.25fr 1fr;
+}
+
+@media (max-width: 960px) {
+  .dashboard-main-grid,
+  .dashboard-lower-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.activity-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.activity-mini-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.7rem;
+}
+
+.activity-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
+}
+
+.activity-mini-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text-heading);
+  text-transform: capitalize;
+}
+
+.activity-mini-meta {
+  margin-top: 2px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.deal-mini-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.deal-mini-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 0.7rem 0.85rem;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  background: rgba(20, 20, 20, 0.6);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-control);
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.deal-mini-item:hover {
+  border-color: var(--accent);
+  background: rgba(240, 255, 96, 0.06);
+}
+
+.deal-mini-title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-heading);
+}
+
+.deal-mini-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.deal-mini-value {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--semantic-success);
+}
+
+.contact-name-button,
+.deal-title-button {
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-heading);
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.deal-title-button {
+  font-weight: 700;
+}
+
+.contact-name-button:hover,
+.deal-title-button:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.deal-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.deal-actions-row .kanban-move-select {
+  flex: 1;
+}
+
+/* Contact record (360) dialog ------------------------------------------- */
+.contact-detail-modal {
+  max-width: 820px;
+}
+
+.contact-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.detail-label {
+  display: block;
+  margin-bottom: 3px;
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.detail-value {
+  font-size: 0.9rem;
+  color: var(--text-heading);
+  word-break: break-word;
+}
+
+.detail-value a {
+  color: var(--accent);
+}
+
+.contact-detail-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+
+.contact-detail-columns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+}
+
+@media (max-width: 640px) {
+  .contact-detail-columns {
+    grid-template-columns: 1fr;
+  }
+}
+
+.contact-detail-section-title {
+  margin: 0 0 0.6rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.contact-detail-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.contact-detail-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-body);
+  background: rgba(20, 20, 20, 0.55);
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-control);
+}
+
+.contact-detail-item strong {
+  color: var(--text-heading);
+}
+
 /* Signup consent --------------------------------------------------------- */
 .signup-terms {
   display: flex;

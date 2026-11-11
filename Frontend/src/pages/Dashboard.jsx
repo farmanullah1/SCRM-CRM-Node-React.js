@@ -62,6 +62,8 @@ import {
   bulkImportContacts,
   mergeContacts,
   getContactDuplicates,
+  getContactById,
+  getContactActivities,
   convertLeadToDeal,
   getTasks,
   createTask,
@@ -416,6 +418,35 @@ export default function Dashboard() {
     queryFn: getAuthUsers
   });
   const teamUsers = teamUsersData.users || [];
+  const deals = dealsData.deals || [];
+
+  // Contact record drawer
+  const [selectedContactId, setSelectedContactId] = useState(null);
+
+  // Contact record (360) — related deals, tasks and activity stream
+  const { data: contactDetail, isLoading: isContactDetailLoading } = useQuery({
+    queryKey: ["contact", selectedContactId],
+    queryFn: () => getContactById(selectedContactId),
+    enabled: Boolean(selectedContactId)
+  });
+  const { data: contactActivityData = { activities: [] } } = useQuery({
+    queryKey: ["contactActivities", selectedContactId],
+    queryFn: () => getContactActivities(selectedContactId),
+    enabled: Boolean(selectedContactId)
+  });
+
+  // Deal create/edit modal
+  const [isDealModalOpen, setIsDealModalOpen] = useState(false);
+  const [editingDeal, setEditingDeal] = useState(null);
+  const [dealFormError, setDealFormError] = useState("");
+  const [dealFormData, setDealFormData] = useState({
+    title: "",
+    value: 0,
+    stage_name: "New",
+    contact_id: "",
+    expected_close_date: "",
+    notes: ""
+  });
 
   // Outbox preview modal state
   const [selectedOutboxEmail, setSelectedOutboxEmail] = useState(null);
@@ -582,15 +613,7 @@ export default function Dashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       setIsTaskModalOpen(false);
-      setTaskFormError("");
-      setTaskFormData({
-        title: "",
-        description: "",
-        dueDate: "",
-        priority: "Medium",
-        status: "Pending",
-        contactId: ""
-      });
+      resetTaskForm();
       showToast("Task scheduled successfully!");
     },
     onError: (err) => setTaskFormError(err.response?.data?.error || "Failed to schedule task.")
@@ -598,12 +621,57 @@ export default function Dashboard() {
 
   const updateTaskMutation = useMutation({
     mutationFn: updateTask,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] })
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsTaskModalOpen(false);
+      resetTaskForm();
+      showToast("Task updated.");
+    },
+    onError: (err) => setTaskFormError(err.response?.data?.error || "Failed to update task.")
   });
 
   const deleteTaskMutation = useMutation({
     mutationFn: deleteTask,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] })
+  });
+
+  const createDealMutation = useMutation({
+    mutationFn: createDeal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["dealMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsDealModalOpen(false);
+      setEditingDeal(null);
+      setDealFormError("");
+      showToast("Deal added to the pipeline.");
+    },
+    onError: (err) => setDealFormError(err.response?.data?.error || "Failed to create deal.")
+  });
+
+  const updateDealMutation = useMutation({
+    mutationFn: updateDeal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["dealMetrics"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setIsDealModalOpen(false);
+      setEditingDeal(null);
+      setDealFormError("");
+      showToast("Deal updated.");
+    },
+    onError: (err) => setDealFormError(err.response?.data?.error || "Failed to update deal.")
+  });
+
+  const deleteDealMutation = useMutation({
+    mutationFn: deleteDeal,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["deals"] });
+      queryClient.invalidateQueries({ queryKey: ["dealMetrics"] });
+      showToast("Deal removed from the pipeline.");
+    },
+    onError: (err) => showToast(err.response?.data?.error || "Failed to delete deal.")
   });
 
   const createActivityMutation = useMutation({
@@ -891,6 +959,57 @@ export default function Dashboard() {
     });
   };
 
+  const resetTaskForm = () => {
+    setEditingTask(null);
+    setTaskFormError("");
+    setTaskFormData({
+      title: "",
+      description: "",
+      dueDate: "",
+      priority: "Medium",
+      status: "Pending",
+      contactId: "",
+      assignedToUserId: ""
+    });
+  };
+
+  const openNewTask = () => {
+    resetTaskForm();
+    setIsTaskModalOpen(true);
+  };
+
+  const openNewDeal = () => {
+    setEditingDeal(null);
+    setDealFormError("");
+    setDealFormData({
+      title: "",
+      value: 0,
+      stage_name: "New",
+      contact_id: "",
+      expected_close_date: "",
+      notes: ""
+    });
+    setIsDealModalOpen(true);
+  };
+
+  const openEditDeal = (deal) => {
+    setEditingDeal(deal);
+    setDealFormError("");
+    setDealFormData({
+      title: deal.title || "",
+      value: Number(deal.value) || 0,
+      stage_name: deal.stage_name || "New",
+      contact_id: deal.contact_id || "",
+      expected_close_date: deal.expected_close_date ? String(deal.expected_close_date).slice(0, 10) : "",
+      notes: deal.notes || ""
+    });
+    setIsDealModalOpen(true);
+  };
+
+  const openContactRecord = (contact) => {
+    if (contact?.id) setSelectedContactId(contact.id);
+  };
+
   // Convert Lead Handler
   const openConvertModal = (contact) => {
     setConvertingContact(contact);
@@ -931,7 +1050,9 @@ export default function Dashboard() {
     isExportModalOpen ||
     isInvoiceModalOpen ||
     isTicketModalOpen ||
-    isProductModalOpen;
+    isProductModalOpen ||
+    isDealModalOpen ||
+    Boolean(selectedContactId);
 
   const closeAllModals = () => {
     setIsLeadModalOpen(false);
@@ -948,17 +1069,31 @@ export default function Dashboard() {
     setIsInvoiceModalOpen(false);
     setIsTicketModalOpen(false);
     setIsProductModalOpen(false);
+    setIsDealModalOpen(false);
+    setSelectedContactId(null);
   };
 
   useModalAccessibility(anyModalOpen, closeAllModals);
 
-  // Metrics
-  const totalPipelineValue = contacts.reduce((sum, c) => sum + (Number(c.value) || 0), 0);
-  const wonValue = contacts.filter(c => c.status === "Won").reduce((sum, c) => sum + (Number(c.value) || 0), 0);
-  const wonCount = contacts.filter(c => c.status === "Won").length;
-  const proposalCount = contacts.filter(c => c.status === "Proposal").length;
+  // Metrics — pipeline numbers come from deal records, not contact lifecycle values.
+  const openDeals = deals.filter(d => !["Won", "Lost"].includes(d.stage_name || "New"));
+  const wonDeals = deals.filter(d => d.stage_name === "Won");
+  const totalPipelineValue = Number(dealMetrics.totalActivePipelineValue ?? openDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0)) || 0;
+  const wonValue = Number(dealMetrics.wonValue ?? wonDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0)) || 0;
+  const wonCount = Number(dealMetrics.wonCount ?? wonDeals.length) || 0;
+  const boardValue = deals.filter(d => d.stage_name !== "Lost").reduce((sum, d) => sum + (Number(d.value) || 0), 0);
   const pendingTasks = tasks.filter(t => t.status !== "Completed" && t.status !== "Cancelled");
   const openTickets = tickets.filter(t => t.status === "Open" || t.status === "In Progress");
+  const upcomingDeals = [...openDeals]
+    .filter(d => d.expected_close_date)
+    .sort((a, b) => new Date(a.expected_close_date) - new Date(b.expected_close_date))
+    .slice(0, 4);
+  const firstName = (user?.name || "there").split(" ")[0];
+  const greeting = new Date().getHours() < 12 ? "morning" : new Date().getHours() < 18 ? "afternoon" : "evening";
+  const todayLabel = new Date().toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
+  const crmActivities = activities
+    .filter(a => !/^(USER_|LOGIN|LOGOUT|TOKEN)/i.test(a.action || ""))
+    .slice(0, 6);
 
   return (
     <>
@@ -977,95 +1112,73 @@ export default function Dashboard() {
         {/* TAB 1: DASHBOARD OVERVIEW */}
         {activeTab === "dashboard" && (
           <div className="dashboard-view-stack">
-            {/* Top Hero Section */}
-            <header className="crm-hero">
-              <div className="eyebrow">ENTERPRISE CRM // OPERATOR: {user?.name || "OPERATOR"} ({user?.role?.toUpperCase() || "STANDARD_USER"})</div>
-              <h1 className="hero-display-stack">
-                DRIVE DEALS.<br />
-                AUTOMATE TASKS.<br />
-                <span className="yellow-text">COMPLETE VISIBILITY.</span>
-              </h1>
-              <p className="hero-lead-text">
-                All-in-one relationship intelligence and revenue operations. Track deals, schedule priority follow-ups, dispatch verified email campaigns, and analyze sales performance in real time.
-              </p>
-
-              <div className="hero-three-button-row">
-                <button className="btn-primary-yellow interactive-lift" onClick={() => { 
-                  setEditingLead(null); 
-                  setLeadFormError("");
-                  setLeadFormData({
-                    name: "",
-                    email: "",
-                    phone: "",
-                    company_name: "",
-                    title: "",
-                    source: "Website",
-                    status: "New",
-                    estimated_value: 10000,
-                    notes: ""
-                  });
-                  setIsLeadModalOpen(true); 
-                }}>
-                  <UserPlus size={17} />
-                  <span>Create Lead</span>
+            {/* Operational workspace header */}
+            <header className="workspace-page-head">
+              <div className="workspace-page-heading">
+                <span className="eyebrow">{todayLabel} · {user?.role === "admin" ? "Workspace admin" : "Sales workspace"}</span>
+                <h1 className="workspace-page-title">Good {greeting}, {firstName}.</h1>
+                <p className="workspace-page-subtitle">
+                  {openDeals.length} open {openDeals.length === 1 ? "deal" : "deals"} worth ${totalPipelineValue.toLocaleString()} · {pendingTasks.length} {pendingTasks.length === 1 ? "task needs" : "tasks need"} attention.
+                </p>
+              </div>
+              <div className="page-head-actions">
+                <button className="btn-primary-yellow interactive-lift" onClick={openNewLead}>
+                  <UserPlus size={16} />
+                  <span>New lead</span>
                 </button>
-                <button className="btn-ghost-dark interactive-lift" onClick={() => { setTaskFormError(""); setIsTaskModalOpen(true); }}>
-                  <Plus size={17} color="#F0FF60" />
-                  <span>Schedule Task</span>
+                <button className="btn-ghost-dark interactive-lift" onClick={openNewDeal}>
+                  <Target size={16} color="#F0FF60" />
+                  <span>New deal</span>
                 </button>
-                <button className="btn-ghost-dark interactive-lift" onClick={() => { setActivityFormError(""); setIsActivityModalOpen(true); }}>
-                  <Phone size={16} color="#F0FF60" />
-                  <span>Log Interaction</span>
+                <button className="btn-ghost-dark interactive-lift" onClick={openNewTask}>
+                  <Plus size={16} color="#F0FF60" />
+                  <span>Schedule task</span>
                 </button>
                 <button className="btn-ghost-dark interactive-lift" onClick={() => { setEmailFormError(""); setIsEmailModalOpen(true); }}>
                   <Mail size={16} color="#F0FF60" />
-                  <span>Compose Email</span>
-                </button>
-                <button className="btn-ghost-dark interactive-lift" onClick={() => setIsExportModalOpen(true)}>
-                  <Download size={16} />
-                  <span>Export CSV</span>
-                </button>
-                <button className="btn-ghost-dark interactive-lift" onClick={() => { setImportFormError(""); setIsImportModalOpen(true); }}>
-                  <Upload size={16} />
-                  <span>Import CSV</span>
+                  <span>Compose</span>
                 </button>
               </div>
             </header>
 
-            {/* 4-Up High Impact Telemetry Grid */}
+            {/* Workspace telemetry */}
             <section className="metrics-4up-grid">
-              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("contacts"); ; }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => navigateTo("contacts")} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><Users size={22} /></div>
                 <div className="metric-val">{contacts.length}</div>
-                <div className="metric-lbl">Total Contacts & Leads</div>
-                <div className="metric-sub">Across all pipeline stages</div>
+                <div className="metric-lbl">Contacts</div>
+                <div className="metric-sub">
+                  {companies.length} {companies.length === 1 ? "company" : "companies"} · {leads.length} inbound {leads.length === 1 ? "lead" : "leads"}
+                </div>
               </div>
 
-              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("pipeline"); ; }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => navigateTo("pipeline")} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><DollarSign size={22} /></div>
                 <div className="metric-val" style={{ color: "var(--accent)" }}>
                   ${totalPipelineValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                 </div>
-                <div className="metric-lbl">Active Pipeline Value</div>
-                <div className="metric-sub">{proposalCount} deals in Proposal stage</div>
+                <div className="metric-lbl">Open pipeline</div>
+                <div className="metric-sub">{openDeals.length} open {openDeals.length === 1 ? "deal" : "deals"} in play</div>
               </div>
 
-              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("pipeline"); ; }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => navigateTo("pipeline")} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><ShieldCheck size={22} /></div>
                 <div className="metric-val" style={{ color: "var(--semantic-success)" }}>
                   ${wonValue.toLocaleString(undefined, { minimumFractionDigits: 0 })}
                 </div>
-                <div className="metric-lbl">Won Deals Revenue</div>
-                <div className="metric-sub">{wonCount} closed won contracts ({dealMetrics.winRate || "0%"})</div>
+                <div className="metric-lbl">Won revenue</div>
+                <div className="metric-sub">{wonCount} won {wonCount === 1 ? "deal" : "deals"} · {dealMetrics.winRate || "0%"} win rate</div>
               </div>
 
-              <div className="metric-card-circuit interactive-lift" onClick={() => { navigateTo("tasks"); ; }} style={{ cursor: "pointer" }}>
+              <div className="metric-card-circuit interactive-lift" onClick={() => navigateTo("tasks")} style={{ cursor: "pointer" }}>
                 <div className="metric-icon-badge"><Calendar size={22} /></div>
                 <div className="metric-val" style={{ color: taskStats.overdue > 0 ? "var(--semantic-error)" : "var(--accent-bright)" }}>
                   {pendingTasks.length}
                 </div>
-                <div className="metric-lbl">Pending Tasks</div>
-                <div className="metric-sub">{taskStats.overdue > 0 ? `${taskStats.overdue} overdue alerts!` : `${openTickets.length} open tickets`}</div>
+                <div className="metric-lbl">Open tasks</div>
+                <div className="metric-sub">
+                  {taskStats.overdue > 0 ? `${taskStats.overdue} overdue` : `${taskStats.dueToday} due today`}
+                </div>
               </div>
             </section>
 
@@ -1089,17 +1202,20 @@ export default function Dashboard() {
               <div className="card-circuit interactive-lift">
                 <div className="card-header-bar">
                   <span className="card-title">Deal Pipeline Distribution</span>
-                  <button className="btn-ghost-dark small" onClick={() => navigateTo("pipeline")}>View Board</button>
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button className="btn-ghost-dark small" onClick={openNewDeal}>+ Deal</button>
+                    <button className="btn-ghost-dark small" onClick={() => navigateTo("pipeline")}>View board</button>
+                  </div>
                 </div>
                 <div className="pipeline-progress-stack">
                   {STAGES.map(stg => {
-                    const stageContacts = contacts.filter(c => c.status === stg);
-                    const stageVal = stageContacts.reduce((acc, c) => acc + (Number(c.value) || 0), 0);
-                    const pct = totalPipelineValue > 0 ? Math.round((stageVal / totalPipelineValue) * 100) : 0;
+                    const stageDeals = deals.filter(d => (d.stage_name || "New") === stg);
+                    const stageVal = stageDeals.reduce((acc, d) => acc + (Number(d.value) || 0), 0);
+                    const pct = boardValue > 0 ? Math.round((stageVal / boardValue) * 100) : 0;
                     return (
                       <div key={stg} className="stage-progress-row">
                         <div className="stage-meta">
-                          <span className="stage-title">{stg} ({stageContacts.length})</span>
+                          <span className="stage-title">{stg} ({stageDeals.length})</span>
                           <span className="stage-val">${stageVal.toLocaleString()}</span>
                         </div>
                         <div className="progress-track">
@@ -1115,7 +1231,7 @@ export default function Dashboard() {
               <div className="card-circuit interactive-lift">
                 <div className="card-header-bar">
                   <span className="card-title">Urgent Tasks & Action Items</span>
-                  <button className="btn-ghost-dark small" onClick={() => setIsTaskModalOpen(true)}>+ Task</button>
+                  <button className="btn-ghost-dark small" onClick={openNewTask}>+ Task</button>
                 </div>
                 <div className="tasks-mini-list">
                   {pendingTasks.slice(0, 5).map(t => (
@@ -1139,22 +1255,43 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Inverted Card Section */}
-            <div className="card-inverted-yellow interactive-lift" style={{ marginTop: "24px" }}>
-              <div className="inverted-inner">
-                <div className="inverted-copy">
-                  <h3 className="inverted-title">ENTERPRISE CRM WORKFLOW AUTOMATION</h3>
-                  <p className="inverted-desc">
-                    Round-robin lead routing, automated duplicate resolution, engagement tracking and instant lead-to-deal conversion, backed by a consistent and auditable record of every customer interaction.
-                  </p>
+            {/* Operational detail grids */}
+            <div className="dashboard-lower-grid">
+              <div className="card-circuit interactive-lift">
+                <div className="card-header-bar">
+                  <span className="card-title">Recent activity</span>
+                  <button className="btn-ghost-dark small" onClick={() => navigateTo("activities")}>View log</button>
                 </div>
-                <div className="inverted-actions">
-                  <button className="btn-dark-on-yellow" onClick={() => { setEditingContact(null); setIsContactModalOpen(true); }}>
-                    Add Record
-                  </button>
-                  <button className="btn-outline-on-yellow" onClick={() => navigateTo("security")}>
-                    Security Audit
-                  </button>
+                <div className="activity-mini-list">
+                  {crmActivities.map(a => (
+                    <div className="activity-mini-item" key={a.id}>
+                      <span className="activity-dot" />
+                      <div>
+                        <div className="activity-mini-title">{(a.action || "Activity").replaceAll("_", " ").toLowerCase()}</div>
+                        <div className="activity-mini-meta">
+                          {a.target_type}{a.target_id ? ` #${a.target_id}` : ""} · {new Date(a.timestamp || a.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {crmActivities.length === 0 && <div className="empty-state-notice">No activity recorded yet.</div>}
+                </div>
+              </div>
+
+              <div className="card-circuit interactive-lift">
+                <div className="card-header-bar">
+                  <span className="card-title">Closing soon</span>
+                  <button className="btn-ghost-dark small" onClick={() => navigateTo("pipeline")}>View pipeline</button>
+                </div>
+                <div className="deal-mini-list">
+                  {upcomingDeals.map(d => (
+                    <button type="button" className="deal-mini-item" key={d.id} onClick={() => openEditDeal(d)}>
+                      <span className="deal-mini-title">{d.title}</span>
+                      <span className="deal-mini-meta">{d.Contact?.name || "No contact"} · {new Date(d.expected_close_date).toLocaleDateString()}</span>
+                      <span className="deal-mini-value">${(Number(d.value) || 0).toLocaleString()}</span>
+                    </button>
+                  ))}
+                  {upcomingDeals.length === 0 && <div className="empty-state-notice">No open deals have a close date. Add one from the pipeline.</div>}
                 </div>
               </div>
             </div>
@@ -1388,8 +1525,8 @@ export default function Dashboard() {
                   <tr>
                     <th>Contact</th>
                     <th>Company</th>
-                    <th>Status / Stage</th>
-                    <th>Deal Value</th>
+                    <th>Lifecycle stage</th>
+                    <th>Est. value</th>
                     <th>Tags</th>
                     <th>Lead Source</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
@@ -1400,7 +1537,9 @@ export default function Dashboard() {
                     <tr key={c.id}>
                       <td>
                         <div className="contact-cell">
-                          <span className="contact-name">{c.name}</span>
+                          <button type="button" className="contact-name-button" onClick={() => openContactRecord(c)} title="Open contact record">
+                            {c.name}
+                          </button>
                           <span className="contact-email">{c.email}</span>
                           {c.phone && <span className="contact-phone">{c.phone}</span>}
                         </div>
@@ -1426,6 +1565,13 @@ export default function Dashboard() {
                       <td>{c.leadSource || "Website"}</td>
                       <td style={{ textAlign: "right" }}>
                         <div className="table-actions">
+                          <button 
+                            className="action-icon-btn" 
+                            title="Open contact record"
+                            onClick={() => openContactRecord(c)}
+                          >
+                            <Eye size={15} />
+                          </button>
                           {c.status !== "Won" && (
                             <button 
                               className="btn-action-convert" 
@@ -1499,54 +1645,93 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* TAB 3: PIPELINE KANBAN VIEW */}
+        {/* TAB 3: DEAL PIPELINE KANBAN VIEW */}
         {activeTab === "pipeline" && (
-          <div className="pipeline-kanban-board">
-            {STAGES.map(stage => {
-              const stageDeals = contacts.filter(c => c.status === stage);
-              const stageSum = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
-              return (
-                <div key={stage} className="kanban-column-circuit">
-                  <div className="kanban-column-header">
-                    <div className="col-title-wrap">
-                      <span className="col-title">{stage}</span>
-                      <span className="col-count">{stageDeals.length}</span>
-                    </div>
-                    <div className="col-sum">${stageSum.toLocaleString()}</div>
-                  </div>
-
-                  <div className="kanban-cards-stack">
-                    {stageDeals.map(d => (
-                      <div key={d.id} className="kanban-card interactive-lift">
-                        <div className="kanban-card-top">
-                          <span className="deal-contact-name">{d.name}</span>
-                          <span className="deal-val">${(Number(d.value) || 0).toLocaleString()}</span>
-                        </div>
-                        <div className="deal-company">{d.company || "Independent Lead"}</div>
-                        {d.expectedCloseDate && (
-                          <div className="deal-date">
-                            <Clock size={12} />
-                            <span>Close: {new Date(d.expectedCloseDate).toLocaleDateString()}</span>
-                          </div>
-                        )}
-                        <div className="deal-actions-row">
-                          <select 
-                            className="kanban-move-select"
-                            value={d.status}
-                            onChange={e => handleMoveStage(d.id, e.target.value)}
-                          >
-                            {STAGES.map(s => <option key={s} value={s}>Move to: {s}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                    ))}
-                    {stageDeals.length === 0 && (
-                      <div className="empty-column-box">No deals</div>
-                    )}
-                  </div>
+          <div className="pipeline-view-stack">
+            <div className="toolbar-circuit">
+              <div>
+                <span className="card-title">Sales Pipeline</span>
+                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
+                  {openDeals.length} open {openDeals.length === 1 ? "deal" : "deals"} · ${totalPipelineValue.toLocaleString()} in play · {dealMetrics.winRate || "0%"} win rate
                 </div>
-              );
-            })}
+              </div>
+              <button className="btn-primary-yellow" onClick={openNewDeal}>
+                <Plus size={16} />
+                <span>New Deal</span>
+              </button>
+            </div>
+
+            <div className="pipeline-kanban-board">
+              {STAGES.map(stage => {
+                const stageDeals = deals.filter(d => (d.stage_name || "New") === stage);
+                const stageSum = stageDeals.reduce((sum, d) => sum + (Number(d.value) || 0), 0);
+                return (
+                  <div key={stage} className="kanban-column-circuit">
+                    <div className="kanban-column-header">
+                      <div className="col-title-wrap">
+                        <span className="col-title">{stage}</span>
+                        <span className="col-count">{stageDeals.length}</span>
+                      </div>
+                      <div className="col-sum">${stageSum.toLocaleString()}</div>
+                    </div>
+
+                    <div className="kanban-cards-stack">
+                      {stageDeals.map(d => (
+                        <div key={d.id} className="kanban-card interactive-lift">
+                          <div className="kanban-card-top">
+                            <button type="button" className="deal-title-button" onClick={() => openEditDeal(d)} title="Open deal">
+                              {d.title}
+                            </button>
+                            <span className="deal-val">${(Number(d.value) || 0).toLocaleString()}</span>
+                          </div>
+                          <div className="deal-company">
+                            {d.Contact ? (
+                              <button type="button" className="contact-name-button" onClick={() => openContactRecord(d.Contact)}>
+                                {d.Contact.name}
+                              </button>
+                            ) : "No contact linked"}
+                            {d.Contact?.company ? ` · ${d.Contact.company}` : ""}
+                          </div>
+                          {d.expected_close_date && (
+                            <div className="deal-date">
+                              <Clock size={12} />
+                              <span>Close: {new Date(d.expected_close_date).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                          <div className="deal-actions-row">
+                            <select 
+                              className="kanban-move-select"
+                              value={d.stage_name || "New"}
+                              onChange={e => updateDealMutation.mutate({ id: d.id, data: { stage_name: e.target.value } })}
+                              title="Move deal to another stage"
+                            >
+                              {STAGES.map(s => <option key={s} value={s}>Move to: {s}</option>)}
+                            </select>
+                            <button className="action-icon-btn" title="Edit deal" onClick={() => openEditDeal(d)}>
+                              <Edit3 size={14} />
+                            </button>
+                            {user?.role === "admin" && (
+                              <button
+                                className="action-icon-btn delete"
+                                title="Delete deal"
+                                onClick={() => {
+                                  if (window.confirm(`Delete deal "${d.title}"?`)) deleteDealMutation.mutate(d.id);
+                                }}
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {stageDeals.length === 0 && (
+                        <div className="empty-column-box">No deals</div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -1644,7 +1829,7 @@ export default function Dashboard() {
                   <option value="Cancelled">Cancelled</option>
                 </select>
               </div>
-              <button className="btn-primary-yellow" onClick={() => setIsTaskModalOpen(true)}>
+              <button className="btn-primary-yellow" onClick={openNewTask}>
                 <Plus size={16} />
                 <span>New Task</span>
               </button>
@@ -1671,6 +1856,26 @@ export default function Dashboard() {
                       <span>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "No date"}</span>
                     </div>
                     <div className="task-actions">
+                      <button
+                        className="action-icon-btn"
+                        title="Edit Task"
+                        onClick={() => {
+                          setEditingTask(t);
+                          setTaskFormError("");
+                          setTaskFormData({
+                            title: t.title || "",
+                            description: t.description || "",
+                            dueDate: t.dueDate ? String(t.dueDate).slice(0, 10) : "",
+                            priority: t.priority || "Medium",
+                            status: t.status || "Pending",
+                            contactId: t.contactId ? String(t.contactId) : "",
+                            assignedToUserId: t.assigned_to_user_id ? String(t.assigned_to_user_id) : ""
+                          });
+                          setIsTaskModalOpen(true);
+                        }}
+                      >
+                        <Edit3 size={14} />
+                      </button>
                       {t.status !== "Completed" && (
                         <button 
                           className="action-icon-btn" 
@@ -2364,7 +2569,7 @@ export default function Dashboard() {
         <div className="modal-overlay-circuit" onClick={() => setIsContactModalOpen(false)}>
           <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>{editingContact ? "Edit Contact & Deal" : "Create New Contact & Lead"}</h3>
+              <h3>{editingContact ? "Edit Contact" : "Create New Contact"}</h3>
               <button className="modal-close-btn" onClick={() => setIsContactModalOpen(false)}>×</button>
             </div>
             {contactFormError && <div className="error-banner">{contactFormError}</div>}
@@ -2417,7 +2622,7 @@ export default function Dashboard() {
                   />
                 </div>
                 <div className="form-group-circuit">
-                  <label>Pipeline Stage</label>
+                  <label>Lifecycle Stage</label>
                   <select 
                     value={contactFormData.status} 
                     onChange={e => setContactFormData({ ...contactFormData, status: e.target.value })}
@@ -2429,7 +2634,7 @@ export default function Dashboard() {
 
               <div className="form-row-2col">
                 <div className="form-group-circuit">
-                  <label>Deal Value ($)</label>
+                  <label>Estimated Value ($)</label>
                   <input 
                     type="number" 
                     min="0"
@@ -2639,19 +2844,289 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* MODAL: CONTACT RECORD (360 VIEW) */}
+      {selectedContactId && (
+        <div className="modal-overlay-circuit" onClick={() => setSelectedContactId(null)}>
+          <div className="modal-box-circuit contact-detail-modal interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <span className="eyebrow">Contact record</span>
+                <h3>{contactDetail?.name || "Loading contact…"}</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setSelectedContactId(null)}>×</button>
+            </div>
+
+            {isContactDetailLoading && <div className="empty-state-notice">Loading contact record…</div>}
+
+            {contactDetail && (
+              <>
+                <div className="contact-detail-grid">
+                  <div>
+                    <span className="detail-label">Email</span>
+                    <span className="detail-value">
+                      {contactDetail.email ? <a href={`mailto:${contactDetail.email}`}>{contactDetail.email}</a> : "—"}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Phone</span>
+                    <span className="detail-value">{contactDetail.phone || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Company</span>
+                    <span className="detail-value">{contactDetail.Company?.name || contactDetail.company || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Lifecycle stage</span>
+                    <span className="detail-value">{contactDetail.status || "New"}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Owner</span>
+                    <span className="detail-value">{contactDetail.User?.name || "—"}</span>
+                  </div>
+                  <div>
+                    <span className="detail-label">Tags</span>
+                    <span className="detail-value">{contactDetail.tags || "—"}</span>
+                  </div>
+                </div>
+
+                <div className="contact-detail-actions">
+                  <button className="btn-ghost-dark small" onClick={() => {
+                    setEditingContact(contactDetail);
+                    setContactFormData({
+                      name: contactDetail.name || "",
+                      email: contactDetail.email || "",
+                      phone: contactDetail.phone || "",
+                      company: contactDetail.company || contactDetail.Company?.name || "",
+                      status: contactDetail.status || "New",
+                      value: contactDetail.value || 0,
+                      leadSource: contactDetail.leadSource || "Website",
+                      tags: contactDetail.tags || "",
+                      notes: contactDetail.notes || "",
+                      expectedCloseDate: contactDetail.expectedCloseDate ? String(contactDetail.expectedCloseDate).slice(0, 10) : ""
+                    });
+                    setSelectedContactId(null);
+                    setIsContactModalOpen(true);
+                  }}>
+                    <Edit3 size={14} />
+                    <span>Edit contact</span>
+                  </button>
+                  <button className="btn-ghost-dark small" onClick={() => {
+                    setEmailFormData({
+                      contactId: contactDetail.id,
+                      recipientEmail: contactDetail.email || "",
+                      subject: `Following up with ${contactDetail.name}`,
+                      body: `Hi ${contactDetail.name},\n\n`
+                    });
+                    setEmailFormError("");
+                    setSelectedContactId(null);
+                    setIsEmailModalOpen(true);
+                  }}>
+                    <Mail size={14} />
+                    <span>Send email</span>
+                  </button>
+                  <button className="btn-ghost-dark small" onClick={() => {
+                    resetTaskForm();
+                    setTaskFormData({
+                      title: `Follow up with ${contactDetail.name}`,
+                      description: "",
+                      dueDate: "",
+                      priority: "High",
+                      status: "Pending",
+                      contactId: String(contactDetail.id),
+                      assignedToUserId: ""
+                    });
+                    setSelectedContactId(null);
+                    setIsTaskModalOpen(true);
+                  }}>
+                    <Calendar size={14} />
+                    <span>Schedule task</span>
+                  </button>
+                  {(contactDetail.Deals || []).length === 0 && (
+                    <button className="btn-primary-yellow small" onClick={() => {
+                      setConvertingContact(contactDetail);
+                      setConvertDealTitle(`${contactDetail.company || contactDetail.name} - Enterprise Solution`);
+                      setConvertDealValue(contactDetail.value || 10000);
+                      setSelectedContactId(null);
+                      setIsConvertModalOpen(true);
+                    }}>
+                      <Zap size={14} />
+                      <span>Convert to deal</span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="contact-detail-columns">
+                  <div>
+                    <h4 className="contact-detail-section-title">Deals ({contactDetail.Deals?.length || 0})</h4>
+                    <div className="contact-detail-list">
+                      {(contactDetail.Deals || []).map(d => (
+                        <div className="contact-detail-item" key={d.id}>
+                          <span><strong>{d.title}</strong><br />{d.stage_name || "New"}</span>
+                          <span>${(Number(d.value) || 0).toLocaleString()}</span>
+                        </div>
+                      ))}
+                      {(contactDetail.Deals || []).length === 0 && <div className="empty-state-notice">No deals linked yet.</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="contact-detail-section-title">Tasks ({contactDetail.Tasks?.length || 0})</h4>
+                    <div className="contact-detail-list">
+                      {(contactDetail.Tasks || []).map(t => (
+                        <div className="contact-detail-item" key={t.id}>
+                          <span><strong>{t.title}</strong><br />{t.status || "Pending"}</span>
+                          <span>{t.dueDate ? new Date(t.dueDate).toLocaleDateString() : "No date"}</span>
+                        </div>
+                      ))}
+                      {(contactDetail.Tasks || []).length === 0 && <div className="empty-state-notice">No tasks linked yet.</div>}
+                    </div>
+                  </div>
+                </div>
+
+                {contactDetail.notes && (
+                  <div style={{ marginBottom: "1.25rem" }}>
+                    <h4 className="contact-detail-section-title">Notes</h4>
+                    <p style={{ color: "var(--text-body)", fontSize: "0.88rem", lineHeight: 1.6, whiteSpace: "pre-wrap" }}>{contactDetail.notes}</p>
+                  </div>
+                )}
+
+                <h4 className="contact-detail-section-title">Recent activity ({(contactActivityData.activities || []).length})</h4>
+                <div className="activity-mini-list">
+                  {(contactActivityData.activities || []).slice(0, 8).map(a => (
+                    <div className="activity-mini-item" key={a.id}>
+                      <span className="activity-dot" />
+                      <div>
+                        <div className="activity-mini-title">{(a.action || "Activity").replaceAll("_", " ").toLowerCase()}</div>
+                        <div className="activity-mini-meta">{new Date(a.timestamp || a.createdAt).toLocaleString()}</div>
+                      </div>
+                    </div>
+                  ))}
+                  {(contactActivityData.activities || []).length === 0 && <div className="empty-state-notice">No activity recorded for this contact yet.</div>}
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: CREATE / EDIT DEAL */}
+      {isDealModalOpen && (
+        <div className="modal-overlay-circuit" onClick={() => { setIsDealModalOpen(false); setEditingDeal(null); }}>
+          <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>{editingDeal ? "Edit Deal" : "New Deal"}</h3>
+              <button className="modal-close-btn" onClick={() => { setIsDealModalOpen(false); setEditingDeal(null); }}>×</button>
+            </div>
+            {dealFormError && <div className="error-banner">{dealFormError}</div>}
+            <form onSubmit={e => {
+              e.preventDefault();
+              setDealFormError("");
+              const payload = {
+                ...dealFormData,
+                value: Number(dealFormData.value) || 0,
+                contact_id: dealFormData.contact_id || null,
+                expected_close_date: dealFormData.expected_close_date || null
+              };
+              if (editingDeal) {
+                updateDealMutation.mutate({ id: editingDeal.id, data: payload });
+              } else {
+                createDealMutation.mutate(payload);
+              }
+            }}>
+              <div className="form-group-circuit">
+                <label>Deal Title *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Northwind renewal - Q1"
+                  value={dealFormData.title}
+                  onChange={e => setDealFormData({ ...dealFormData, title: e.target.value })}
+                />
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Value ($)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={dealFormData.value}
+                    onChange={e => setDealFormData({ ...dealFormData, value: e.target.value })}
+                  />
+                </div>
+                <div className="form-group-circuit">
+                  <label>Stage</label>
+                  <select
+                    value={dealFormData.stage_name}
+                    onChange={e => setDealFormData({ ...dealFormData, stage_name: e.target.value })}
+                  >
+                    {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Primary Contact</label>
+                  <select
+                    value={dealFormData.contact_id}
+                    onChange={e => setDealFormData({ ...dealFormData, contact_id: e.target.value })}
+                  >
+                    <option value="">No contact linked</option>
+                    {editingDeal?.Contact && !contacts.some(c => String(c.id) === String(editingDeal.Contact.id)) && (
+                      <option value={editingDeal.Contact.id}>{editingDeal.Contact.name}</option>
+                    )}
+                    {contacts.map(c => <option key={c.id} value={c.id}>{c.name} ({c.company || "No company"})</option>)}
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Expected Close Date</label>
+                  <input
+                    type="date"
+                    value={dealFormData.expected_close_date}
+                    onChange={e => setDealFormData({ ...dealFormData, expected_close_date: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="form-group-circuit">
+                <label>Notes</label>
+                <textarea
+                  rows="3"
+                  value={dealFormData.notes}
+                  onChange={e => setDealFormData({ ...dealFormData, notes: e.target.value })}
+                />
+              </div>
+
+              <div className="modal-footer-btns">
+                <button type="button" className="btn-ghost-dark" onClick={() => { setIsDealModalOpen(false); setEditingDeal(null); }}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow" disabled={createDealMutation.isPending || updateDealMutation.isPending}>
+                  {editingDeal
+                    ? (updateDealMutation.isPending ? "Saving..." : "Save Deal")
+                    : (createDealMutation.isPending ? "Creating..." : "Create Deal")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL 5: SCHEDULE TASK */}
       {isTaskModalOpen && (
         <div className="modal-overlay-circuit" onClick={() => setIsTaskModalOpen(false)}>
           <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Schedule Task & Follow-Up</h3>
-              <button className="modal-close-btn" onClick={() => setIsTaskModalOpen(false)}>×</button>
+              <h3>{editingTask ? "Edit Task" : "Schedule Task & Follow-Up"}</h3>
+              <button className="modal-close-btn" onClick={() => { setIsTaskModalOpen(false); resetTaskForm(); }}>×</button>
             </div>
             {taskFormError && <div className="error-banner">{taskFormError}</div>}
             <form onSubmit={e => {
               e.preventDefault();
               setTaskFormError("");
-              createTaskMutation.mutate(taskFormData);
+              if (editingTask) {
+                updateTaskMutation.mutate({ id: editingTask.id, data: taskFormData });
+              } else {
+                createTaskMutation.mutate(taskFormData);
+              }
             }}>
               <div className="form-group-circuit">
                 <label>Task Title *</label>
@@ -2687,17 +3162,31 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              <div className="form-group-circuit">
-                <label>Assign To Team Member</label>
-                <select 
-                  value={taskFormData.assignedToUserId || ""} 
-                  onChange={e => setTaskFormData({ ...taskFormData, assignedToUserId: e.target.value })}
-                >
-                  <option value="">Assign to Me ({user?.name || "Self"})</option>
-                  {teamUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.name} ({u.role}{u.title ? ` · ${u.title}` : ""})</option>
-                  ))}
-                </select>
+              <div className="form-row-2col">
+                <div className="form-group-circuit">
+                  <label>Assign To Team Member</label>
+                  <select 
+                    value={taskFormData.assignedToUserId || ""} 
+                    onChange={e => setTaskFormData({ ...taskFormData, assignedToUserId: e.target.value })}
+                  >
+                    <option value="">Assign to Me ({user?.name || "Self"})</option>
+                    {teamUsers.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.role}{u.title ? ` · ${u.title}` : ""})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group-circuit">
+                  <label>Status</label>
+                  <select
+                    value={taskFormData.status || "Pending"}
+                    onChange={e => setTaskFormData({ ...taskFormData, status: e.target.value })}
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="In Progress">In Progress</option>
+                    <option value="Completed">Completed</option>
+                    <option value="Cancelled">Cancelled</option>
+                  </select>
+                </div>
               </div>
 
               <div className="form-group-circuit">
@@ -2722,9 +3211,11 @@ export default function Dashboard() {
               </div>
 
               <div className="modal-footer-btns">
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsTaskModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow" disabled={createTaskMutation.isPending}>
-                  {createTaskMutation.isPending ? "Scheduling..." : "Create Task"}
+                <button type="button" className="btn-ghost-dark" onClick={() => { setIsTaskModalOpen(false); resetTaskForm(); }}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow" disabled={createTaskMutation.isPending || updateTaskMutation.isPending}>
+                  {editingTask
+                    ? (updateTaskMutation.isPending ? "Saving..." : "Save Task")
+                    : (createTaskMutation.isPending ? "Scheduling..." : "Create Task")}
                 </button>
               </div>
             </form>
