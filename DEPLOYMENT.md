@@ -7,6 +7,27 @@ The repository now includes a deployable Express + SQL Server target:
 - `docker-compose.yml` — SQL Server 2022, backend and frontend with persistent volumes.
 - `.env.production.example` — every value you must provide; never commit the real `.env`.
 
+## Vercel multi-service deployment
+
+The root `vercel.json` deploys both applications as Vercel services in one project:
+
+- `frontend` (Vite) owns `/` and SPA deep links.
+- `backend` (Express) owns `/api/*`, `/uploads/*` and `/health`.
+- The browser calls the API same-origin at `/api`; there is no build-time or server-to-server service binding to configure.
+
+Set these Vercel environment variables for Production and Preview:
+
+- `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` — an externally reachable SQL Server. `localhost` and the Docker service name are not reachable from Vercel.
+- `DB_ENCRYPT=true`, `DB_TRUST_SERVER_CERTIFICATE=false` for a certificate-backed SQL Server.
+- `JWT_SECRET`, `APP_URL` (the public deployment origin) and `CORS_ORIGINS` (comma-separated production/preview origins).
+- `BACKEND_URL` (the same public origin; used in tracking pixels and email links).
+- SMTP (`SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`), Google (`GOOGLE_CLIENT_ID`) and ImageKit (`IMAGEKIT_PUBLIC_KEY`, `IMAGEKIT_PRIVATE_KEY`, `IMAGEKIT_URL_ENDPOINT`).
+- `VITE_GOOGLE_CLIENT_ID` for the frontend build. Leave `VITE_API_URL` unset (or set it to `/api`).
+
+Use `vercel dev -L` to run both services locally. The configuration allows Vercel's own deployment/branch hostnames for CORS, so Preview deployments work without manually adding every preview URL.
+
+**Serverless limitations:** Vercel Functions have no persistent local filesystem or long-lived background process. WhatsApp Web pairing, the daily backup scheduler, and business attachments stored in `Backend/uploads` require a persistent host such as the Docker Compose target below. Profile images use ImageKit and work on Vercel. For full WhatsApp, attachment and scheduled-backup behavior, keep the backend on the Docker target and use Vercel only for the frontend, or move attachments and automation to managed storage/queues first.
+
 ## First deployment
 
 1. Copy `.env.production.example` to `.env` and set long random values for `MSSQL_SA_PASSWORD` and `JWT_SECRET`.

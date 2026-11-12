@@ -1,6 +1,11 @@
 import axios from "axios";
 
-const API_BASE_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").replace(/\/$/, "");
+// Production uses the same origin: Vercel routes /api to the Express service.
+// Local development keeps talking to the standalone backend on port 5000.
+const configuredApiUrl = (import.meta.env.VITE_API_URL || "").trim();
+export const API_BASE_URL = (
+  configuredApiUrl || (import.meta.env.DEV ? "http://localhost:5000/api" : "/api")
+).replace(/\/$/, "");
 export const API_ORIGIN = API_BASE_URL.replace(/\/api$/, "");
 
 export const assetUrl = (value) => {

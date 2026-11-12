@@ -36,6 +36,7 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", 1);
 const configuredPort = Number(process.env.PORT);
 const PORT = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 5000;
 
@@ -53,10 +54,23 @@ const configuredOrigins = (process.env.CORS_ORIGINS || process.env.APP_URL || ""
   .split(",")
   .map((origin) => origin.trim().replace(/\/$/, ""))
   .filter(Boolean);
+
+// Vercel exposes the deployment and branch hostnames as system variables. The
+// browser sends an Origin header for same-origin POSTs, so allow this
+// deployment's own hostnames in addition to the configured production origin.
+const vercelOrigins = [
+  process.env.VERCEL_PROJECT_PRODUCTION_URL,
+  process.env.VERCEL_BRANCH_URL,
+  process.env.VERCEL_URL
+]
+  .filter(Boolean)
+  .map((host) => `https://${String(host).replace(/^https?:\/\//, "").replace(/\/$/, "")}`);
+
 const allowedOrigins = new Set([
   "http://localhost:5173",
   "http://127.0.0.1:5173",
-  ...configuredOrigins
+  ...configuredOrigins,
+  ...vercelOrigins
 ]);
 
 app.use(
@@ -88,6 +102,21 @@ app.use("/uploads/covers", express.static(path.resolve(__dirname, "../uploads/co
 // Parse JSON request bodies
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
+
+// Vercel imports this module as a function. Warm the database before serving
+// the first request without relying on top-level await or a long-lived listener.
+const serverlessDbReady = process.env.VERCEL
+  ? connectDB().catch((err) => {
+      console.error("[SCRM Enterprise] DB connection failed:", err.message);
+    })
+  : null;
+
+if (serverlessDbReady) {
+  app.use(async (req, res, next) => {
+    await serverlessDbReady;
+    next();
+  });
+}
 
 // Route Mounts
 app.use("/api/auth", twoFactorRouter);
@@ -155,27 +184,31 @@ app.use((err, req, res, next) => {
   });
 });
 
+export default app;
+
 // Database Init, Idempotent Schema Migration, and Server Start
-connectDB()
-  .then(() => {
-    // Start automated daily backup scheduler
-    startDailyBackupScheduler();
+if (!process.env.VERCEL) {
+  connectDB()
+    .then(() => {
+      // Start automated daily backup scheduler
+      startDailyBackupScheduler();
 
-    const server = app.listen(PORT, () => {
-      console.log(`[SCRM Enterprise] Server running securely on http://localhost:${PORT}`);
-      whatsapp.start().catch((err) => console.error("[WhatsApp] Startup failed:", err.message));
+      const server = app.listen(PORT, () => {
+        console.log(`[SCRM Enterprise] Server running securely on http://localhost:${PORT}`);
+        whatsapp.start().catch((err) => console.error("[WhatsApp] Startup failed:", err.message));
+      });
+
+      const shutdown = async (signal) => {
+        console.log(`[SCRM Enterprise] ${signal} received, shutting down.`);
+        server.close();
+        await whatsapp.stop().catch(() => null);
+        process.exit(0);
+      };
+      process.once("SIGINT", () => shutdown("SIGINT"));
+      process.once("SIGTERM", () => shutdown("SIGTERM"));
+    })
+    .catch((err) => {
+      console.error("[SCRM Enterprise] Startup failed due to DB connection error:", err);
+      process.exit(1);
     });
-
-    const shutdown = async (signal) => {
-      console.log(`[SCRM Enterprise] ${signal} received, shutting down.`);
-      server.close();
-      await whatsapp.stop().catch(() => null);
-      process.exit(0);
-    };
-    process.once("SIGINT", () => shutdown("SIGINT"));
-    process.once("SIGTERM", () => shutdown("SIGTERM"));
-  })
-  .catch((err) => {
-    console.error("[SCRM Enterprise] Startup failed due to DB connection error:", err);
-    process.exit(1);
-  });
+}
