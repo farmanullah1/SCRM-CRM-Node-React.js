@@ -20,6 +20,25 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!token) return undefined;
+
+    // Access changes are resolved server-side per request. Refresh the cached
+    // profile periodically and whenever the workspace regains focus so the
+    // navigation and controls follow a grant or revocation without a reload.
+    const refreshPermissions = () => {
+      if (document.visibilityState === "visible") refreshUser();
+    };
+    const interval = window.setInterval(refreshPermissions, 5000);
+    window.addEventListener("focus", refreshPermissions);
+    document.addEventListener("visibilitychange", refreshPermissions);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", refreshPermissions);
+      document.removeEventListener("visibilitychange", refreshPermissions);
+    };
+  }, [token]);
+
+  useEffect(() => {
     const verifyAuth = async () => {
       const savedToken = localStorage.getItem("crm_token");
       if (savedToken) {

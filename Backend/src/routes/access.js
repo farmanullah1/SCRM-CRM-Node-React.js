@@ -242,9 +242,13 @@ router.patch("/users/:id", requirePermission("users.edit"), async (req, res) => 
       }
     }
 
-    // Access changes revoke existing access tokens and refresh tokens.
-    target.token_version = Number(target.token_version || 0) + 1;
-    target.refresh_token = null;
+    // Permissions are resolved from the database on every request, so role and
+    // permission changes take effect immediately without destroying the user's
+    // session. Suspension is the exception: terminate all sessions right away.
+    if (target.is_active === false) {
+      target.token_version = Number(target.token_version || 0) + 1;
+      target.refresh_token = null;
+    }
     await target.save({ transaction });
 
     await transaction.commit();
@@ -258,7 +262,9 @@ router.patch("/users/:id", requirePermission("users.edit"), async (req, res) => 
 
     const refreshedRoles = await rolesById();
     res.json({
-      message: "Access updated. The user's existing sessions were revoked.",
+      message: target.is_active === false
+        ? "Access updated. The user's sessions were revoked."
+        : "Access updated. The change applies on the user's next request.",
       user: {
         id: target.id,
         name: target.name,
