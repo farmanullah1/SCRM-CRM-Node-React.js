@@ -29,3 +29,15 @@ export function normalizePhone(input, defaultCountryCode = "") {
   }
   return digits;
 }
+
+/**
+ * Normalizes stored/contact numbers for comparison. Invalid legacy values do
+ * not throw here; they simply cannot match an inbound number.
+ */
+export function tryNormalizePhone(input, defaultCountryCode = "") {
+  try {
+    return normalizePhone(input, defaultCountryCode);
+  } catch {
+    return null;
+  }
+}

@@ -8,6 +8,7 @@ import { createNotification } from "./notifications.js";
 import whatsapp from "../whatsapp/service.js";
 import { whatsappConfig } from "../whatsapp/config.js";
 import { normalizePhone, isChatId } from "../whatsapp/phone.js";
+import { matchContactByPhone, phoneMatchCandidates } from "../whatsapp/contactMatcher.js";
 import { WhatsAppError } from "../whatsapp/errors.js";
 
 const router = express.Router();
@@ -20,11 +21,17 @@ function phoneFromChatId(chatId) {
 async function findContactByChatId(chatId) {
   if (!chatId || !String(chatId).endsWith("@c.us")) return null;
   const digits = phoneFromChatId(chatId);
-  if (digits.length < 8) return null;
-  return Contact.findOne({
-    where: { phone: { [Op.like]: `%${digits.slice(-9)}%` } },
+  const candidate = phoneMatchCandidates(digits, whatsappConfig.defaultCountryCode);
+  if (!candidate) return null;
+
+  // Narrow the database work to numbers containing the final four digits,
+  // then require an exact match after normalizing both sides. A suffix-only
+  // match must never decide which contact owns an inbound message.
+  const contacts = await Contact.findAll({
+    where: { phone: { [Op.like]: `%${candidate.suffix}%` } },
     order: [["id", "ASC"]]
-  }).catch(() => null);
+  }).catch(() => []);
+  return matchContactByPhone(contacts, digits, whatsappConfig.defaultCountryCode);
 }
 
 async function handleIncomingMessage(payload) {
