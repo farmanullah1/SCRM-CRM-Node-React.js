@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import BrandLogo from "../components/BrandLogo";
 import GoogleSignInButton from "../components/GoogleSignInButton";
-import { uploadProfileAvatar } from "../services/api";
+import { uploadImageKitProfileImage, uploadProfileAvatar } from "../services/api";
 import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function Signup() {
@@ -63,9 +63,16 @@ export default function Signup() {
       });
       if (avatarFile) {
         try {
-          await uploadProfileAvatar(avatarFile);
-        } catch {
-          // Account creation succeeded; the optional photo can be retried in Settings.
+          await uploadImageKitProfileImage("avatar", avatarFile);
+        } catch (mediaError) {
+          if (mediaError?.response?.status === 503) {
+            try {
+              await uploadProfileAvatar(avatarFile);
+            } catch {
+              // Account creation succeeded; the optional photo can be retried in Settings.
+            }
+          }
+          // Account creation succeeded; other media errors can be retried in Settings.
         }
       }
       navigate("/app");

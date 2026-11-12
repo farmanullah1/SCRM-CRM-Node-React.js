@@ -301,9 +301,55 @@ export const Invoice = sequelize.define(
     tax_amount: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
     notes: { type: DataTypes.TEXT, allowNull: true },
     issued_date: { type: DataTypes.DATE, allowNull: true },
-    paid_at: { type: DataTypes.DATE, allowNull: true }
+    paid_at: { type: DataTypes.DATE, allowNull: true },
+    companyId: { type: DataTypes.INTEGER, allowNull: true },
+    amount_paid: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
+    credit_amount: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 }
   },
   { tableName: "invoices", timestamps: true }
+);
+
+export const InvoicePayment = sequelize.define(
+  "InvoicePayment",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    invoiceId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    kind: { type: DataTypes.STRING(20), defaultValue: "Payment" },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    method: { type: DataTypes.STRING(50), allowNull: true },
+    reference: { type: DataTypes.STRING(120), allowNull: true },
+    note: { type: DataTypes.STRING(500), allowNull: true },
+    paid_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW }
+  },
+  { tableName: "invoice_payments", timestamps: true }
+);
+
+export const SavedView = sequelize.define(
+  "SavedView",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    name: { type: DataTypes.STRING(120), allowNull: false },
+    entity: { type: DataTypes.STRING(50), allowNull: false },
+    query_json: { type: DataTypes.TEXT, allowNull: false },
+    is_shared: { type: DataTypes.BOOLEAN, defaultValue: false }
+  },
+  { tableName: "saved_views", timestamps: true }
+);
+
+export const Notification = sequelize.define(
+  "Notification",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    userId: { type: DataTypes.INTEGER, allowNull: false },
+    type: { type: DataTypes.STRING(50), defaultValue: "system" },
+    title: { type: DataTypes.STRING(200), allowNull: false },
+    body: { type: DataTypes.STRING(1000), allowNull: true },
+    link: { type: DataTypes.STRING(300), allowNull: true },
+    is_read: { type: DataTypes.BOOLEAN, defaultValue: false }
+  },
+  { tableName: "notifications", timestamps: true }
 );
 
 // Support Ticket Model
@@ -317,7 +363,8 @@ export const Ticket = sequelize.define(
     subject: { type: DataTypes.STRING(250), allowNull: false },
     description: { type: DataTypes.TEXT, allowNull: true },
     priority: { type: DataTypes.STRING(20), defaultValue: "Medium" },
-    status: { type: DataTypes.STRING(20), defaultValue: "Open" }
+    status: { type: DataTypes.STRING(20), defaultValue: "Open" },
+    companyId: { type: DataTypes.INTEGER, allowNull: true }
   },
   { tableName: "tickets", timestamps: true }
 );
@@ -425,6 +472,17 @@ User.hasMany(Invoice, { foreignKey: "userId", onDelete: "CASCADE" });
 Invoice.belongsTo(User, { foreignKey: "userId" });
 Contact.hasMany(Invoice, { foreignKey: "contactId" });
 Invoice.belongsTo(Contact, { foreignKey: "contactId" });
+
+Invoice.hasMany(InvoicePayment, { foreignKey: "invoiceId", onDelete: "CASCADE" });
+InvoicePayment.belongsTo(Invoice, { foreignKey: "invoiceId" });
+User.hasMany(InvoicePayment, { foreignKey: "userId" });
+InvoicePayment.belongsTo(User, { foreignKey: "userId" });
+
+User.hasMany(SavedView, { foreignKey: "userId", onDelete: "CASCADE" });
+SavedView.belongsTo(User, { foreignKey: "userId" });
+
+User.hasMany(Notification, { foreignKey: "userId", onDelete: "CASCADE" });
+Notification.belongsTo(User, { foreignKey: "userId" });
 
 User.hasMany(Ticket, { foreignKey: "userId", onDelete: "CASCADE" });
 Ticket.belongsTo(User, { foreignKey: "userId" });

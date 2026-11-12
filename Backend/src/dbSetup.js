@@ -607,6 +607,55 @@ export async function ensureDatabaseAndSchema() {
         ALTER TABLE [invoices] ADD [issued_date] DATETIMEOFFSET NULL;
       IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'paid_at')
         ALTER TABLE [invoices] ADD [paid_at] DATETIMEOFFSET NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'companyId')
+        ALTER TABLE [invoices] ADD [companyId] INT NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'amount_paid')
+        ALTER TABLE [invoices] ADD [amount_paid] DECIMAL(12,2) DEFAULT 0.00;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'invoices' AND COLUMN_NAME = 'credit_amount')
+        ALTER TABLE [invoices] ADD [credit_amount] DECIMAL(12,2) DEFAULT 0.00;
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'invoice_payments')
+      BEGIN
+        CREATE TABLE [invoice_payments] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [invoiceId] INT NOT NULL,
+          [userId] INT NULL,
+          [kind] NVARCHAR(20) DEFAULT 'Payment',
+          [amount] DECIMAL(12,2) NOT NULL,
+          [method] NVARCHAR(50) NULL,
+          [reference] NVARCHAR(120) NULL,
+          [note] NVARCHAR(500) NULL,
+          [paid_at] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'saved_views')
+      BEGIN
+        CREATE TABLE [saved_views] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [userId] INT NOT NULL,
+          [name] NVARCHAR(120) NOT NULL,
+          [entity] NVARCHAR(50) NOT NULL,
+          [query_json] NVARCHAR(MAX) NOT NULL,
+          [is_shared] BIT DEFAULT 0,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'notifications')
+      BEGIN
+        CREATE TABLE [notifications] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [userId] INT NOT NULL,
+          [type] NVARCHAR(50) DEFAULT 'system',
+          [title] NVARCHAR(200) NOT NULL,
+          [body] NVARCHAR(1000) NULL,
+          [link] NVARCHAR(300) NULL,
+          [is_read] BIT DEFAULT 0,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'tickets')
       BEGIN
         CREATE TABLE [tickets] (
@@ -622,6 +671,8 @@ export async function ensureDatabaseAndSchema() {
           [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
       END
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tickets' AND COLUMN_NAME = 'companyId')
+        ALTER TABLE [tickets] ADD [companyId] INT NULL;
     `);
 
     console.log("[Database Init] Idempotent schema migration completed successfully!");
