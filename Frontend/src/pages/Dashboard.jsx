@@ -88,6 +88,7 @@ import {
   deleteTicket,
   getEmailTemplates,
   getEmailLogs,
+  getEmailThreads,
   sendEmail,
   getCompanies,
   getCompanyById,
@@ -111,7 +112,8 @@ import {
   activateProduct,
   updateCompany,
   deleteCompany,
-  getAuthUsers
+  getAuthUsers,
+  exportAuditLog
 } from "../services/api";
 import "../App.css";
 
@@ -163,6 +165,9 @@ export default function Dashboard() {
 
   const activeTab = SECTION_TO_TAB[section] || "dashboard";
   const navigateTo = (tab, options) => navigate(TAB_TO_PATH[tab] || "/app/dashboard", options);
+  const permissionList = user?.permissionList || [];
+  const can = (permission) => Boolean(user?.permissions?.all || permissionList.includes("*") || permissionList.includes(permission));
+  const canExportAudit = can("audit.export");
 
   React.useEffect(() => {
     const knownSections = [
@@ -216,6 +221,21 @@ export default function Dashboard() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [leadSourceFilter, setLeadSourceFilter] = useState("All");
   const [taskStatusFilter, setTaskStatusFilter] = useState("All");
+  const [contactPage, setContactPage] = useState(1);
+  const contactPageSize = 25;
+  const [companySearch, setCompanySearch] = useState("");
+  const [companyPage, setCompanyPage] = useState(1);
+  const companyPageSize = 12;
+  const [activityPage, setActivityPage] = useState(1);
+  const activityPageSize = 25;
+  const [catalogSearch, setCatalogSearch] = useState("");
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [ticketSearch, setTicketSearch] = useState("");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState("All");
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [outboxView, setOutboxView] = useState("messages");
+  const [selectedThreadId, setSelectedThreadId] = useState("");
+  const [auditExportBusy, setAuditExportBusy] = useState(false);
 
   // Contact Modal State
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -356,18 +376,33 @@ export default function Dashboard() {
   const leads = Array.isArray(leadsData) ? leadsData : (leadsData.leads || []);
   const leadTotalPages = Array.isArray(leadsData) ? 1 : (leadsData.totalPages || 1);
 
-  const { data: contacts = [], isLoading: isContactsLoading, refetch: refetchContacts } = useQuery({
-    queryKey: ["contacts", { search: searchTerm, status: statusFilter, leadSource: leadSourceFilter }],
-    queryFn: () => getContacts({ search: searchTerm, status: statusFilter, leadSource: leadSourceFilter })
+  const {
+    data: contactsPayload = { contacts: [], totalCount: 0, totalPages: 1 },
+    isLoading: isContactsLoading,
+    refetch: refetchContacts
+  } = useQuery({
+    queryKey: ["contacts", { search: searchTerm, status: statusFilter, leadSource: leadSourceFilter, page: contactPage }],
+    queryFn: () => getContacts({
+      search: searchTerm,
+      status: statusFilter,
+      leadSource: leadSourceFilter,
+      page: contactPage,
+      limit: contactPageSize
+    })
   });
+  const contacts = Array.isArray(contactsPayload) ? contactsPayload : (contactsPayload.contacts || []);
+  const contactTotalPages = Array.isArray(contactsPayload) ? 1 : (contactsPayload.totalPages || 1);
+  const contactTotalCount = Array.isArray(contactsPayload) ? contactsPayload.length : (contactsPayload.totalCount || 0);
 
-  const { data: companiesResponse = { companies: [] }, refetch: refetchCompanies } = useQuery({
-    queryKey: ["companies"],
-    queryFn: getCompanies
+  const { data: companiesResponse = { companies: [], totalCount: 0, totalPages: 1 }, refetch: refetchCompanies } = useQuery({
+    queryKey: ["companies", { search: companySearch, page: companyPage }],
+    queryFn: () => getCompanies({ search: companySearch, page: companyPage, limit: companyPageSize })
   });
   const companies = Array.isArray(companiesResponse)
     ? companiesResponse
     : companiesResponse.companies || [];
+  const companyTotalPages = Array.isArray(companiesResponse) ? 1 : (companiesResponse.totalPages || 1);
+  const companyTotalCount = Array.isArray(companiesResponse) ? companiesResponse.length : (companiesResponse.totalCount || 0);
 
   const { data: dealsData = { deals: [], totalsByStage: {}, totalPipelineValue: 0 }, refetch: refetchDeals } = useQuery({
     queryKey: ["deals"],
@@ -392,10 +427,13 @@ export default function Dashboard() {
   const tasks = Array.isArray(tasksData) ? tasksData : (tasksData.tasks || []);
   const taskStats = tasksData.stats || { total: tasks.length, overdue: 0, dueToday: 0, pending: 0 };
 
-  const { data: activities = [], refetch: refetchActivities } = useQuery({
-    queryKey: ["activities"],
-    queryFn: () => getActivities({})
+  const { data: activityPayload = { activities: [], totalCount: 0, totalPages: 1 }, refetch: refetchActivities } = useQuery({
+    queryKey: ["activities", { page: activityPage }],
+    queryFn: () => getActivities({ page: activityPage, limit: activityPageSize })
   });
+  const activities = Array.isArray(activityPayload) ? activityPayload : (activityPayload.activities || []);
+  const activityTotalPages = Array.isArray(activityPayload) ? 1 : (activityPayload.totalPages || 1);
+  const activityTotalCount = Array.isArray(activityPayload) ? activityPayload.length : (activityPayload.totalCount || 0);
 
   const { data: invoices = [], refetch: refetchInvoices } = useQuery({
     queryKey: ["invoices"],
@@ -416,6 +454,13 @@ export default function Dashboard() {
     queryKey: ["emailLogs"],
     queryFn: getEmailLogs
   });
+
+  const { data: emailThreadsData = { threads: [] } } = useQuery({
+    queryKey: ["emailThreads"],
+    queryFn: getEmailThreads
+  });
+  const emailThreads = emailThreadsData.threads || [];
+  const selectedThread = emailThreads.find((thread) => thread.threadId === selectedThreadId) || null;
 
   const { data: backupHistory = { snapshots: [] }, refetch: refetchBackups } = useQuery({
     queryKey: ["backupHistory"],
@@ -902,14 +947,17 @@ export default function Dashboard() {
     }
   });
 
-  const createProductMutation = useMutation({
-    mutationFn: createProduct,
+  const saveProductMutation = useMutation({
+    mutationFn: (data) => editingProductId
+      ? updateProduct({ id: editingProductId, data })
+      : createProduct(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["products"] });
       setIsProductModalOpen(false);
-      showToast("Product registered in supply catalog!");
+      setEditingProductId(null);
+      showToast(editingProductId ? "Catalog item updated." : "Product registered in supply catalog.");
     },
-    onError: (err) => showToast(err.response?.data?.error || "Failed to create product.")
+    onError: (err) => showToast(err.response?.data?.error || "The catalog item could not be saved.")
   });
 
   const deleteProductMutation = useMutation({
@@ -1250,7 +1298,8 @@ export default function Dashboard() {
     isDealModalOpen ||
     Boolean(selectedContactId) ||
     Boolean(selectedCompanyId) ||
-    Boolean(selectedInvoice);
+    Boolean(selectedInvoice) ||
+    Boolean(selectedTicket);
 
   const closeAllModals = () => {
     setIsLeadModalOpen(false);
@@ -1271,9 +1320,60 @@ export default function Dashboard() {
     setSelectedContactId(null);
     setSelectedCompanyId(null);
     setSelectedInvoice(null);
+    setSelectedTicket(null);
   };
 
   useModalAccessibility(anyModalOpen, closeAllModals);
+
+  const filteredProducts = useMemo(() => {
+    const term = catalogSearch.trim().toLowerCase();
+    return products.filter((product) => {
+      const matchesCategory = catalogCategoryFilter === "All" || product.category === catalogCategoryFilter;
+      const matchesSearch = !term || [product.name, product.sku, product.category, product.unit, product.description]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+      return matchesCategory && matchesSearch;
+    });
+  }, [products, catalogCategoryFilter, catalogSearch]);
+
+  const filteredTickets = useMemo(() => {
+    const term = ticketSearch.trim().toLowerCase();
+    return tickets.filter((ticket) => {
+      const matchesStatus = ticketStatusFilter === "All" || ticket.status === ticketStatusFilter;
+      const matchesSearch = !term || [ticket.ticketNumber, ticket.subject, ticket.Contact?.name, ticket.Contact?.email]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(term));
+      return matchesStatus && matchesSearch;
+    });
+  }, [tickets, ticketSearch, ticketStatusFilter]);
+
+  const activityDetailText = (activity) => {
+    if (activity.description) return activity.description;
+    if (!activity.details_json) return "System logged action";
+    try {
+      const parsed = JSON.parse(activity.details_json);
+      if (!parsed || typeof parsed !== "object") return String(activity.details_json);
+      const entries = Object.entries(parsed)
+        .filter(([, value]) => value !== null && value !== undefined && value !== "")
+        .slice(0, 6)
+        .map(([key, value]) => `${key.replace(/_/g, " ")}: ${typeof value === "object" ? JSON.stringify(value) : value}`);
+      return entries.length ? entries.join(" · ") : "System logged action";
+    } catch {
+      return String(activity.details_json).slice(0, 500);
+    }
+  };
+
+  const handleAuditExport = async () => {
+    setAuditExportBusy(true);
+    try {
+      await exportAuditLog();
+      showToast("Audit log exported as CSV.");
+    } catch (err) {
+      showToast(err.response?.data?.error || "The audit log could not be exported.");
+    } finally {
+      setAuditExportBusy(false);
+    }
+  };
 
   // Metrics — pipeline numbers come from deal records, not contact lifecycle values.
   const openDeals = deals.filter(d => !["Won", "Lost"].includes(d.stage_name || "New"));
@@ -1716,17 +1816,17 @@ export default function Dashboard() {
                   type="text" 
                   placeholder="Search name, email, company, or tags..." 
                   value={searchTerm} 
-                  onChange={e => setSearchTerm(e.target.value)} 
+                  onChange={e => { setSearchTerm(e.target.value); setContactPage(1); }}
                 />
               </div>
 
               <div className="filters-row">
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setContactPage(1); }}>
                   <option value="All">All Stages</option>
                   {STAGES.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
 
-                <select value={leadSourceFilter} onChange={e => setLeadSourceFilter(e.target.value)}>
+                <select value={leadSourceFilter} onChange={e => { setLeadSourceFilter(e.target.value); setContactPage(1); }}>
                   <option value="All">All Sources</option>
                   <option value="Website">Website</option>
                   <option value="Referral">Referral</option>
@@ -1743,6 +1843,11 @@ export default function Dashboard() {
             </div>
 
             <div className="table-container-circuit">
+              <div className="list-summary-strip">
+                <span><strong>{contactTotalCount.toLocaleString()}</strong> contacts</span>
+                <span>Page <strong>{contactPage}</strong> of <strong>{contactTotalPages}</strong></span>
+                <span className="list-summary-hint">Search and filters apply across the full directory.</span>
+              </div>
               <table className="crm-table">
                 <thead>
                   <tr>
@@ -1864,12 +1969,19 @@ export default function Dashboard() {
                   {contacts.length === 0 && (
                     <tr>
                       <td colSpan="7" className="empty-table-cell">
-                        No contacts matched your search. Click "Add Contact" to create one.
+                        {isContactsLoading ? "Loading contacts…" : "No contacts matched your search. Click \"Add Contact\" to create one."}
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
+              <div className="pagination-bar">
+                <span>Showing {contacts.length.toLocaleString()} of {contactTotalCount.toLocaleString()} contacts</span>
+                <div>
+                  <button type="button" className="btn-ghost-dark small" disabled={contactPage <= 1} onClick={() => setContactPage((page) => Math.max(1, page - 1))}>Previous</button>
+                  <button type="button" className="btn-ghost-dark small" disabled={contactPage >= contactTotalPages} onClick={() => setContactPage((page) => page + 1)}>Next</button>
+                </div>
+              </div>
             </div>
           </div>
         )}
@@ -2018,14 +2130,31 @@ export default function Dashboard() {
             <div className="toolbar-circuit">
               <div>
                 <span className="card-title">Client & Partner Companies</span>
-                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-                  Accounts, linked contacts, and collective deal valuation
+                <div className="toolbar-subtitle">
+                  Accounts, linked contacts, and pipeline value by company
                 </div>
               </div>
-              <button className="btn-primary-yellow" onClick={() => setIsCompanyModalOpen(true)}>
-                <Building size={16} />
-                <span>Add Company</span>
-              </button>
+              <div className="filters-row">
+                <div className="search-box">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search company, domain, phone…"
+                    value={companySearch}
+                    onChange={(event) => { setCompanySearch(event.target.value); setCompanyPage(1); }}
+                  />
+                </div>
+                <button className="btn-primary-yellow" onClick={() => setIsCompanyModalOpen(true)}>
+                  <Building size={16} />
+                  <span>Add Company</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="list-summary-strip">
+              <span><strong>{companyTotalCount.toLocaleString()}</strong> companies</span>
+              <span>Page <strong>{companyPage}</strong> of <strong>{companyTotalPages}</strong></span>
+              <span className="list-summary-hint">Open a company to see invoices, tickets and attachments.</span>
             </div>
 
             <div className="asymmetric-2up-grid">
@@ -2043,19 +2172,17 @@ export default function Dashboard() {
                       </div>
                       <span className="tag-pill">{comp.domain || "Enterprise"}</span>
                     </div>
-                    <div style={{ marginTop: "12px", color: "var(--text-body)", fontSize: "13px", display: "flex", flexDirection: "column", gap: "6px" }}>
-                      <div><strong>Domain:</strong> {comp.domain ? <a href={`https://${comp.domain}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)", textDecoration: "underline" }}>{comp.domain}</a> : "—"}</div>
+                    <div className="company-card-body">
+                      <div><strong>Domain:</strong> {comp.domain ? <a href={`https://${comp.domain}`} target="_blank" rel="noreferrer" className="company-domain-link">{comp.domain}</a> : "—"}</div>
                       <div><strong>Phone:</strong> {comp.phone || "—"}</div>
-                      <div><strong>HQ Address:</strong> {comp.address || "—"}</div>
-                      <div style={{ display: "flex", gap: "12px", marginTop: "8px", padding: "8px 10px", background: "rgba(0,0,0,0.3)", borderRadius: "6px" }}>
-                        <div><span style={{ color: "var(--text-muted)", fontSize: "11px" }}>CONTACTS</span>: <strong>{count}</strong></div>
-                        <div><span style={{ color: "var(--text-muted)", fontSize: "11px" }}>TOTAL DEALS</span>: <strong>${dealSum.toLocaleString()}</strong></div>
+                      <div><strong>HQ address:</strong> {comp.address || "—"}</div>
+                      <div className="company-metrics">
+                        <div><span>Contacts</span><strong>{count}</strong></div>
+                        <div><span>Deal value</span><strong>${dealSum.toLocaleString()}</strong></div>
                       </div>
-                      <div style={{ marginTop: "4px", fontSize: "11px", color: "var(--text-muted)" }}>
-                        Created: {new Date(comp.createdAt).toLocaleDateString()}
-                      </div>
+                      <div className="company-created">Created {new Date(comp.createdAt).toLocaleDateString()}</div>
                     </div>
-                    <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px", borderTop: "1px solid var(--border-hairline)", paddingTop: "10px" }}>
+                    <div className="company-card-actions">
                       <button className="btn-ghost-dark small" onClick={() => openCompanyRecord(comp)}>
                         <Eye size={13} />
                         <span>Open</span>
@@ -2097,8 +2224,15 @@ export default function Dashboard() {
                 );
               })}
               {companies.length === 0 && (
-                <div className="empty-state-notice">No companies listed yet. Click "Add Company" above.</div>
+                <div className="empty-state-notice">No companies matched this search. Click "Add Company" to create one.</div>
               )}
+            </div>
+            <div className="pagination-bar">
+              <span>Showing {companies.length.toLocaleString()} of {companyTotalCount.toLocaleString()} companies</span>
+              <div>
+                <button type="button" className="btn-ghost-dark small" disabled={companyPage <= 1} onClick={() => setCompanyPage((page) => Math.max(1, page - 1))}>Previous</button>
+                <button type="button" className="btn-ghost-dark small" disabled={companyPage >= companyTotalPages} onClick={() => setCompanyPage((page) => page + 1)}>Next</button>
+              </div>
             </div>
           </div>
         )}
@@ -2194,11 +2328,24 @@ export default function Dashboard() {
         {activeTab === "activities" && (
           <div className="activities-view-stack">
             <div className="toolbar-circuit">
-              <span className="card-title">Chronological Activity & Enterprise Audit Stream</span>
-              <button className="btn-primary-yellow" onClick={() => setIsActivityModalOpen(true)}>
-                <Plus size={16} />
-                <span>Log Manual Interaction</span>
-              </button>
+              <div>
+                <span className="card-title">Chronological Activity & Enterprise Audit Stream</span>
+                <div className="toolbar-subtitle">
+                  {activityTotalCount.toLocaleString()} recorded events · newest first
+                </div>
+              </div>
+              <div className="filters-row">
+                {canExportAudit && (
+                  <button type="button" className="btn-ghost-dark" onClick={handleAuditExport} disabled={auditExportBusy}>
+                    <Download size={16} />
+                    <span>{auditExportBusy ? "Exporting…" : "Export audit CSV"}</span>
+                  </button>
+                )}
+                <button className="btn-primary-yellow" onClick={() => setIsActivityModalOpen(true)}>
+                  <Plus size={16} />
+                  <span>Log Manual Interaction</span>
+                </button>
+              </div>
             </div>
 
             <div className="timeline-circuit">
@@ -2212,7 +2359,7 @@ export default function Dashboard() {
                       <span className="timeline-title">{a.action || a.title || "Audit Action"}</span>
                       <span className="timeline-time">{new Date(a.timestamp || a.createdAt).toLocaleString()}</span>
                     </div>
-                    <p className="timeline-desc">{a.description || a.details_json || "System logged action"}</p>
+                    <p className="timeline-desc">{activityDetailText(a)}</p>
                     {a.target_type && (
                       <span className="tag-pill" style={{ marginTop: "6px", display: "inline-block" }}>
                         Target: {a.target_type} #{a.target_id || ""}
@@ -2224,6 +2371,13 @@ export default function Dashboard() {
               {activities.length === 0 && (
                 <div className="empty-state-notice">No activity logs recorded yet.</div>
               )}
+            </div>
+            <div className="pagination-bar">
+              <span>Showing {activities.length.toLocaleString()} of {activityTotalCount.toLocaleString()} events</span>
+              <div>
+                <button type="button" className="btn-ghost-dark small" disabled={activityPage <= 1} onClick={() => setActivityPage((page) => Math.max(1, page - 1))}>Previous</button>
+                <button type="button" className="btn-ghost-dark small" disabled={activityPage >= activityTotalPages} onClick={() => setActivityPage((page) => page + 1)}>Next</button>
+              </div>
             </div>
           </div>
         )}
@@ -2323,31 +2477,57 @@ export default function Dashboard() {
 
         {/* TAB: SUPPLY PILLAR - PRODUCTS CATALOG */}
         {activeTab === "catalog" && (
-          <div className="invoices-view-stack">
+          <div className="catalog-view-stack">
             <div className="toolbar-circuit">
               <div>
                 <span className="card-title">Commercial Products & Services Catalog</span>
-                <div style={{ fontSize: "12px", color: "#9E9E9E", marginTop: "2px" }}>
-                  Supply Pillar · Standardized pricing, product vs. service lines, and stock controls
+                <div className="toolbar-subtitle">
+                  Reusable pricing for quotes, invoices and proposals
                 </div>
               </div>
-              <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-                <select 
-                  value={catalogCategoryFilter} 
+              <div className="filters-row catalog-toolbar-controls">
+                <div className="search-box">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search item, SKU or description…"
+                    value={catalogSearch}
+                    onChange={event => setCatalogSearch(event.target.value)}
+                  />
+                </div>
+                <select
+                  className="crm-filter-select"
+                  aria-label="Filter catalog by category"
+                  value={catalogCategoryFilter}
                   onChange={e => setCatalogCategoryFilter(e.target.value)}
-                  style={{ padding: "6px 12px", background: "#1c1c1c", border: "1px solid var(--border-hairline)", borderRadius: "6px", color: "#fff", fontSize: "13px" }}
                 >
-                  <option value="All">All Categories</option>
-                  <option value="Services">Services Only</option>
-                  <option value="Hardware">Hardware Only</option>
-                  <option value="Software License">Software License</option>
+                  <option value="All">All categories</option>
+                  <option value="Services">Services</option>
+                  <option value="Hardware">Hardware</option>
+                  <option value="Software License">Software license</option>
                   <option value="Subscription">Subscription</option>
                 </select>
-                <button className="btn-primary-yellow" onClick={() => setIsProductModalOpen(true)}>
-                  <Plus size={16} />
-                  <span>Add Product / Service</span>
-                </button>
+                {can("catalog.create") && (
+                  <button
+                    className="btn-primary-yellow"
+                    onClick={() => {
+                      setEditingProductId(null);
+                      setProductFormData({ name: "", sku: "", description: "", price: 0, category: "Services", unit: "unit" });
+                      setIsProductModalOpen(true);
+                    }}
+                  >
+                    <Plus size={16} />
+                    <span>Add item</span>
+                  </button>
+                )}
               </div>
+            </div>
+
+            <div className="catalog-metric-strip">
+              <div><span>Total items</span><strong>{products.length}</strong></div>
+              <div><span>Active</span><strong>{products.filter(product => product.is_active).length}</strong></div>
+              <div><span>Services</span><strong>{products.filter(product => ["Services", "Subscription"].includes(product.category)).length}</strong></div>
+              <div><span>Products</span><strong>{products.filter(product => !["Services", "Subscription"].includes(product.category)).length}</strong></div>
             </div>
 
             <div className="table-container-circuit">
@@ -2365,46 +2545,33 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {products
-                    .filter(p => catalogCategoryFilter === "All" || p.category === catalogCategoryFilter)
-                    .map(p => {
+                  {filteredProducts.map(p => {
                       const isService = p.category === "Services" || p.category === "Subscription";
                       return (
                         <tr key={p.id}>
-                          <td><strong>{p.name}</strong></td>
                           <td>
-                            <span style={{
-                              fontSize: "10px",
-                              textTransform: "uppercase",
-                              letterSpacing: "0.05em",
-                              padding: "2px 6px",
-                              borderRadius: "4px",
-                              backgroundColor: isService ? "rgba(96,165,250,0.15)" : "rgba(240,255,96,0.15)",
-                              color: isService ? "#60A5FA" : "#F0FF60",
-                              fontWeight: 700
-                            }}>
+                            <div className="catalog-item-name">
+                              <strong>{p.name}</strong>
+                              {p.description && <span>{p.description}</span>}
+                            </div>
+                          </td>
+                          <td>
+                            <span className={`catalog-type-pill ${isService ? "is-service" : "is-product"}`}>
                               {isService ? "Service" : "Product"}
                             </span>
                           </td>
-                          <td><span style={{ fontFamily: "monospace", fontSize: "12px", color: "#FAFF69" }}>{p.sku || "—"}</span></td>
+                          <td><span className="catalog-sku">{p.sku || "—"}</span></td>
                           <td>{p.category || "Services"}</td>
                           <td className="value-cell">${(Number(p.price) || 0).toLocaleString()}</td>
                           <td>{p.unit || "unit"}</td>
                           <td>
-                            <span style={{
-                              fontSize: "11px",
-                              fontWeight: 700,
-                              padding: "3px 8px",
-                              borderRadius: "4px",
-                              backgroundColor: p.is_active ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)",
-                              color: p.is_active ? "#22C55E" : "#9E9E9E"
-                            }}>
+                            <span className={`catalog-status-pill ${p.is_active ? "is-active" : "is-archived"}`}>
                               {p.is_active ? "Active" : "Archived"}
                             </span>
                           </td>
                           <td style={{ textAlign: "right" }}>
-                            <div style={{ display: "inline-flex", gap: "6px" }}>
-                              {p.is_active ? (
+                            <div className="catalog-row-actions">
+                              {can("catalog.edit") && (p.is_active ? (
                                 <button
                                   className="action-icon-btn"
                                   onClick={() => archiveProductMutation.mutate(p.id)}
@@ -2420,31 +2587,55 @@ export default function Dashboard() {
                                 >
                                   <CheckCircle2 size={13} color="#22C55E" />
                                 </button>
+                              ))}
+                              {can("catalog.edit") && (
+                                <button
+                                  className="action-icon-btn"
+                                  onClick={() => {
+                                    setEditingProductId(p.id);
+                                    setProductFormData({
+                                      name: p.name || "",
+                                      sku: p.sku || "",
+                                      description: p.description || "",
+                                      price: p.price || 0,
+                                      category: p.category || "Services",
+                                      unit: p.unit || "unit"
+                                    });
+                                    setIsProductModalOpen(true);
+                                  }}
+                                  title="Edit catalog item"
+                                >
+                                  <Edit3 size={14} />
+                                </button>
                               )}
-                              <button
-                                className="action-icon-btn delete"
-                                onClick={() => requestConfirm({
-                                  title: "Delete this catalog item?",
-                                  message: `${p.name} will be permanently removed from the catalog. Existing invoice lines keep their saved descriptions and prices.`,
-                                  confirmLabel: "Delete item",
-                                  onConfirm: () => {
-                                    closeConfirm();
-                                    deleteProductMutation.mutate(p.id);
-                                  }
-                                })}
-                                title="Delete Product"
-                              >
-                                <Trash2 size={14} />
-                              </button>
+                              {can("catalog.delete") && (
+                                <button
+                                  className="action-icon-btn delete"
+                                  onClick={() => requestConfirm({
+                                    title: "Delete this catalog item?",
+                                    message: `${p.name} will be permanently removed from the catalog. Existing invoice lines keep their saved descriptions and prices.`,
+                                    confirmLabel: "Delete item",
+                                    onConfirm: () => {
+                                      closeConfirm();
+                                      deleteProductMutation.mutate(p.id);
+                                    }
+                                  })}
+                                  title="Delete Product"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
                       );
                     })}
-                  {products.length === 0 && (
+                  {filteredProducts.length === 0 && (
                     <tr>
                       <td colSpan="8" className="empty-table-cell">
-                        No products registered in catalog yet. Click "+ Add Product / Service" to build your pricing inventory.
+                        {products.length === 0
+                          ? "No items in the catalog yet. Add your first product or service to make it available on quotes and invoices."
+                          : "No catalog items match this search and category filter."}
                       </td>
                     </tr>
                   )}
@@ -2458,19 +2649,56 @@ export default function Dashboard() {
         {activeTab === "tickets" && (
           <div className="tickets-view-stack">
             <div className="toolbar-circuit">
-              <span className="card-title">Customer Support & Incident Queues</span>
-              <button className="btn-primary-yellow" onClick={() => setIsTicketModalOpen(true)}>
-                <Plus size={16} />
-                <span>Open Ticket</span>
-              </button>
+              <div>
+                <span className="card-title">Customer Support & Incident Queue</span>
+                <div className="toolbar-subtitle">
+                  Triage requests, set priority and resolve customer issues
+                </div>
+              </div>
+              <div className="filters-row">
+                <div className="search-box">
+                  <Search size={16} />
+                  <input
+                    type="search"
+                    placeholder="Search ticket, subject or requester…"
+                    value={ticketSearch}
+                    onChange={event => setTicketSearch(event.target.value)}
+                  />
+                </div>
+                <select
+                  className="crm-filter-select"
+                  aria-label="Filter tickets by status"
+                  value={ticketStatusFilter}
+                  onChange={event => setTicketStatusFilter(event.target.value)}
+                >
+                  <option value="All">All statuses</option>
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+                {can("tickets.create") && (
+                  <button className="btn-primary-yellow" onClick={() => setIsTicketModalOpen(true)}>
+                    <Plus size={16} />
+                    <span>Open ticket</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="ticket-metric-strip">
+              <div><span>Open</span><strong>{tickets.filter(ticket => ticket.status === "Open").length}</strong></div>
+              <div><span>In progress</span><strong>{tickets.filter(ticket => ticket.status === "In Progress").length}</strong></div>
+              <div><span>Resolved</span><strong>{tickets.filter(ticket => ticket.status === "Resolved").length}</strong></div>
+              <div><span>Urgent</span><strong>{tickets.filter(ticket => ticket.priority === "Urgent" && ticket.status !== "Resolved").length}</strong></div>
             </div>
 
             <div className="table-container-circuit">
               <table className="crm-table">
                 <thead>
                   <tr>
-                    <th>Ticket #</th>
-                    <th>Subject</th>
+                    <th>Ticket</th>
+                    <th>Requester</th>
                     <th>Priority</th>
                     <th>Status</th>
                     <th>Opened</th>
@@ -2478,28 +2706,49 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {tickets.map(t => (
+                  {filteredTickets.map(t => (
                     <tr key={t.id}>
-                      <td><strong>{t.ticketNumber}</strong></td>
-                      <td>{t.subject}</td>
-                      <td><span className={`priority-badge ${t.priority.toLowerCase()}`}>{t.priority}</span></td>
-                      <td><span className={`status-badge ${t.status.toLowerCase().replace(" ", "-")}`}>{t.status}</span></td>
+                      <td>
+                        <div className="ticket-subject-cell">
+                          <button type="button" className="contact-name-button" onClick={() => setSelectedTicket(t)}>
+                            {t.subject}
+                          </button>
+                          <span>{t.ticketNumber}</span>
+                        </div>
+                      </td>
+                      <td>
+                        {t.Contact ? (
+                          <div className="ticket-requester-cell">
+                            <strong>{t.Contact.name}</strong>
+                            <span>{t.Contact.company || t.Contact.email}</span>
+                          </div>
+                        ) : <span className="text-muted">Unassigned requester</span>}
+                      </td>
+                      <td><span className={`priority-badge ${String(t.priority || "Medium").toLowerCase()}`}>{t.priority || "Medium"}</span></td>
+                      <td><span className={`status-badge ${String(t.status || "Open").toLowerCase().replace(" ", "-")}`}>{t.status || "Open"}</span></td>
                       <td>{new Date(t.createdAt).toLocaleDateString()}</td>
                       <td style={{ textAlign: "right" }}>
-                        {t.status !== "Resolved" && (
-                          <button 
-                            className="btn-action-convert"
-                            onClick={() => updateTicket({ id: t.id, data: { status: "Resolved" } }).then(() => refetchTickets())}
-                          >
-                            Resolve
+                        <div className="table-actions">
+                          <button className="action-icon-btn" title="View ticket" onClick={() => setSelectedTicket(t)}>
+                            <Eye size={14} />
                           </button>
-                        )}
+                          {t.status !== "Resolved" && can("tickets.edit") && (
+                            <button
+                              className="btn-action-convert"
+                              onClick={() => updateTicket({ id: t.id, data: { status: "Resolved" } }).then(() => refetchTickets())}
+                            >
+                              Resolve
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
-                  {tickets.length === 0 && (
+                  {filteredTickets.length === 0 && (
                     <tr>
-                      <td colSpan="6" className="empty-table-cell">No open support tickets.</td>
+                      <td colSpan="6" className="empty-table-cell">
+                        {tickets.length === 0 ? "No support tickets yet. Open one to start a customer conversation." : "No tickets match this search and status filter."}
+                      </td>
                     </tr>
                   )}
                 </tbody>
@@ -2517,67 +2766,152 @@ export default function Dashboard() {
           <div className="emails-view-stack">
             <div className="toolbar-circuit">
               <div>
-                <span className="card-title">Dispatched Emails & Pixel Open Tracking</span>
-                <div style={{ fontSize: "12px", color: "var(--text-muted)", marginTop: "2px" }}>
-                  Live SMTP relay history with pixel-based receipt confirmation and payload inspection
+                <span className="card-title">Email Outbox & Conversations</span>
+                <div className="toolbar-subtitle">
+                  SMTP delivery history, possible opens and grouped reply threads
                 </div>
               </div>
-              <button className="btn-primary-yellow" onClick={() => setIsEmailModalOpen(true)}>
-                <Mail size={16} />
-                <span>Compose Email</span>
-              </button>
+              <div className="filters-row">
+                <div className="segmented-control" role="group" aria-label="Outbox view">
+                  <button type="button" className={outboxView === "messages" ? "is-active" : ""} onClick={() => setOutboxView("messages")}>
+                    Messages
+                  </button>
+                  <button type="button" className={outboxView === "threads" ? "is-active" : ""} onClick={() => { setOutboxView("threads"); setSelectedThreadId(""); }}>
+                    Threads
+                  </button>
+                </div>
+                <button className="btn-primary-yellow" onClick={() => setIsEmailModalOpen(true)}>
+                  <Mail size={16} />
+                  <span>Compose email</span>
+                </button>
+              </div>
             </div>
 
-            <div className="table-container-circuit">
-              <table className="crm-table">
-                <thead>
-                  <tr>
-                    <th>Recipient</th>
-                    <th>Subject</th>
-                    <th>Template</th>
-                    <th>Tracking Status</th>
-                    <th>Sent At</th>
-                    <th style={{ textAlign: "right" }}>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {emailLogs.map(em => (
-                    <tr key={em.id}>
-                      <td><strong>{em.recipient_email || em.recipientEmail}</strong></td>
-                      <td>{em.subject}</td>
-                      <td><span className="tag-pill">{em.template_name || "Custom"}</span></td>
-                      <td>
-                        {em.is_opened ? (
-                          <span className="status-badge won" title={`Opened at ${new Date(em.opened_at).toLocaleString()}`}>
-                            ✓ Opened ({new Date(em.opened_at).toLocaleTimeString()})
-                          </span>
-                        ) : (
-                          <span className="status-badge in-progress">
-                            Delivered / Unread
-                          </span>
-                        )}
-                      </td>
-                      <td>{new Date(em.createdAt).toLocaleString()}</td>
-                      <td style={{ textAlign: "right" }}>
-                        <button
-                          className="btn-ghost-dark small"
-                          onClick={() => setSelectedOutboxEmail(em)}
-                          title="Inspect email payload and tracking telemetry"
-                        >
-                          <Eye size={13} />
-                          <span>Inspect</span>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                  {emailLogs.length === 0 && (
-                    <tr>
-                      <td colSpan="6" className="empty-table-cell">No emails dispatched yet. Click "Compose Email" above.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="outbox-metric-strip">
+              <div><span>Messages</span><strong>{emailLogs.length}</strong></div>
+              <div><span>Possible opens</span><strong>{emailLogs.filter(email => email.is_opened).length}</strong></div>
+              <div><span>Threads</span><strong>{emailThreads.length || "—"}</strong></div>
             </div>
+
+            {outboxView === "messages" ? (
+              <div className="table-container-circuit">
+                <table className="crm-table">
+                  <thead>
+                    <tr>
+                      <th>Recipient</th>
+                      <th>Subject</th>
+                      <th>Template</th>
+                      <th>Open signal</th>
+                      <th>Sent at</th>
+                      <th style={{ textAlign: "right" }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emailLogs.map(em => (
+                      <tr key={em.id}>
+                        <td><strong>{em.recipient_email || em.recipientEmail}</strong></td>
+                        <td>{em.subject}</td>
+                        <td><span className="tag-pill">{em.template_name || "Custom"}</span></td>
+                        <td>
+                          {em.is_opened ? (
+                            <span className="status-badge won" title={`Tracking pixel loaded at ${new Date(em.opened_at).toLocaleString()}. This is a possible open, not proof of reading.`}>
+                              Possible open · {new Date(em.opened_at).toLocaleTimeString()}
+                            </span>
+                          ) : (
+                            <span className="status-badge in-progress" title="The SMTP relay accepted the message. No open pixel has been detected.">
+                              Sent · no open detected
+                            </span>
+                          )}
+                        </td>
+                        <td>{new Date(em.createdAt).toLocaleString()}</td>
+                        <td style={{ textAlign: "right" }}>
+                          <button
+                            className="btn-ghost-dark small"
+                            onClick={() => setSelectedOutboxEmail(em)}
+                            title="Inspect email payload and tracking telemetry"
+                          >
+                            <Eye size={13} />
+                            <span>Inspect</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {emailLogs.length === 0 && (
+                      <tr>
+                        <td colSpan="6" className="empty-table-cell">No emails dispatched yet. Click "Compose email" above.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <>
+                <div className="table-container-circuit">
+                  <table className="crm-table">
+                    <thead>
+                      <tr>
+                        <th>Conversation</th>
+                        <th>Recipient</th>
+                        <th>Messages</th>
+                        <th>Last activity</th>
+                        <th>State</th>
+                        <th style={{ textAlign: "right" }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {emailThreads.map(thread => (
+                        <tr key={thread.threadId}>
+                          <td><strong>{thread.subject}</strong></td>
+                          <td>{thread.recipient}</td>
+                          <td>{thread.messageCount}</td>
+                          <td>{thread.lastMessageAt ? new Date(thread.lastMessageAt).toLocaleString() : "—"}</td>
+                          <td>
+                            <span className={`status-badge ${thread.unread ? "in-progress" : "won"}`}>
+                              {thread.unread ? "Reply awaiting review" : "No unread reply"}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: "right" }}>
+                            <button className="btn-ghost-dark small" onClick={() => setSelectedThreadId(thread.threadId)}>
+                              <MessageSquare size={13} />
+                              <span>Open thread</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      {emailThreads.length === 0 && (
+                        <tr>
+                          <td colSpan="6" className="empty-table-cell">No email threads yet. Sent mail is grouped by conversation here.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {selectedThread && (
+                  <section className="email-thread-panel" aria-label="Email thread messages">
+                    <div className="email-thread-head">
+                      <div>
+                        <span className="eyebrow">Conversation</span>
+                        <h3>{selectedThread.subject}</h3>
+                        <p>{selectedThread.messageCount} messages with {selectedThread.recipient}</p>
+                      </div>
+                      <button type="button" className="action-icon-btn" aria-label="Close thread" onClick={() => setSelectedThreadId("")}>×</button>
+                    </div>
+                    <div className="email-thread-messages">
+                      {selectedThread.messages.map(message => (
+                        <article key={message.id} className="email-thread-message">
+                          <div>
+                            <strong>{message.direction === "Inbound" ? "Received" : "Sent"}</strong>
+                            <span>{new Date(message.createdAt).toLocaleString()}</span>
+                          </div>
+                          <p>{message.body}</p>
+                        </article>
+                      ))}
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -4213,12 +4547,12 @@ export default function Dashboard() {
         <div className="modal-overlay-circuit" onClick={() => setIsProductModalOpen(false)}>
           <div className="modal-box-circuit interactive-lift" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h3>Register Product / Service</h3>
-              <button className="modal-close-btn" onClick={() => setIsProductModalOpen(false)}>×</button>
+              <h3>{editingProductId ? "Edit catalog item" : "Register product / service"}</h3>
+              <button className="modal-close-btn" onClick={() => { setIsProductModalOpen(false); setEditingProductId(null); }}>×</button>
             </div>
             <form onSubmit={e => {
               e.preventDefault();
-              createProductMutation.mutate(productFormData);
+              saveProductMutation.mutate(productFormData);
             }}>
               <div className="form-group-circuit">
                 <label>Item / Service Name *</label>
@@ -4289,10 +4623,117 @@ export default function Dashboard() {
               </div>
 
               <div className="modal-footer-btns">
-                <button type="button" className="btn-ghost-dark" onClick={() => setIsProductModalOpen(false)}>Cancel</button>
-                <button type="submit" className="btn-primary-yellow">Register Product</button>
+                <button type="button" className="btn-ghost-dark" onClick={() => { setIsProductModalOpen(false); setEditingProductId(null); }}>Cancel</button>
+                <button type="submit" className="btn-primary-yellow" disabled={saveProductMutation.isPending}>
+                  {saveProductMutation.isPending ? "Saving…" : editingProductId ? "Save changes" : "Register Product"}
+                </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: TICKET DETAIL */}
+      {selectedTicket && (
+        <div className="modal-overlay-circuit" onClick={() => setSelectedTicket(null)}>
+          <div className="modal-box-circuit ticket-detail-modal interactive-lift" onClick={event => event.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <span className="eyebrow">{selectedTicket.ticketNumber}</span>
+                <h3>{selectedTicket.subject}</h3>
+              </div>
+              <button className="modal-close-btn" onClick={() => setSelectedTicket(null)} aria-label="Close ticket">×</button>
+            </div>
+
+            <div className="ticket-detail-meta">
+              <div><span>Requester</span><strong>{selectedTicket.Contact?.name || "No contact linked"}</strong><small>{selectedTicket.Contact?.email || selectedTicket.Contact?.company || ""}</small></div>
+              <div><span>Opened</span><strong>{new Date(selectedTicket.createdAt).toLocaleDateString()}</strong><small>{new Date(selectedTicket.createdAt).toLocaleTimeString()}</small></div>
+              <div><span>Priority</span><strong>{selectedTicket.priority || "Medium"}</strong><small>Current queue priority</small></div>
+            </div>
+
+            <section className="ticket-description-block">
+              <span className="detail-label">Customer request</span>
+              <p>{selectedTicket.description || "No description was provided with this ticket."}</p>
+            </section>
+
+            <div className="form-row-2col">
+              <div className="form-group-circuit">
+                <label htmlFor="ticket-status">Status</label>
+                <select
+                  id="ticket-status"
+                  value={selectedTicket.status || "Open"}
+                  onChange={event => setSelectedTicket({ ...selectedTicket, status: event.target.value })}
+                >
+                  <option value="Open">Open</option>
+                  <option value="In Progress">In progress</option>
+                  <option value="Resolved">Resolved</option>
+                  <option value="Closed">Closed</option>
+                </select>
+              </div>
+              <div className="form-group-circuit">
+                <label htmlFor="ticket-priority">Priority</label>
+                <select
+                  id="ticket-priority"
+                  value={selectedTicket.priority || "Medium"}
+                  onChange={event => setSelectedTicket({ ...selectedTicket, priority: event.target.value })}
+                >
+                  <option value="Low">Low</option>
+                  <option value="Medium">Medium</option>
+                  <option value="High">High</option>
+                  <option value="Urgent">Urgent</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="modal-footer-btns ticket-detail-actions">
+              {can("tickets.delete") && (
+                <button
+                type="button"
+                className="btn-ghost-dark"
+                onClick={() => requestConfirm({
+                  title: "Delete this ticket?",
+                  message: `${selectedTicket.ticketNumber} and its description will be permanently removed.`,
+                  confirmLabel: "Delete ticket",
+                  onConfirm: async () => {
+                    closeConfirm();
+                    try {
+                      await deleteTicket(selectedTicket.id);
+                      setSelectedTicket(null);
+                      await refetchTickets();
+                      showToast("Ticket deleted.");
+                    } catch (err) {
+                      showToast(err.response?.data?.error || "The ticket could not be deleted.");
+                    }
+                  }
+                })}
+              >
+                <Trash2 size={15} /> Delete
+                </button>
+              )}
+              {can("tickets.edit") && (
+                <button
+                  type="button"
+                  className="btn-primary-yellow"
+                  onClick={async () => {
+                    try {
+                      const updated = await updateTicket({
+                        id: selectedTicket.id,
+                        data: { status: selectedTicket.status, priority: selectedTicket.priority }
+                      });
+                      await refetchTickets();
+                      setSelectedTicket({ ...selectedTicket, ...updated });
+                      showToast("Ticket updated.");
+                    } catch (err) {
+                      showToast(err.response?.data?.error || "The ticket could not be updated.");
+                    }
+                  }}
+                >
+                  <Check size={15} /> Save ticket
+                </button>
+              )}
+            </div>
+
+            <AttachmentsPanel entityType="Ticket" entityId={selectedTicket.id} title="Ticket attachments" />
           </div>
         </div>
       )}

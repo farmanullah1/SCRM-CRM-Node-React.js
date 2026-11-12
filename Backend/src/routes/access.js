@@ -413,4 +413,43 @@ router.get("/audit", requirePermission("audit.view"), async (req, res) => {
   }
 });
 
+function csvCell(value) {
+  const raw = value === null || value === undefined ? "" : String(value);
+  // Prevent spreadsheet formula execution when the export is opened in Excel.
+  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
+  return `"${safe.replace(/"/g, '""')}"`;
+}
+
+router.get("/audit/export", requirePermission("audit.export"), async (req, res) => {
+  try {
+    const [events, users] = await Promise.all([
+      ActivityLog.findAll({ order: [["timestamp", "DESC"]], limit: 10000 }),
+      User.findAll({ attributes: ["id", "name", "email"] })
+    ]);
+    const userMap = new Map(users.map((user) => [Number(user.id), user]));
+    const headers = ["Timestamp", "Event ID", "Actor", "Actor email", "Action", "Target type", "Target ID", "Details"];
+    const rows = events.map((event) => {
+      const actor = userMap.get(Number(event.user_id));
+      return [
+        event.timestamp ? new Date(event.timestamp).toISOString() : "",
+        event.id,
+        actor?.name || `User ${event.user_id || "system"}`,
+        actor?.email || "",
+        event.action,
+        event.target_type,
+        event.target_id,
+        event.details_json
+      ].map(csvCell).join(",");
+    });
+    const filename = `scrm-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.send([headers.map(csvCell).join(","), ...rows].join("\r\n"));
+    await logAudit(req.user.id, "AUDIT_EXPORTED", "AuditLog", null, { count: events.length });
+  } catch (err) {
+    console.error("[Audit export]", err.message);
+    if (!res.headersSent) res.status(500).json({ error: "Could not export the audit log." });
+  }
+});
+
 export default router;

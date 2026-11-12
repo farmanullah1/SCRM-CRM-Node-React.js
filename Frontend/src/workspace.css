@@ -2012,3 +2012,158 @@
 @keyframes wa-spin { to { transform: rotate(360deg); } }
 @media (max-width: 900px) { .wa-grid { grid-template-columns: 1fr; } .wa-connect-card { grid-template-columns: 1fr; } }
 @media (max-width: 560px) { .wa-status-card { align-items: flex-start; } .wa-qr-wrap { width: 100%; } }
+
+/* ---- Shared list and record views ---- */
+.toolbar-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+.list-summary-strip { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 11px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 82%, transparent); font-size: 12px; color: var(--text-muted); }
+.list-summary-strip strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.list-summary-hint { margin-left: auto; }
+.crm-filter-select { appearance: none; min-height: 38px; padding: 8px 30px 8px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.crm-filter-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.text-muted { color: var(--text-muted); }
+
+/* ---- Company cards ---- */
+.company-card-body { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; color: var(--text-body); font-size: 13px; }
+.company-domain-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.company-metrics { display: flex; gap: 10px; margin-top: 8px; padding: 10px 12px; background: rgba(0, 0, 0, 0.24); border: 1px solid var(--border); border-radius: 8px; }
+.company-metrics > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.company-metrics span { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+.company-metrics strong { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+.company-created { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+.company-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* ---- Catalog ---- */
+.catalog-toolbar-controls { align-items: center; }
+.catalog-metric-strip, .ticket-metric-strip, .outbox-metric-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.catalog-metric-strip > div, .ticket-metric-strip > div, .outbox-metric-strip > div { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border-right: 1px solid var(--border); }
+.catalog-metric-strip > div:last-child, .ticket-metric-strip > div:last-child, .outbox-metric-strip > div:last-child { border-right: 0; }
+.catalog-metric-strip span, .ticket-metric-strip span, .outbox-metric-strip span { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.catalog-metric-strip strong, .ticket-metric-strip strong, .outbox-metric-strip strong { color: var(--text); font-size: 21px; line-height: 1; font-variant-numeric: tabular-nums; }
+.catalog-item-name { display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+.catalog-item-name strong { color: var(--text); font-size: 13px; }
+.catalog-item-name span { color: var(--text-muted); font-size: 11px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catalog-type-pill, .catalog-status-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.catalog-type-pill.is-service { background: rgba(96, 165, 250, 0.14); color: #8ec5ff; }
+.catalog-type-pill.is-product { background: rgba(240, 255, 96, 0.12); color: var(--accent); }
+.catalog-status-pill.is-active { background: rgba(34, 197, 94, 0.13); color: #4ade80; }
+.catalog-status-pill.is-archived { background: rgba(255, 255, 255, 0.07); color: var(--text-muted); }
+.catalog-sku { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--accent); }
+.catalog-row-actions { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---- Tickets ---- */
+.ticket-subject-cell, .ticket-requester-cell { display: flex; flex-direction: column; gap: 2px; }
+.ticket-subject-cell > span, .ticket-requester-cell span { color: var(--text-muted); font-size: 11px; }
+.ticket-requester-cell strong { color: var(--text); font-size: 12px; font-weight: 600; }
+.ticket-detail-modal { width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.ticket-detail-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 4px 0 18px; }
+.ticket-detail-meta > div { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.ticket-detail-meta span { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+.ticket-detail-meta strong { color: var(--text); font-size: 13px; }
+.ticket-detail-meta small { color: var(--text-muted); font-size: 10px; overflow-wrap: anywhere; }
+.ticket-description-block { padding: 14px; margin-bottom: 18px; border-left: 2px solid var(--accent); background: var(--bg); border-radius: 0 8px 8px 0; }
+.ticket-description-block p { margin: 7px 0 0; color: var(--text-body); font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+.ticket-detail-actions { justify-content: space-between; }
+
+/* ---- Outbox threads ---- */
+.segmented-control { display: inline-flex; padding: 3px; gap: 3px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg); }
+.segmented-control button { border: 0; border-radius: 5px; padding: 6px 11px; background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.segmented-control button.is-active { color: var(--text); background: var(--surface-raised); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset; }
+.segmented-control button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.email-thread-panel { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.email-thread-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.email-thread-head h3 { margin: 2px 0 0; font-size: 16px; color: var(--text); }
+.email-thread-head p { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); }
+.email-thread-panel .email-thread-messages { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 16px 18px 18px; }
+.email-thread-message { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: default; }
+.email-thread-message > div { display: flex; justify-content: space-between; gap: 12px; }
+.email-thread-message strong { color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.email-thread-message span { color: var(--text-muted); font-size: 10px; }
+.email-thread-message p { margin: 0; color: var(--text-body); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .catalog-metric-strip, .ticket-metric-strip, .outbox-metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .catalog-metric-strip > div:nth-child(2), .ticket-metric-strip > div:nth-child(2), .outbox-metric-strip > div:nth-child(2) { border-right: 0; }
+  .catalog-metric-strip > div:nth-child(-n+2), .ticket-metric-strip > div:nth-child(-n+2), .outbox-metric-strip > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .list-summary-hint { display: none; }
+  .ticket-detail-meta { grid-template-columns: 1fr; }
+  .catalog-toolbar-controls { width: 100%; flex-wrap: wrap; }
+  .company-card-actions { flex-wrap: wrap; }
+  .email-thread-head { flex-direction: column; }
+}
+/* ---- Shared list and record views ---- */
+.toolbar-subtitle { margin-top: 2px; font-size: 12px; color: var(--text-muted); }
+.list-summary-strip { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; padding: 11px 14px; border-bottom: 1px solid var(--border); background: color-mix(in srgb, var(--surface) 82%, transparent); font-size: 12px; color: var(--text-muted); }
+.list-summary-strip strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.list-summary-hint { margin-left: auto; }
+.crm-filter-select { appearance: none; min-height: 38px; padding: 8px 30px 8px 12px; border: 1px solid var(--border-strong); border-radius: 8px; background-color: var(--surface); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23888' stroke-width='1.5'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 11px center; color: var(--text); font: inherit; font-size: 12px; cursor: pointer; }
+.crm-filter-select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.text-muted { color: var(--text-muted); }
+
+/* ---- Company cards ---- */
+.company-card-body { display: flex; flex-direction: column; gap: 6px; margin-top: 12px; color: var(--text-body); font-size: 13px; }
+.company-domain-link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.company-metrics { display: flex; gap: 10px; margin-top: 8px; padding: 10px 12px; background: rgba(0, 0, 0, 0.24); border: 1px solid var(--border); border-radius: 8px; }
+.company-metrics > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.company-metrics span { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+.company-metrics strong { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+.company-created { margin-top: 4px; font-size: 11px; color: var(--text-muted); }
+.company-card-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+/* ---- Catalog ---- */
+.catalog-toolbar-controls { align-items: center; }
+.catalog-metric-strip, .ticket-metric-strip, .outbox-metric-strip { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.catalog-metric-strip > div, .ticket-metric-strip > div, .outbox-metric-strip > div { display: flex; flex-direction: column; gap: 3px; padding: 14px 16px; border-right: 1px solid var(--border); }
+.catalog-metric-strip > div:last-child, .ticket-metric-strip > div:last-child, .outbox-metric-strip > div:last-child { border-right: 0; }
+.catalog-metric-strip span, .ticket-metric-strip span, .outbox-metric-strip span { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
+.catalog-metric-strip strong, .ticket-metric-strip strong, .outbox-metric-strip strong { color: var(--text); font-size: 21px; line-height: 1; font-variant-numeric: tabular-nums; }
+.catalog-item-name { display: flex; flex-direction: column; gap: 3px; min-width: 180px; }
+.catalog-item-name strong { color: var(--text); font-size: 13px; }
+.catalog-item-name span { color: var(--text-muted); font-size: 11px; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catalog-type-pill, .catalog-status-pill { display: inline-flex; align-items: center; padding: 3px 8px; border-radius: 5px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.catalog-type-pill.is-service { background: rgba(96, 165, 250, 0.14); color: #8ec5ff; }
+.catalog-type-pill.is-product { background: rgba(240, 255, 96, 0.12); color: var(--accent); }
+.catalog-status-pill.is-active { background: rgba(34, 197, 94, 0.13); color: #4ade80; }
+.catalog-status-pill.is-archived { background: rgba(255, 255, 255, 0.07); color: var(--text-muted); }
+.catalog-sku { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; color: var(--accent); }
+.catalog-row-actions { display: inline-flex; align-items: center; gap: 6px; }
+
+/* ---- Tickets ---- */
+.ticket-subject-cell, .ticket-requester-cell { display: flex; flex-direction: column; gap: 2px; }
+.ticket-subject-cell > span, .ticket-requester-cell span { color: var(--text-muted); font-size: 11px; }
+.ticket-requester-cell strong { color: var(--text); font-size: 12px; font-weight: 600; }
+.ticket-detail-modal { width: min(680px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; }
+.ticket-detail-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 4px 0 18px; }
+.ticket-detail-meta > div { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.ticket-detail-meta span { color: var(--text-muted); font-size: 10px; text-transform: uppercase; letter-spacing: 0.07em; }
+.ticket-detail-meta strong { color: var(--text); font-size: 13px; }
+.ticket-detail-meta small { color: var(--text-muted); font-size: 10px; overflow-wrap: anywhere; }
+.ticket-description-block { padding: 14px; margin-bottom: 18px; border-left: 2px solid var(--accent); background: var(--bg); border-radius: 0 8px 8px 0; }
+.ticket-description-block p { margin: 7px 0 0; color: var(--text-body); font-size: 13px; line-height: 1.65; white-space: pre-wrap; }
+.ticket-detail-actions { justify-content: space-between; }
+
+/* ---- Outbox threads ---- */
+.segmented-control { display: inline-flex; padding: 3px; gap: 3px; border: 1px solid var(--border-strong); border-radius: 8px; background: var(--bg); }
+.segmented-control button { border: 0; border-radius: 5px; padding: 6px 11px; background: transparent; color: var(--text-muted); font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.segmented-control button.is-active { color: var(--text); background: var(--surface-raised); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset; }
+.segmented-control button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.email-thread-panel { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); overflow: hidden; }
+.email-thread-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 16px 18px; border-bottom: 1px solid var(--border); }
+.email-thread-head h3 { margin: 2px 0 0; font-size: 16px; color: var(--text); }
+.email-thread-head p { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); }
+.email-thread-panel .email-thread-messages { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 16px 18px 18px; }
+.email-thread-message { display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); cursor: default; }
+.email-thread-message > div { display: flex; justify-content: space-between; gap: 12px; }
+.email-thread-message strong { color: var(--text); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+.email-thread-message span { color: var(--text-muted); font-size: 10px; }
+.email-thread-message p { margin: 0; color: var(--text-body); font-size: 12px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+@media (max-width: 760px) {
+  .catalog-metric-strip, .ticket-metric-strip, .outbox-metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .catalog-metric-strip > div:nth-child(2), .ticket-metric-strip > div:nth-child(2), .outbox-metric-strip > div:nth-child(2) { border-right: 0; }
+  .catalog-metric-strip > div:nth-child(-n+2), .ticket-metric-strip > div:nth-child(-n+2), .outbox-metric-strip > div:nth-child(-n+2) { border-bottom: 1px solid var(--border); }
+  .list-summary-hint { display: none; }
+  .ticket-detail-meta { grid-template-columns: 1fr; }
+  .catalog-toolbar-controls { width: 100%; flex-wrap: wrap; }
+  .company-card-actions { flex-wrap: wrap; }
+  .email-thread-head { flex-direction: column; }
+}

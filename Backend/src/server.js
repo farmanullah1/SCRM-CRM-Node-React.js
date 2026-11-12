@@ -49,9 +49,27 @@ app.use(
   })
 );
 
+const configuredOrigins = (process.env.CORS_ORIGINS || process.env.APP_URL || "")
+  .split(",")
+  .map((origin) => origin.trim().replace(/\/$/, ""))
+  .filter(Boolean);
+const allowedOrigins = new Set([
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  ...configuredOrigins
+]);
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      // Non-browser clients and same-origin reverse-proxy requests have no Origin header.
+      if (!origin || allowedOrigins.has(origin.replace(/\/$/, ""))) {
+        return callback(null, true);
+      }
+      const error = new Error("This origin is not allowed to access the SCRM API.");
+      error.status = 403;
+      return callback(error);
+    },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"]

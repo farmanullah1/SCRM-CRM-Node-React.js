@@ -148,9 +148,20 @@ export const updateAccessRole = async ({ id, data }) => (await API.put(`/access/
 export const cloneAccessRole = async ({ id, data }) => (await API.post(`/access/roles/${id}/clone`, data)).data;
 export const deleteAccessRole = async (id) => (await API.delete(`/access/roles/${id}`)).data;
 export const getAccessAudit = async (params = {}) => (await API.get("/access/audit", { params })).data;
+export const exportAuditLog = async () => {
+  const response = await API.get("/access/audit/export", { responseType: "blob" });
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `scrm-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
 
 // Companies
-export const getCompanies = async () => (await API.get("/companies")).data.companies;
+export const getCompanies = async (params = {}) => (await API.get("/companies", { params })).data;
 export const getCompanyById = async (id) => (await API.get(`/companies/${id}`)).data;
 export const createCompany = async (data) => (await API.post("/companies", data)).data;
 export const updateCompany = async ({ id, data }) => (await API.put(`/companies/${id}`, data)).data;
@@ -225,6 +236,7 @@ export const deleteTicket = async (id) => (await API.delete(`/tickets/${id}`)).d
 // Email Communications & Templates
 export const getEmailTemplates = async () => (await API.get("/emails/templates")).data;
 export const getEmailLogs = async () => (await API.get("/emails")).data;
+export const getEmailThreads = async () => (await API.get("/emails/threads")).data;
 export const sendEmail = async (data) => (await API.post("/emails/send", data)).data;
 
 // WhatsApp integration

@@ -10,7 +10,7 @@ The repository now includes a deployable Express + SQL Server target:
 ## First deployment
 
 1. Copy `.env.production.example` to `.env` and set long random values for `MSSQL_SA_PASSWORD` and `JWT_SECRET`.
-2. Set `APP_URL` and `BACKEND_URL` to the public HTTPS origin.
+2. Set `APP_URL` and `BACKEND_URL` to the public HTTPS origin. Set `CORS_ORIGINS` to the exact comma-separated frontend origin(s); unknown origins are rejected instead of reflected.
 3. Set SMTP, Google client ID and ImageKit keys.
 4. Run `docker compose up -d --build`.
 5. Open `http://<server>:8080` (or the port in `HTTP_PORT`) and complete the first-run admin setup.

@@ -8,10 +8,13 @@ import { canViewAll, canViewRecord, canEditRecord, canDeleteAll } from "../servi
 const router = express.Router();
 router.use(authenticateToken);
 
-// GET /api/contacts - list contacts with search indexing and tag filtering
+// GET /api/contacts - list contacts with search, filtering and opt-in pagination
 router.get("/", requirePermission("contacts.view"), async (req, res) => {
   try {
     const { search, status, leadSource, tag, companyId } = req.query;
+    const wantsPagination = req.query.page !== undefined || req.query.limit !== undefined;
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 25));
     const whereClause = {};
 
     if (!canViewAll(req.user)) {
@@ -54,16 +57,33 @@ router.get("/", requirePermission("contacts.view"), async (req, res) => {
       whereClause[Op.and] = conditions;
     }
 
-    const contacts = await Contact.findAll({
+    const query = {
       where: whereClause,
       include: [
         { model: Company, attributes: ["id", "name", "domain"] },
         { model: User, attributes: ["id", "name", "email"] }
       ],
       order: [["id", "DESC"]]
+    };
+
+    if (!wantsPagination) {
+      return res.json(await Contact.findAll(query));
+    }
+
+    const { count, rows } = await Contact.findAndCountAll({
+      ...query,
+      distinct: true,
+      limit,
+      offset: (page - 1) * limit
     });
 
-    res.json(contacts);
+    res.json({
+      contacts: rows,
+      totalCount: count,
+      page,
+      pageSize: limit,
+      totalPages: Math.max(1, Math.ceil(count / limit))
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch contacts", details: err.message });
   }

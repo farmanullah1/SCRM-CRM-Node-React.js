@@ -8,24 +8,60 @@ import { hasPermission } from "../permissions.js";
 const router = express.Router();
 router.use(authenticateToken);
 
-// GET /api/companies - List all companies with associated contact count and total deal value
+// GET /api/companies - List companies with contact counts, values and pagination
 router.get("/", requirePermission("companies.view"), async (req, res) => {
   try {
-    const companies = await Company.findAll({
+    const search = String(req.query.search || "").trim();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit) || 24));
+    const where = search
+      ? {
+          [Op.or]: [
+            { name: { [Op.like]: `%${search}%` } },
+            { domain: { [Op.like]: `%${search}%` } },
+            { phone: { [Op.like]: `%${search}%` } },
+            { address: { [Op.like]: `%${search}%` } }
+          ]
+        }
+      : {};
+
+    const { count, rows: companies } = await Company.findAndCountAll({
+      where,
       include: [
         {
           model: Contact,
           attributes: ["id", "value"]
         }
       ],
-      order: [["name", "ASC"]]
+      distinct: true,
+      order: [["name", "ASC"]],
+      limit,
+      offset: (page - 1) * limit
     });
+
+    const pageContactIds = companies.flatMap((company) =>
+      (company.Contacts || []).map((contact) => contact.id)
+    );
+    const deals = pageContactIds.length
+      ? await Deal.findAll({
+          where: { contact_id: { [Op.in]: pageContactIds } },
+          attributes: ["contact_id", "value"]
+        })
+      : [];
+    const dealValueByContact = deals.reduce((totals, deal) => {
+      const key = Number(deal.contact_id);
+      totals.set(key, (totals.get(key) || 0) + (Number(deal.value) || 0));
+      return totals;
+    }, new Map());
 
     const enriched = companies.map(c => {
       const plain = c.toJSON();
       const contactList = plain.Contacts || [];
       const contactCount = contactList.length;
-      const totalDealValue = contactList.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+      const totalDealValue = contactList.reduce(
+        (sum, contact) => sum + (dealValueByContact.get(Number(contact.id)) || 0),
+        0
+      );
       return {
         ...plain,
         contactCount,
@@ -33,7 +69,13 @@ router.get("/", requirePermission("companies.view"), async (req, res) => {
       };
     });
 
-    res.json({ companies: enriched });
+    res.json({
+      companies: enriched,
+      totalCount: count,
+      page,
+      pageSize: limit,
+      totalPages: Math.max(1, Math.ceil(count / limit))
+    });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch companies", details: err.message });
   }
