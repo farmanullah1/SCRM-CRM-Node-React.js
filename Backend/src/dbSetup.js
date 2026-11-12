@@ -470,6 +470,12 @@ export async function ensureDatabaseAndSchema() {
       BEGIN
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'tracking_pixel_id')
           ALTER TABLE [email_logs] ADD [tracking_pixel_id] NVARCHAR(100) NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'thread_id')
+        ALTER TABLE [email_logs] ADD [thread_id] NVARCHAR(160) NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'in_reply_to')
+        ALTER TABLE [email_logs] ADD [in_reply_to] NVARCHAR(160) NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'direction')
+        ALTER TABLE [email_logs] ADD [direction] NVARCHAR(20) DEFAULT 'Outbound';
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'is_opened')
           ALTER TABLE [email_logs] ADD [is_opened] BIT DEFAULT 0;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'opened_at')

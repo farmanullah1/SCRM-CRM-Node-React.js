@@ -1,8 +1,9 @@
 import express from "express";
 import { Op } from "sequelize";
-import { Company, Contact, Deal } from "../db.js";
+import { Company, Contact, Deal, Invoice, Ticket, FileAttachment } from "../db.js";
 import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
 import { sanitizeString } from "../middleware/security.js";
+import { hasPermission } from "../permissions.js";
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -77,7 +78,24 @@ router.get("/:id", requirePermission("companies.view"), async (req, res) => {
         .reduce((sum, deal) => sum + (Number(deal.value) || 0), 0)
     };
 
-    res.json({ company, contacts, deals, totals });
+    const effective = req.user.effectivePermissions || req.user.permissions;
+    const relatedWhere = {
+      [Op.or]: [
+        { companyId: company.id },
+        ...(contactIds.length ? [{ contactId: { [Op.in]: contactIds } }] : [])
+      ]
+    };
+    const invoices = hasPermission(effective, "invoices.view")
+      ? await Invoice.findAll({ where: relatedWhere, order: [["createdAt", "DESC"]], limit: 100 })
+      : [];
+    const tickets = hasPermission(effective, "tickets.view")
+      ? await Ticket.findAll({ where: relatedWhere, order: [["createdAt", "DESC"]], limit: 100 })
+      : [];
+    const attachments = hasPermission(effective, "attachments.view")
+      ? await FileAttachment.findAll({ where: { entity_type: "Company", entity_id: company.id }, order: [["id", "DESC"]] })
+      : [];
+
+    res.json({ company, contacts, deals, invoices, tickets, attachments, totals });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch company details", details: err.message });
   }

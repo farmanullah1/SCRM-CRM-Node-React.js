@@ -6,6 +6,8 @@ import WorkspaceShell from "../components/WorkspaceShell";
 import SettingsView from "../components/SettingsView";
 import ConfirmDialog from "../components/ConfirmDialog";
 import SavedViewsBar from "../components/SavedViewsBar";
+import AttachmentsPanel from "../components/AttachmentsPanel";
+import ForecastPanel from "../components/ForecastPanel";
 import useModalAccessibility from "../hooks/useModalAccessibility";
 import { 
   UserPlus, 
@@ -236,6 +238,8 @@ export default function Dashboard() {
 
   // Standalone Lead Management State
   const [leadSearchTerm, setLeadSearchTerm] = useState("");
+  const [leadPage, setLeadPage] = useState(1);
+  const leadPageSize = 25;
   const [leadStatusFilter, setLeadStatusFilter] = useState("All");
   const [isLeadModalOpen, setIsLeadModalOpen] = useState(false);
   const [editingLead, setEditingLead] = useState(null);
@@ -342,10 +346,11 @@ export default function Dashboard() {
 
   // Queries
   const { data: leadsData = { leads: [], totalCount: 0 }, refetch: refetchLeads } = useQuery({
-    queryKey: ["leads", { status: leadStatusFilter, search: leadSearchTerm }],
-    queryFn: () => getLeads({ status: leadStatusFilter, search: leadSearchTerm })
+    queryKey: ["leads", { status: leadStatusFilter, search: leadSearchTerm, page: leadPage }],
+    queryFn: () => getLeads({ status: leadStatusFilter, search: leadSearchTerm, page: leadPage, limit: leadPageSize })
   });
   const leads = Array.isArray(leadsData) ? leadsData : (leadsData.leads || []);
+  const leadTotalPages = Array.isArray(leadsData) ? 1 : (leadsData.totalPages || 1);
 
   const { data: contacts = [], isLoading: isContactsLoading, refetch: refetchContacts } = useQuery({
     queryKey: ["contacts", { search: searchTerm, status: statusFilter, leadSource: leadSourceFilter }],
@@ -463,6 +468,8 @@ export default function Dashboard() {
   const companyRecord = companyRecordData?.company;
   const companyContacts = companyRecordData?.contacts || [];
   const companyDeals = companyRecordData?.deals || [];
+  const companyInvoices = companyRecordData?.invoices || [];
+  const companyTickets = companyRecordData?.tickets || [];
   const companyTotals = companyRecordData?.totals || {};
 
   // Deal create/edit modal
@@ -1497,12 +1504,12 @@ export default function Dashboard() {
                   type="text" 
                   placeholder="Search lead name, email, company..." 
                   value={leadSearchTerm} 
-                  onChange={e => setLeadSearchTerm(e.target.value)} 
+                  onChange={e => { setLeadSearchTerm(e.target.value); setLeadPage(1); }}
                 />
               </div>
 
               <div className="filters-row">
-                <select value={leadStatusFilter} onChange={e => setLeadStatusFilter(e.target.value)}>
+                <select value={leadStatusFilter} onChange={e => { setLeadStatusFilter(e.target.value); setLeadPage(1); }}>
                   <option value="All">All Lead Statuses</option>
                   <option value="New">New</option>
                   <option value="Contacted">Contacted</option>
@@ -1542,6 +1549,7 @@ export default function Dashboard() {
               onApply={(query) => {
                 setLeadSearchTerm(query.search || "");
                 setLeadStatusFilter(query.status || "All");
+                setLeadPage(1);
               }}
             />
 
@@ -1680,6 +1688,15 @@ export default function Dashboard() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+            {leadTotalPages > 1 && (
+              <div className="pagination-bar">
+                <span>Page {leadPage} of {leadTotalPages} · {leadsData.totalCount} leads</span>
+                <div>
+                  <button type="button" className="btn-ghost-dark small" disabled={leadPage <= 1} onClick={() => setLeadPage((page) => Math.max(1, page - 1))}>Previous</button>
+                  <button type="button" className="btn-ghost-dark small" disabled={leadPage >= leadTotalPages} onClick={() => setLeadPage((page) => page + 1)}>Next</button>
+                </div>
               </div>
             )}
           </div>
@@ -1868,6 +1885,8 @@ export default function Dashboard() {
                 <span>New Deal</span>
               </button>
             </div>
+
+            <ForecastPanel />
 
             <div className="pipeline-kanban-board">
               {STAGES.map(stage => {
@@ -3205,6 +3224,35 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                <div className="contact-detail-columns">
+                  <div>
+                    <h4 className="contact-detail-section-title">Invoices ({companyInvoices.length})</h4>
+                    <div className="contact-detail-list">
+                      {companyInvoices.map((invoice) => (
+                        <button type="button" className="contact-detail-item link-item" key={invoice.id} onClick={() => setSelectedInvoice(invoice)}>
+                          <span><strong>{invoice.invoiceNumber}</strong><br />{invoice.status}</span>
+                          <span>${(Number(invoice.amount) || 0).toLocaleString()}</span>
+                        </button>
+                      ))}
+                      {companyInvoices.length === 0 && <div className="empty-state-notice">No invoices or quotes for this company.</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="contact-detail-section-title">Tickets ({companyTickets.length})</h4>
+                    <div className="contact-detail-list">
+                      {companyTickets.map((ticket) => (
+                        <div className="contact-detail-item" key={ticket.id}>
+                          <span><strong>{ticket.subject}</strong><br />{ticket.ticketNumber}</span>
+                          <span>{ticket.status}</span>
+                        </div>
+                      ))}
+                      {companyTickets.length === 0 && <div className="empty-state-notice">No tickets for this company.</div>}
+                    </div>
+                  </div>
+                </div>
+
+                <AttachmentsPanel entityType="Company" entityId={companyRecord.id} title="Company attachments" />
+
                 <div className="contact-detail-actions">
                   <button className="btn-ghost-dark small" onClick={() => {
                     setEditingContact(contactDetail);
@@ -3937,12 +3985,17 @@ export default function Dashboard() {
               <div><span>Subtotal</span><span>${(Number(selectedInvoice.subtotal) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               <div><span>Tax ({Number(selectedInvoice.tax_rate) || 0}%)</span><span>${(Number(selectedInvoice.tax_amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               <div className="invoice-total-row"><span>Total</span><span>${(Number(selectedInvoice.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div><span>Paid / credited</span><span>$${((Number(selectedInvoice.amount_paid) || 0) + (Number(selectedInvoice.credit_amount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div className="invoice-total-row"><span>Balance due</span><span>${(Number(selectedInvoice.balance ?? selectedInvoice.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             </div>
 
             {selectedInvoice.notes && <p className="invoice-notes">{selectedInvoice.notes}</p>}
 
+            <AttachmentsPanel entityType="Invoice" entityId={selectedInvoice.id} title="Invoice attachments" />
+
             <div className="modal-footer-btns invoice-detail-actions">
               <button className="btn-ghost-dark" onClick={() => printInvoice(selectedInvoice)}><FileText size={15} /> Print</button>
+              <button className="btn-ghost-dark" onClick={() => downloadInvoicePdf(selectedInvoice).catch((err) => showToast(err.response?.data?.error || "The PDF could not be generated."))}><Download size={15} /> PDF</button>
               <button className="btn-ghost-dark" onClick={() => openEditInvoice(selectedInvoice)}><Edit3 size={15} /> Edit</button>
               {selectedInvoice.status === "Draft" && (
                 <button className="btn-ghost-dark" onClick={() => invoiceStatusMutation.mutate({ id: selectedInvoice.id, data: { status: "Sent" } })}>Mark sent</button>
@@ -4456,6 +4509,23 @@ export default function Dashboard() {
               <div><strong>Subject:</strong> {selectedOutboxEmail.subject}</div>
               <div><strong>Template:</strong> <span className="tag-pill">{selectedOutboxEmail.template_name || "Custom"}</span></div>
               <div><strong>Sent At:</strong> {new Date(selectedOutboxEmail.createdAt).toLocaleString()}</div>
+              {selectedOutboxEmail.thread_id && (
+                <div className="email-thread-summary">
+                  <strong>Conversation:</strong> {emailLogs.filter(em => em.thread_id === selectedOutboxEmail.thread_id).length} message(s)
+                  <div className="email-thread-messages">
+                    {emailLogs
+                      .filter(em => em.thread_id === selectedOutboxEmail.thread_id)
+                      .slice()
+                      .reverse()
+                      .map(em => (
+                        <button type="button" key={em.id} className="email-thread-message" onClick={() => setSelectedOutboxEmail(em)}>
+                          <span>{em.subject}</span>
+                          <small>{new Date(em.createdAt).toLocaleString()} · {em.status}</small>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
               <div>
                 <strong>Telemetry Receipt:</strong>{" "}
                 {selectedOutboxEmail.is_opened ? (

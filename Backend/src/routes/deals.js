@@ -105,6 +105,64 @@ router.get("/metrics", requirePermission(["deals.view", "reports.view"]), async 
   }
 });
 
+// GET /api/deals/forecast - Weighted pipeline forecast and date-windowed won revenue
+router.get("/forecast", requirePermission("deals.view"), async (req, res) => {
+  try {
+    const where = canViewAll(req.user) ? {} : { owner_id: req.user.id };
+    const deals = await Deal.findAll({ where });
+    const probabilities = { New: 0.1, Contacted: 0.2, Qualified: 0.4, Proposal: 0.6, Negotiation: 0.8, Won: 1, Lost: 0 };
+    const months = Math.min(24, Math.max(1, Number(req.query.months) || 6));
+    const now = new Date();
+    const buckets = [];
+    for (let index = 0; index < months; index += 1) {
+      const date = new Date(now.getFullYear(), now.getMonth() + index, 1);
+      buckets.push({ key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`, label: date.toLocaleDateString(undefined, { month: "short", year: "numeric" }), weighted: 0, gross: 0, won: 0, count: 0 });
+    }
+
+    let weightedPipeline = 0;
+    let openPipeline = 0;
+    let wonInWindow = 0;
+    const from = req.query.from ? new Date(req.query.from) : null;
+    const to = req.query.to ? new Date(req.query.to) : null;
+
+    deals.forEach((deal) => {
+      const value = Number(deal.value) || 0;
+      const stage = deal.stage_name || "New";
+      const probability = probabilities[stage] ?? 0.25;
+      if (stage !== "Lost" && stage !== "Won") {
+        openPipeline += value;
+        weightedPipeline += value * probability;
+      }
+      if (stage === "Won") {
+        const closed = new Date(deal.updatedAt || deal.createdAt);
+        if ((!from || closed >= from) && (!to || closed <= to)) wonInWindow += value;
+      }
+      const closeDate = deal.expected_close_date ? new Date(deal.expected_close_date) : null;
+      if (!closeDate) return;
+      const key = `${closeDate.getFullYear()}-${String(closeDate.getMonth() + 1).padStart(2, "0")}`;
+      const bucket = buckets.find((entry) => entry.key === key);
+      if (!bucket) return;
+      if (stage === "Won") bucket.won += value;
+      else if (stage !== "Lost") {
+        bucket.gross += value;
+        bucket.weighted += value * probability;
+        bucket.count += 1;
+      }
+    });
+
+    res.json({
+      months,
+      probabilities,
+      openPipeline: Number(openPipeline.toFixed(2)),
+      weightedPipeline: Number(weightedPipeline.toFixed(2)),
+      wonInWindow: Number(wonInWindow.toFixed(2)),
+      buckets: buckets.map((bucket) => ({ ...bucket, weighted: Number(bucket.weighted.toFixed(2)), gross: Number(bucket.gross.toFixed(2)), won: Number(bucket.won.toFixed(2)) }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to compute forecast", details: err.message });
+  }
+});
+
 // POST /api/deals - Create new deal
 router.post("/", requirePermission("deals.create"), async (req, res) => {
   try {

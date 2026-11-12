@@ -96,6 +96,28 @@ router.get("/", requirePermission("emails.view"), async (req, res) => {
   }
 });
 
+// GET /api/emails/threads - group sent mail into conversations
+router.get("/threads", requirePermission("emails.view"), async (req, res) => {
+  try {
+    const emails = await EmailLog.findAll({ order: [["id", "DESC"]], limit: 500 });
+    const grouped = new Map();
+    emails.forEach((email) => {
+      const key = email.thread_id || `legacy-${email.id}`;
+      if (!grouped.has(key)) grouped.set(key, { threadId: key, subject: email.subject, recipient: email.recipient_email, messages: [] });
+      grouped.get(key).messages.push(email);
+    });
+    const threads = [...grouped.values()].map((thread) => ({
+      ...thread,
+      messageCount: thread.messages.length,
+      lastMessageAt: thread.messages[0]?.createdAt,
+      unread: thread.messages.some((message) => message.direction === "Inbound" && !message.is_opened)
+    }));
+    res.json({ threads });
+  } catch (err) {
+    res.status(500).json({ error: "Failed to load email threads", details: err.message });
+  }
+});
+
 // POST /api/emails/send - send, track, and log an email with branded HTML
 router.post("/send", requirePermission("emails.send"), async (req, res) => {
   try {
@@ -113,6 +135,10 @@ router.post("/send", requirePermission("emails.send"), async (req, res) => {
     }
 
     const trackingPixelId = crypto.randomUUID();
+    const replyTo = req.body.inReplyTo ? sanitizeString(req.body.inReplyTo).slice(0, 160) : null;
+    const threadId = req.body.threadId
+      ? sanitizeString(req.body.threadId).slice(0, 160)
+      : `thread-${contactId || recipientEmail}-${subject.replace(/^(re|fwd):\s*/i, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").slice(0, 60)}`;
 
     // Render into branded SCRM HTML layout
     const formattedBodyHtml = body
@@ -134,7 +160,9 @@ router.post("/send", requirePermission("emails.send"), async (req, res) => {
       userId: req.user.id,
       contactId: contactId ? parseInt(contactId, 10) : null,
       templateName: templateName || "Custom",
-      trackingPixelId
+      trackingPixelId,
+      threadId,
+      inReplyTo: replyTo
     });
 
     // Auto-record interaction in ActivityLog
@@ -148,7 +176,9 @@ router.post("/send", requirePermission("emails.send"), async (req, res) => {
     res.status(201).json({
       message: `Email dispatched successfully to ${recipientEmail}`,
       status: dispatchResult.status,
-      trackingPixelId
+      trackingPixelId,
+      threadId,
+      logId: dispatchResult.logId
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to send email", details: err.message });

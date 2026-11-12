@@ -258,6 +258,9 @@ export const EmailLog = sequelize.define(
     subject: { type: DataTypes.STRING(255), allowNull: false },
     body: { type: DataTypes.TEXT, allowNull: false },
     tracking_pixel_id: { type: DataTypes.STRING(100), allowNull: true },
+    thread_id: { type: DataTypes.STRING(160), allowNull: true },
+    in_reply_to: { type: DataTypes.STRING(160), allowNull: true },
+    direction: { type: DataTypes.STRING(20), defaultValue: "Outbound" },
     is_opened: { type: DataTypes.BOOLEAN, defaultValue: false },
     opened_at: { type: DataTypes.DATE, allowNull: true },
     status: { type: DataTypes.STRING(50), defaultValue: "Sent" }

@@ -182,6 +182,7 @@ export const getAuthUsers = async () => (await API.get("/auth/users")).data;
 export const getPipelineStages = async () => (await API.get("/deals/stages")).data;
 export const getDeals = async (params = {}) => (await API.get("/deals", { params })).data;
 export const getDealMetrics = async () => (await API.get("/deals/metrics")).data;
+export const getDealForecast = async (months = 6) => (await API.get("/deals/forecast", { params: { months } })).data;
 export const createDeal = async (data) => (await API.post("/deals", data)).data;
 export const updateDeal = async ({ id, data }) => (await API.put(`/deals/${id}`, data)).data;
 export const deleteDeal = async (id) => (await API.delete(`/deals/${id}`)).data;

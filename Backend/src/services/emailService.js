@@ -121,7 +121,10 @@ export async function sendEmail({
   userId = null,
   contactId = null,
   templateName = "System",
-  trackingPixelId = null
+  trackingPixelId = null,
+  threadId = null,
+  inReplyTo = null,
+  direction = "Outbound"
 }) {
   const fromAddress = process.env.SMTP_FROM || (process.env.GMAIL_USER ? `"SCRM Enterprise" <${process.env.GMAIL_USER}>` : `"SCRM Team" <noreply@scrm.enterprise>`);
   let status = "Queued";
@@ -165,6 +168,9 @@ export async function sendEmail({
       subject,
       body: text || html.replace(/<[^>]+>/g, " "),
       tracking_pixel_id: trackingPixelId,
+      thread_id: threadId,
+      in_reply_to: inReplyTo,
+      direction,
       status
     });
     if (failure) {
@@ -173,7 +179,7 @@ export async function sendEmail({
       error.logId = log.id;
       throw error;
     }
-    return { success: true, status, logId: log.id };
+    return { success: true, status, logId: log.id, log };
   } catch (dbErr) {
     if (dbErr.status === 502) throw dbErr;
     console.error("[Email Service] Failed to save email log to DB:", dbErr.message);

@@ -1902,3 +1902,54 @@
 .payment-dialog-wide { grid-column: 1 / -1; }
 .payment-dialog .form-error { margin-top: 12px; font-size: 12px; color: var(--danger); }
 @media (max-width: 520px) { .payment-dialog-grid { grid-template-columns: 1fr; } }
+
+/* ---- Attachments ---- */
+.attachments-panel { margin-top: 16px; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); padding: 12px 14px; }
+.attachments-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.attachments-head strong { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.attachments-empty { margin: 10px 0 0; font-size: 11px; color: var(--text-muted); }
+.attachments-error { margin: 8px 0 0; font-size: 11px; color: var(--danger); }
+.attachments-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.attachments-list li { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 6px; background: var(--bg); }
+.attachments-list li > svg { color: var(--text-muted); flex: none; }
+.attachments-list a { flex: 1; min-width: 0; text-decoration: none; color: var(--text); }
+.attachments-list a strong { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachments-list a span { display: block; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.attachments-list a:hover strong { color: var(--accent); }
+
+/* ---- Weighted forecast ---- */
+.forecast-panel { border: 1px solid var(--border); border-radius: 11px; background: var(--surface); padding: 16px 18px; }
+.forecast-head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+.forecast-eyebrow { margin: 0 0 4px; color: var(--text-muted); font-size: 10px; letter-spacing: 0.12em; font-weight: 700; }
+.forecast-head h3 { margin: 0; font-size: 17px; color: var(--text); }
+.forecast-total { display: grid; grid-template-columns: auto auto; align-items: center; gap: 2px 8px; color: var(--accent); }
+.forecast-total strong { font-size: 20px; letter-spacing: -0.02em; }
+.forecast-total span { grid-column: 2; color: var(--text-muted); font-size: 11px; }
+.forecast-bars { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px; align-items: end; min-height: 170px; margin-top: 20px; }
+.forecast-bar { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.forecast-bar-track { position: relative; display: flex; align-items: flex-end; justify-content: center; width: 100%; height: 100px; border-bottom: 1px solid var(--border); }
+.forecast-bar-gross, .forecast-bar-weighted { width: 58%; border-radius: 4px 4px 0 0; position: absolute; bottom: 0; }
+.forecast-bar-gross { background: var(--surface-raised); border: 1px solid var(--border-strong); }
+.forecast-bar-weighted { width: 34%; background: var(--accent); opacity: 0.85; z-index: 1; }
+.forecast-bar strong { font-size: 11px; color: var(--text); white-space: nowrap; }
+.forecast-bar span { font-size: 10px; color: var(--text-muted); }
+.forecast-bar small { font-size: 9px; color: var(--text-muted); }
+.forecast-legend { display: flex; align-items: center; gap: 6px; margin: 12px 0 0; font-size: 10px; color: var(--text-muted); }
+.legend-swatch { display: inline-block; width: 9px; height: 9px; border-radius: 2px; margin-left: 7px; }
+.legend-swatch.gross { background: var(--surface-raised); border: 1px solid var(--border-strong); }
+.legend-swatch.weighted { background: var(--accent); }
+.forecast-empty { margin: 18px 0 0; color: var(--text-muted); font-size: 12px; }
+@media (max-width: 640px) { .forecast-bars { grid-template-columns: repeat(3, 1fr); } }
+
+/* ---- List pagination ---- */
+.pagination-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 2px 0; font-size: 11px; color: var(--text-muted); }
+.pagination-bar > div { display: flex; gap: 6px; }
+.pagination-bar button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+/* ---- Outbox conversation threads ---- */
+.email-thread-summary { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12px; }
+.email-thread-messages { display: flex; flex-direction: column; gap: 5px; margin-top: 8px; }
+.email-thread-message { display: flex; flex-direction: column; gap: 2px; text-align: left; background: var(--bg); border: 1px solid var(--border); border-radius: 7px; padding: 8px 10px; cursor: pointer; color: var(--text); }
+.email-thread-message:hover { border-color: var(--accent); }
+.email-thread-message span { font-size: 11px; font-weight: 600; }
+.email-thread-message small { font-size: 10px; color: var(--text-muted); }
