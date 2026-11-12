@@ -12,6 +12,7 @@ import {
   Package,
   LifeBuoy,
   Mail,
+  MessageCircle,
   Settings,
   ChevronLeft,
   ChevronRight,
@@ -47,7 +48,8 @@ const GROUPS = [
     items: [
       { to: "/app/tasks", label: "Tasks", icon: CheckSquare, countKey: "tasks", permission: "tasks.view" },
       { to: "/app/activities", label: "Activity Log", icon: Clock3, permission: "activities.view" },
-      { to: "/app/outbox", label: "Outbox", icon: Mail, permission: "emails.view" }
+      { to: "/app/outbox", label: "Outbox", icon: Mail, permission: "emails.view" },
+      { to: "/app/whatsapp", label: "WhatsApp", icon: MessageCircle, permission: "whatsapp.view" }
     ]
   },
   {

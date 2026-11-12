@@ -26,6 +26,8 @@ import attachmentsRouter from "./routes/attachments.js";
 import integrationsRouter from "./routes/integrations.js";
 import catalogRouter from "./routes/catalog.js";
 import webleadsRouter from "./routes/webleads.js";
+import whatsappRouter from "./routes/whatsapp.js";
+import whatsapp from "./whatsapp/service.js";
 import { apiLimiter } from "./middleware/security.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -88,6 +90,7 @@ app.use("/api/attachments", attachmentsRouter);
 app.use("/api/integrations", integrationsRouter);
 app.use("/api/catalog", catalogRouter);
 app.use("/api/site", webleadsRouter);
+app.use("/api/whatsapp", whatsappRouter);
 
 // System Health & Diagnostics Endpoint
 app.get("/health", (req, res) => {
@@ -116,7 +119,8 @@ app.get("/health", (req, res) => {
       "attachments",
       "integrations",
       "catalog_supply",
-      "site_webleads"
+      "site_webleads",
+      "whatsapp"
     ]
   });
 });
@@ -136,9 +140,19 @@ connectDB()
     // Start automated daily backup scheduler
     startDailyBackupScheduler();
 
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`[SCRM Enterprise] Server running securely on http://localhost:${PORT}`);
+      whatsapp.start().catch((err) => console.error("[WhatsApp] Startup failed:", err.message));
     });
+
+    const shutdown = async (signal) => {
+      console.log(`[SCRM Enterprise] ${signal} received, shutting down.`);
+      server.close();
+      await whatsapp.stop().catch(() => null);
+      process.exit(0);
+    };
+    process.once("SIGINT", () => shutdown("SIGINT"));
+    process.once("SIGTERM", () => shutdown("SIGTERM"));
   })
   .catch((err) => {
     console.error("[SCRM Enterprise] Startup failed due to DB connection error:", err);

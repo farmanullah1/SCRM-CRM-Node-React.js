@@ -1953,3 +1953,62 @@
 .email-thread-message:hover { border-color: var(--accent); }
 .email-thread-message span { font-size: 11px; font-weight: 600; }
 .email-thread-message small { font-size: 10px; color: var(--text-muted); }
+
+/* ---- WhatsApp workspace ---- */
+.whatsapp-view { display: flex; flex-direction: column; gap: 16px; }
+.wa-status-card { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; padding: 18px 20px; border: 1px solid var(--border); border-radius: 12px; background: linear-gradient(135deg, var(--surface), var(--bg)); }
+.wa-status-card.is-ready { border-color: color-mix(in srgb, #25d366 45%, var(--border)); }
+.wa-status-main { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.wa-status-icon { display: grid; place-items: center; width: 46px; height: 46px; border-radius: 13px; color: #25d366; background: rgba(37, 211, 102, 0.1); border: 1px solid rgba(37, 211, 102, 0.25); flex: none; }
+.wa-eyebrow { margin: 0 0 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.11em; color: var(--text-muted); text-transform: uppercase; }
+.wa-status-card h2 { margin: 0; font-size: 18px; letter-spacing: -0.02em; }
+.wa-status-detail { margin: 4px 0 0; font-size: 11px; color: var(--text-muted); }
+.wa-status-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.wa-state-pill { display: inline-flex; align-items: center; gap: 6px; padding: 5px 9px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg); color: var(--text-muted); font-size: 10px; font-weight: 600; }
+.wa-state-pill.state-ready { color: #25d366; border-color: rgba(37, 211, 102, 0.35); background: rgba(37, 211, 102, 0.08); }
+.wa-state-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.wa-connect-card { display: grid; grid-template-columns: 260px 1fr; gap: 24px; padding: 22px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); align-items: center; }
+.wa-qr-wrap { display: grid; place-items: center; min-height: 240px; padding: 10px; border-radius: 10px; background: #fff; }
+.wa-qr-wrap img { display: block; border-radius: 6px; }
+.wa-qr-placeholder { display: flex; flex-direction: column; align-items: center; gap: 9px; color: #3a3a3a; text-align: center; padding: 18px; }
+.wa-qr-placeholder p { margin: 0; font-size: 11px; line-height: 1.5; }
+.wa-connect-copy h3 { margin: 0 0 8px; font-size: 16px; }
+.wa-connect-copy ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--text-muted); font-size: 12px; line-height: 1.55; }
+.wa-connect-copy strong { color: var(--text); }
+.wa-note { margin: 9px 0 0; font-size: 11px; line-height: 1.55; color: var(--text-muted); }
+.wa-note.error { color: var(--danger); }
+.wa-grid { display: grid; grid-template-columns: minmax(300px, 0.85fr) minmax(320px, 1.15fr); gap: 16px; align-items: start; }
+.wa-compose-card, .wa-inbox-card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); padding: 16px 18px; }
+.wa-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+.wa-card-head h3 { margin: 0; font-size: 15px; }
+.wa-small-note { font-size: 10px; color: var(--text-muted); }
+.wa-form { display: flex; flex-direction: column; gap: 11px; }
+.wa-form label { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: var(--text-muted); }
+.wa-form input, .wa-form select, .wa-form textarea, .wa-search input { width: 100%; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); padding: 9px 10px; font: inherit; font-size: 12px; outline: none; }
+.wa-form textarea { resize: vertical; min-height: 96px; line-height: 1.55; }
+.wa-form input:focus, .wa-form select:focus, .wa-form textarea:focus, .wa-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.08); }
+.wa-file-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.wa-file-pick { display: inline-flex; align-items: center; gap: 6px; padding: 7px 9px; border: 1px dashed var(--border-strong); border-radius: 7px; cursor: pointer; color: var(--text-muted); font-size: 11px; }
+.wa-file-pick input { display: none; }
+.wa-file-pick span { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wa-file-preview { width: 42px; height: 42px; border-radius: 7px; object-fit: cover; border: 1px solid var(--border); }
+.wa-send-btn { justify-content: center; margin-top: 2px; }
+.wa-alert { margin: 0; padding: 9px 11px; border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 8px; background: rgba(239, 68, 68, 0.08); color: var(--danger); font-size: 11px; line-height: 1.5; }
+.wa-search { display: flex; align-items: center; gap: 7px; margin-bottom: 10px; color: var(--text-muted); }
+.wa-message-list { display: flex; flex-direction: column; gap: 8px; max-height: 470px; overflow-y: auto; padding-right: 3px; }
+.wa-message { border: 1px solid var(--border); border-left: 3px solid var(--border-strong); border-radius: 8px; background: var(--bg); padding: 9px 11px; }
+.wa-message.is-outbound { border-left-color: #25d366; }
+.wa-message-meta { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.wa-message-meta strong { font-size: 11px; }
+.wa-message-meta span { font-size: 9px; color: var(--text-muted); white-space: nowrap; }
+.wa-message p { margin: 5px 0 0; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.wa-message-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 9px; color: var(--text-muted); }
+.wa-delivery { display: inline-flex; align-items: center; gap: 3px; }
+.wa-delivery.read, .wa-delivery.delivered { color: #25d366; }
+.wa-delivery.failed, .wa-delivery.error { color: var(--danger); }
+.wa-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 30px 16px; text-align: center; color: var(--text-muted); }
+.wa-empty p { margin: 0; font-size: 11px; line-height: 1.55; max-width: 280px; }
+.spin { animation: wa-spin 0.8s linear infinite; }
+@keyframes wa-spin { to { transform: rotate(360deg); } }
+@media (max-width: 900px) { .wa-grid { grid-template-columns: 1fr; } .wa-connect-card { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .wa-status-card { align-items: flex-start; } .wa-qr-wrap { width: 100%; } }

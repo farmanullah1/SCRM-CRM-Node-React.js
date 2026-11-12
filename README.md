@@ -70,7 +70,7 @@ SCRM is organized around six foundational operational pillars:
 - **Record Linking**: Tasks linked directly to users, contacts, and deal opportunities.
 
 ### 4. ✉️ SMTP Communications Framework & Automated Triggers
-- **Environment-Driven SMTP**: Robust Nodemailer engine powered by `dotenv` configuration with automated fallback for simulated delivery when credentials are not configured.
+- **Environment-Driven SMTP**: Nodemailer delivery that reports success only after the provider accepts the message; unconfigured or rejected mail surfaces a real error instead of a simulated send.
 - **Visual Identity Branded Templates**: HTML emails featuring dark obsidian headers, warm-olive accents, and high-voltage `#F0FF60` CTA buttons.
 - **Automated System Triggers**:
   - **Account Welcome Workflow**: Dispatched automatically upon user registration with getting started tips.
@@ -79,14 +79,21 @@ SCRM is organized around six foundational operational pillars:
   - **Two-Factor Authentication (2FA)**: Time-limited 6-digit numeric OTP verification codes.
 - **Transparent Tracking Pixel (`1x1 GIF`)**: Embedded zero-cache tracking pixel (`/api/emails/track/:pixelId`) that captures open timestamps and updates UI badges to `✓ Opened (hh:mm)`.
 
-### 5. 📄 Commercial Quotes & Invoices
+### 5. 💬 WhatsApp Workspace
+- **Linked-device session**: Administrators link one WhatsApp number by QR; the authenticated session persists on the server across restarts.
+- **CRM-aware messaging**: Send text or media to a saved contact or any international number, with a serialized queue and anti-spam delay.
+- **Conversation history**: Outbound and inbound messages are logged, matched to contacts by phone, and shown with delivery status in the WhatsApp workspace.
+- **Team controls**: `whatsapp.view` can be granted independently from `whatsapp.send` and `whatsapp.manage`; the QR/session controls are administrator-only.
+- **Inbound alerts**: New messages create in-app notifications and audit entries for the contact owner.
+
+### 6. 📄 Commercial Quotes & Invoices
 - **Billing Generator**: Issues line-item commercial quotes and tax invoices with unique numbers (`INV-XXXXXX`).
 - **Status Lifecycles**: Workflow states tracking `Draft`, `Sent`, `Paid`, `Overdue`, and `Cancelled`.
 
-### 6. 🛟 Customer Support & Incident Queues
+### 7. 🛟 Customer Support & Incident Queues
 - **Support Ticketing**: Customer issue ticketing with urgency weighting (`Low`, `Medium`, `High`, `Urgent`) and lifecycle tracking (`Open`, `In Progress`, `Resolved`, `Closed`).
 
-### 7. 📥 Flexible CSV Import & Export Portability
+### 8. 📥 Flexible CSV Import & Export Portability
 - **Bulk CSV Importer**: Dynamic column mapping for importing large lead sheets without duplicate collisions.
 - **1-Click Data Export**: Immediate CSV and formatted JSON dumps for complete data portability.
 

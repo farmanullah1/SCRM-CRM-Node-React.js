@@ -357,6 +357,27 @@ export const Notification = sequelize.define(
   { tableName: "notifications", timestamps: true }
 );
 
+// WhatsApp conversation log shared by the integrated WhatsApp Web client.
+export const WhatsAppMessage = sequelize.define(
+  "WhatsAppMessage",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    user_id: { type: DataTypes.INTEGER, allowNull: true },
+    contact_id: { type: DataTypes.INTEGER, allowNull: true },
+    direction: { type: DataTypes.STRING(20), allowNull: false },
+    phone: { type: DataTypes.STRING(50), allowNull: true },
+    chat_id: { type: DataTypes.STRING(120), allowNull: true },
+    body: { type: DataTypes.TEXT, allowNull: true },
+    message_type: { type: DataTypes.STRING(40), defaultValue: "chat" },
+    media_mimetype: { type: DataTypes.STRING(120), allowNull: true },
+    media_filename: { type: DataTypes.STRING(255), allowNull: true },
+    status: { type: DataTypes.STRING(40), defaultValue: "Sent" },
+    external_id: { type: DataTypes.STRING(255), allowNull: true },
+    error_message: { type: DataTypes.STRING(1000), allowNull: true }
+  },
+  { tableName: "whatsapp_messages", timestamps: true }
+);
+
 // Support Ticket Model
 export const Ticket = sequelize.define(
   "Ticket",

@@ -683,6 +683,28 @@ export async function ensureDatabaseAndSchema() {
       END
       IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'tickets' AND COLUMN_NAME = 'companyId')
         ALTER TABLE [tickets] ADD [companyId] INT NULL;
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'whatsapp_messages')
+      BEGIN
+        CREATE TABLE [whatsapp_messages] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [user_id] INT NULL,
+          [contact_id] INT NULL,
+          [direction] NVARCHAR(20) NOT NULL,
+          [phone] NVARCHAR(50) NULL,
+          [chat_id] NVARCHAR(120) NULL,
+          [body] NVARCHAR(MAX) NULL,
+          [message_type] NVARCHAR(40) DEFAULT 'chat',
+          [media_mimetype] NVARCHAR(120) NULL,
+          [media_filename] NVARCHAR(255) NULL,
+          [status] NVARCHAR(40) DEFAULT 'Sent',
+          [external_id] NVARCHAR(255) NULL,
+          [error_message] NVARCHAR(1000) NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+        CREATE INDEX [IX_whatsapp_messages_contact] ON [whatsapp_messages] ([contact_id], [id] DESC);
+        CREATE INDEX [IX_whatsapp_messages_external] ON [whatsapp_messages] ([external_id]);
+      END
     `);
 
     console.log("[Database Init] Idempotent schema migration completed successfully!");

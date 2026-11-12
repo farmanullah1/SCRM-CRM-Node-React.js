@@ -21,5 +21,7 @@ Prompt.md
 SCRM_V3_Master_Upgrade_Implementation_Prompt.md
 SCRM_UI_UX_BUGFIX_AND_PRODUCTION_READINESS_PROMPT.md
 SCRM_COMPREHENSIVE_FEATURE_SECURITY_AUTOMATION_INTEGRATION_PROMPT.md
-whatsapp
+/whatsapp/
 client_secret_297135069157-pqb2mtaauqt36semvqamdqr9r7gaq8nq.apps.googleusercontent.com.json
+Backend/.wwebjs_auth/
+Backend/.wwebjs_cache/

@@ -2,5 +2,7 @@ node_modules
 .env
 .env.*
 uploads
+.wwebjs_auth
+.wwebjs_cache
 tests
 *.log

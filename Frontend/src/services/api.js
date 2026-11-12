@@ -227,6 +227,16 @@ export const getEmailTemplates = async () => (await API.get("/emails/templates")
 export const getEmailLogs = async () => (await API.get("/emails")).data;
 export const sendEmail = async (data) => (await API.post("/emails/send", data)).data;
 
+// WhatsApp integration
+export const getWhatsAppStatus = async () => (await API.get("/whatsapp/status")).data;
+export const getWhatsAppQr = async () => (await API.get("/whatsapp/qr")).data;
+export const restartWhatsApp = async () => (await API.post("/whatsapp/session/restart")).data;
+export const logoutWhatsApp = async () => (await API.post("/whatsapp/session/logout")).data;
+export const checkWhatsAppNumber = async (number) => (await API.get(`/whatsapp/check/${encodeURIComponent(number)}`)).data;
+export const getWhatsAppMessages = async (params = {}) => (await API.get("/whatsapp/messages", { params })).data;
+export const sendWhatsAppMessage = async (data) => (await API.post("/whatsapp/send", data)).data;
+export const sendWhatsAppMedia = async (data) => (await API.post("/whatsapp/send-media", data)).data;
+
 // Enterprise Backup & Recovery
 export const createDatabaseSnapshot = async () => (await API.post("/backup/snapshot")).data;
 export const getBackupHistory = async () => (await API.get("/backup/history")).data;

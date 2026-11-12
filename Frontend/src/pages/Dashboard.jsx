@@ -8,6 +8,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import SavedViewsBar from "../components/SavedViewsBar";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import ForecastPanel from "../components/ForecastPanel";
+import WhatsAppPanel from "../components/WhatsAppPanel";
 import useModalAccessibility from "../hooks/useModalAccessibility";
 import { 
   UserPlus, 
@@ -136,6 +137,7 @@ export default function Dashboard() {
     catalog: "catalog",
     tickets: "tickets",
     outbox: "emails",
+    whatsapp: "whatsapp",
     settings: "settings",
     profile: "settings",
     security: "security"
@@ -153,6 +155,7 @@ export default function Dashboard() {
     catalog: "/app/catalog",
     tickets: "/app/tickets",
     emails: "/app/outbox",
+    whatsapp: "/app/whatsapp",
     settings: "/app/settings/profile",
     profile: "/app/settings/profile",
     security: "/app/security"
@@ -174,6 +177,7 @@ export default function Dashboard() {
       "catalog",
       "tickets",
       "outbox",
+      "whatsapp",
       "settings",
       "profile",
       "security"
@@ -2505,6 +2509,10 @@ export default function Dashboard() {
         )}
 
         {/* TAB 9: EMAIL OUTBOX & OPEN TRACKING */}
+        {activeTab === "whatsapp" && (
+          <WhatsAppPanel contacts={contacts} showToast={showToast} />
+        )}
+
         {activeTab === "emails" && (
           <div className="emails-view-stack">
             <div className="toolbar-circuit">

@@ -35,6 +35,7 @@ export const PERMISSION_GROUPS = [
     label: "Communication",
     resources: [
       ["emails", "Email"],
+      ["whatsapp", "WhatsApp"],
       ["tickets", "Tickets"],
       ["attachments", "Attachments"],
       ["media", "Media library"]
@@ -99,7 +100,7 @@ function forResources(resources, actions) {
 
 const CRM = ["leads", "contacts", "companies", "deals", "tasks", "activities"];
 const COMMERCE = ["invoices", "catalog", "payments"];
-const COMMUNICATION = ["emails", "tickets", "attachments", "media"];
+const COMMUNICATION = ["emails", "whatsapp", "tickets", "attachments", "media"];
 
 /**
  * Seed templates. `all` means the role is organisation-owner equivalent.
@@ -159,6 +160,7 @@ export const ROLE_TEMPLATES = {
         "tickets.view", "tickets.create", "tickets.edit",
         "attachments.view", "attachments.create", "attachments.delete",
         "emails.view", "emails.create", "emails.send",
+        "whatsapp.view", "whatsapp.send",
         "reports.view", "forecasts.view", "saved_views.view", "saved_views.create"
       ]
     }
@@ -184,6 +186,7 @@ export const ROLE_TEMPLATES = {
         "contacts.view", "companies.view", "deals.view", "invoices.view",
         "activities.view", "activities.create", "tasks.view", "tasks.create", "tasks.edit",
         "emails.view", "emails.send", "attachments.view", "attachments.create",
+        "whatsapp.view", "whatsapp.send",
         "saved_views.view"
       ]
     }

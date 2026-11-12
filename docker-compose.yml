@@ -43,8 +43,21 @@ services:
       IMAGEKIT_PRIVATE_KEY: ${IMAGEKIT_PRIVATE_KEY:-}
       IMAGEKIT_URL_ENDPOINT: ${IMAGEKIT_URL_ENDPOINT:-}
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      WHATSAPP_ENABLED: ${WHATSAPP_ENABLED:-true}
+      WA_SESSION_DIR: /app/.wwebjs_auth
+      WA_CHROME_PATH: /usr/bin/chromium
+      WA_HEADLESS: ${WA_HEADLESS:-true}
+      WA_DEFAULT_COUNTRY_CODE: ${WA_DEFAULT_COUNTRY_CODE:-}
+      WA_SEND_DELAY_MS: ${WA_SEND_DELAY_MS:-1000}
+      WA_SEND_JITTER_MS: ${WA_SEND_JITTER_MS:-500}
+      WA_MAX_QUEUE_SIZE: ${WA_MAX_QUEUE_SIZE:-1000}
+      WA_WATCHDOG_INTERVAL_MS: ${WA_WATCHDOG_INTERVAL_MS:-60000}
+      WA_CAPTURE_GROUPS: ${WA_CAPTURE_GROUPS:-false}
+      WA_CAPTURE_NEWSLETTERS: ${WA_CAPTURE_NEWSLETTERS:-false}
     volumes:
       - uploads_data:/app/uploads
+      - wa_session:/app/.wwebjs_auth
+    shm_size: "1gb"
     depends_on:
       db:
         condition: service_healthy
@@ -65,3 +78,4 @@ services:
 volumes:
   mssql_data:
   uploads_data:
+  wa_session:
