@@ -2,6 +2,7 @@ import { Sequelize } from "sequelize";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import { ROLE_TEMPLATES } from "./permissions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -71,10 +72,22 @@ export async function ensureDatabaseAndSchema() {
         CREATE TABLE [roles] (
           [id] INT IDENTITY(1,1) PRIMARY KEY,
           [role_name] NVARCHAR(50) NOT NULL UNIQUE,
+          [display_name] NVARCHAR(100) NULL,
+          [description] NVARCHAR(500) NULL,
+          [is_system] BIT DEFAULT 0,
           [permissions_json] NVARCHAR(MAX) NOT NULL,
           [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
           [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
+      END
+      ELSE
+      BEGIN
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'roles' AND COLUMN_NAME = 'display_name')
+          ALTER TABLE [roles] ADD [display_name] NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'roles' AND COLUMN_NAME = 'description')
+          ALTER TABLE [roles] ADD [description] NVARCHAR(500) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'roles' AND COLUMN_NAME = 'is_system')
+          ALTER TABLE [roles] ADD [is_system] BIT DEFAULT 0;
       END
     `);
 
@@ -97,6 +110,31 @@ export async function ensureDatabaseAndSchema() {
       END
     `);
 
+    // Seed the expanded role templates without overwriting administrator edits.
+    for (const [roleName, template] of Object.entries(ROLE_TEMPLATES)) {
+      await crmSequelize.query(
+        `IF NOT EXISTS (SELECT * FROM [roles] WHERE [role_name] = :roleName)
+         BEGIN
+           INSERT INTO [roles] ([role_name], [display_name], [description], [is_system], [permissions_json])
+           VALUES (:roleName, :displayName, :description, 1, :permissions);
+         END
+         ELSE
+         BEGIN
+           UPDATE [roles] SET [display_name] = COALESCE([display_name], :displayName),
+             [description] = COALESCE([description], :description), [is_system] = 1
+           WHERE [role_name] = :roleName;
+         END`,
+        {
+          replacements: {
+            roleName,
+            displayName: template.display_name,
+            description: template.description,
+            permissions: JSON.stringify(template.permissions)
+          }
+        }
+      );
+    }
+
     // 2. Users table check & columns migration
     await crmSequelize.query(`
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'users')
@@ -109,6 +147,30 @@ export async function ensureDatabaseAndSchema() {
           [role] NVARCHAR(50) DEFAULT 'admin',
           [role_id] INT NULL,
           [refresh_token] NVARCHAR(500) NULL,
+          [token_version] INT NOT NULL DEFAULT 0,
+          [is_active] BIT NOT NULL DEFAULT 1,
+          [google_id] NVARCHAR(255) NULL,
+          [permission_overrides_json] NVARCHAR(MAX) NULL,
+          [two_factor_enabled] BIT DEFAULT 0,
+          [two_factor_code] NVARCHAR(10) NULL,
+          [two_factor_expires] DATETIMEOFFSET NULL,
+          [two_factor_secret] NVARCHAR(500) NULL,
+          [two_factor_pending_secret] NVARCHAR(500) NULL,
+          [two_factor_attempts] INT NOT NULL DEFAULT 0,
+          [recovery_codes_json] NVARCHAR(MAX) NULL,
+          [phone] NVARCHAR(50) NULL,
+          [company_name] NVARCHAR(150) NULL,
+          [title] NVARCHAR(100) NULL,
+          [avatar_url] NVARCHAR(500) NULL,
+          [cover_url] NVARCHAR(500) NULL,
+          [bio] NVARCHAR(MAX) NULL,
+          [department] NVARCHAR(100) NULL,
+          [country] NVARCHAR(100) NULL,
+          [timezone] NVARCHAR(100) NULL,
+          [language] NVARCHAR(20) NULL,
+          [terms_version] NVARCHAR(20) NULL,
+          [terms_accepted_at] DATETIMEOFFSET NULL,
+          [last_login_at] DATETIMEOFFSET NULL,
           [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
           [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
@@ -143,6 +205,34 @@ export async function ensureDatabaseAndSchema() {
           ALTER TABLE [users] ADD [bio] NVARCHAR(MAX) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'recovery_codes_json')
           ALTER TABLE [users] ADD [recovery_codes_json] NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'token_version')
+          ALTER TABLE [users] ADD [token_version] INT NOT NULL DEFAULT 0;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'is_active')
+          ALTER TABLE [users] ADD [is_active] BIT NOT NULL DEFAULT 1;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'google_id')
+          ALTER TABLE [users] ADD [google_id] NVARCHAR(255) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'permission_overrides_json')
+          ALTER TABLE [users] ADD [permission_overrides_json] NVARCHAR(MAX) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_secret')
+          ALTER TABLE [users] ADD [two_factor_secret] NVARCHAR(500) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_pending_secret')
+          ALTER TABLE [users] ADD [two_factor_pending_secret] NVARCHAR(500) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_attempts')
+          ALTER TABLE [users] ADD [two_factor_attempts] INT NOT NULL DEFAULT 0;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'department')
+          ALTER TABLE [users] ADD [department] NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'country')
+          ALTER TABLE [users] ADD [country] NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'timezone')
+          ALTER TABLE [users] ADD [timezone] NVARCHAR(100) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'language')
+          ALTER TABLE [users] ADD [language] NVARCHAR(20) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'terms_version')
+          ALTER TABLE [users] ADD [terms_version] NVARCHAR(20) NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'terms_accepted_at')
+          ALTER TABLE [users] ADD [terms_accepted_at] DATETIMEOFFSET NULL;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'last_login_at')
+          ALTER TABLE [users] ADD [last_login_at] DATETIMEOFFSET NULL;
       END
     `);
 

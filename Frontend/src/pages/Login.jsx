@@ -2,11 +2,12 @@ import React, { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import BrandLogo from "../components/BrandLogo";
+import GoogleSignInButton from "../components/GoogleSignInButton";
 import { AlertCircle, ArrowRight, Shield, KeyRound, CheckCircle2, ArrowLeft } from "lucide-react";
 import { forgotPassword, resetPassword } from "../services/api";
 
 export default function Login() {
-  const { user, login, complete2FA } = useAuth();
+  const { user, login, complete2FA, completeRecovery, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -22,8 +23,10 @@ export default function Login() {
     }
   }, [user, navigate, returnTo]);
 
-  // Mode: "login" | "2fa" | "forgot"
+  // Mode: "login" | "2fa" | "recovery" | "forgot"
   const [mode, setMode] = useState("login");
+  const [mfaMethod, setMfaMethod] = useState("totp");
+  const [recoveryCode, setRecoveryCode] = useState("");
 
   // Login form state
   const [email, setEmail] = useState("");
@@ -51,8 +54,9 @@ export default function Login() {
       const res = await login(email, password);
       if (res?.twoFactorRequired) {
         setTempToken(res.tempToken);
+        setMfaMethod(res.method || "totp");
         setMode("2fa");
-        setSuccessMsg(res.message || "Enter the 6-digit verification code sent to your email.");
+        setSuccessMsg(res.message || "Complete two-step verification to continue.");
       } else {
         navigate(returnTo, { replace: true });
       }
@@ -73,6 +77,40 @@ export default function Login() {
       navigate(returnTo, { replace: true });
     } catch (err) {
       setError(err.response?.data?.error || "Invalid verification code. Please check your email.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async (credential) => {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await loginWithGoogle(credential);
+      if (res?.twoFactorRequired) {
+        setTempToken(res.tempToken);
+        setMfaMethod(res.method || "totp");
+        setMode("2fa");
+        setSuccessMsg(res.message || "Complete two-step verification to continue.");
+      } else {
+        navigate(returnTo, { replace: true });
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || "Google sign-in could not be completed.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRecoverySubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+    try {
+      await completeRecovery(tempToken, recoveryCode);
+      navigate(returnTo, { replace: true });
+    } catch (err) {
+      setError(err.response?.data?.error || "That recovery code is invalid or already used.");
     } finally {
       setLoading(false);
     }
@@ -126,14 +164,18 @@ export default function Login() {
             <BrandLogo variant="stacked" size={38} showTagline={false} />
           </div>
           <div className="eyebrow" style={{ marginBottom: "0.35rem" }}>
-            {mode === "2fa" ? "SECURITY VERIFICATION" : mode === "forgot" ? "ACCOUNT RECOVERY" : "SCRM ACCESS"}
+            {mode === "2fa" || mode === "recovery" ? "SECURITY VERIFICATION" : mode === "forgot" ? "ACCOUNT RECOVERY" : "SCRM ACCESS"}
           </div>
           <h2 className="auth-circuit-title">
-            {mode === "2fa" ? "Two-Factor Auth" : mode === "forgot" ? "Reset Password" : "Sign In"}
+            {mode === "2fa" ? "Two-step verification" : mode === "recovery" ? "Recovery code" : mode === "forgot" ? "Reset Password" : "Sign In"}
           </h2>
           <p className="auth-circuit-sub">
             {mode === "2fa"
-              ? "Enter the 6-digit OTP code sent to your registered email."
+              ? mfaMethod === "totp"
+                ? "Enter the current 6-digit code from your authenticator app."
+                : "Enter the 6-digit code sent to your registered email."
+              : mode === "recovery"
+              ? "Enter one of the single-use recovery codes you saved when enabling two-step verification."
               : mode === "forgot"
               ? "Recover access to your SCRM workspace."
               : "Enter your credentials to access your CRM workspace."}
@@ -201,6 +243,9 @@ export default function Login() {
               <span>{loading ? "Signing In..." : "Sign In to SCRM"}</span>
               {!loading && <ArrowRight size={18} />}
             </button>
+
+            <div className="auth-divider" role="separator"><span>or continue with</span></div>
+            <GoogleSignInButton onCredential={handleGoogle} disabled={loading} mode="signin" />
           </form>
         )}
 
@@ -227,12 +272,51 @@ export default function Login() {
               {!loading && <Shield size={18} />}
             </button>
 
+            {mfaMethod === "totp" && (
+              <button
+                type="button"
+                onClick={() => { setMode("recovery"); setError(""); setSuccessMsg(""); }}
+                style={{ background: "transparent", border: "none", color: "var(--accent)", fontSize: "13px", width: "100%", marginTop: "0.9rem", cursor: "pointer" }}
+              >
+                Use a recovery code instead
+              </button>
+            )}
+
             <button
               type="button"
               onClick={() => { setMode("login"); setError(""); setSuccessMsg(""); }}
-              style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "13px", width: "100%", marginTop: "1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+              style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "13px", width: "100%", marginTop: "0.65rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
             >
               <ArrowLeft size={14} /> Back to Sign In
+            </button>
+          </form>
+        )}
+
+        {mode === "recovery" && (
+          <form onSubmit={handleRecoverySubmit}>
+            <div className="circuit-form-group" style={{ marginBottom: "1.5rem" }}>
+              <label className="circuit-label">Recovery code</label>
+              <input
+                type="text"
+                required
+                autoFocus
+                autoComplete="one-time-code"
+                className="circuit-input"
+                placeholder="XXXXXX-XXXXXX"
+                value={recoveryCode}
+                onChange={(e) => setRecoveryCode(e.target.value)}
+              />
+            </div>
+            <button type="submit" className="btn-primary-yellow" style={{ width: "100%", height: "48px", justifyContent: "center" }} disabled={loading}>
+              <span>{loading ? "Verifying..." : "Use recovery code"}</span>
+              {!loading && <KeyRound size={18} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setMode("2fa"); setError(""); setSuccessMsg(""); }}
+              style={{ background: "transparent", border: "none", color: "var(--text-muted)", fontSize: "13px", width: "100%", marginTop: "1rem", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}
+            >
+              <ArrowLeft size={14} /> Back to authenticator code
             </button>
           </form>
         )}

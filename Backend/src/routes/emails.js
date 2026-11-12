@@ -1,7 +1,7 @@
 import express from "express";
 import crypto from "crypto";
 import { EmailLog, Contact, ActivityLog } from "../db.js";
-import { authenticateToken, logAudit } from "../middleware/auth.js";
+import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
 import { sanitizeString, isValidEmail } from "../middleware/security.js";
 import emailService, { buildBrandedEmailHtml } from "../services/emailService.js";
 
@@ -80,12 +80,12 @@ const TEMPLATES = [
 router.use(authenticateToken);
 
 // GET /api/emails/templates
-router.get("/templates", (req, res) => {
+router.get("/templates", requirePermission("emails.view"), (req, res) => {
   res.json(TEMPLATES);
 });
 
 // GET /api/emails - sent history with tracking stats
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("emails.view"), async (req, res) => {
   try {
     const emails = await EmailLog.findAll({
       order: [["id", "DESC"]]
@@ -97,7 +97,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/emails/send - send, track, and log an email with branded HTML
-router.post("/send", async (req, res) => {
+router.post("/send", requirePermission("emails.send"), async (req, res) => {
   try {
     let { contactId, recipientEmail, subject, body, templateName } = req.body;
 

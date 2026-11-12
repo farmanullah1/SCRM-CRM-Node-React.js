@@ -3,19 +3,19 @@ import { Op } from "sequelize";
 import { Contact, ActivityLog, Task, Deal, Company, User } from "../db.js";
 import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
 import { sanitizeString, isValidEmail } from "../middleware/security.js";
+import { canViewAll, canViewRecord, canEditRecord, canDeleteAll } from "../services/accessScope.js";
 
 const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/contacts - list contacts with search indexing and tag filtering
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("contacts.view"), async (req, res) => {
   try {
     const { search, status, leadSource, tag, companyId } = req.query;
     const whereClause = {};
 
-    // Standard users view only assigned contacts unless permission granted
-    if (req.user.role === "standard_user" && !req.user.permissions?.view_all) {
-      whereClause[Op.or] = [{ userId: req.user.id }, { owner_id: req.user.id }, { userId: null }];
+    if (!canViewAll(req.user)) {
+      whereClause[Op.or] = [{ userId: req.user.id }, { owner_id: req.user.id }];
     }
 
     const conditions = [];
@@ -70,9 +70,10 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/contacts/duplicates - Automated duplicate detection (email / phone match)
-router.get("/duplicates", async (req, res) => {
+router.get("/duplicates", requirePermission("contacts.view"), async (req, res) => {
   try {
     const contacts = await Contact.findAll({
+      where: canViewAll(req.user) ? {} : { [Op.or]: [{ userId: req.user.id }, { owner_id: req.user.id }] },
       attributes: ["id", "name", "email", "phone", "company", "status", "createdAt"]
     });
 
@@ -120,10 +121,13 @@ router.get("/duplicates", async (req, res) => {
 });
 
 // GET /api/contacts/export - Export contacts data in JSON or CSV
-router.get("/export", async (req, res) => {
+router.get("/export", requirePermission("contacts.export"), async (req, res) => {
   try {
     const format = req.query.format || "csv";
-    const contacts = await Contact.findAll({ order: [["id", "ASC"]] });
+    const contacts = await Contact.findAll({
+      where: canViewAll(req.user) ? {} : { [Op.or]: [{ userId: req.user.id }, { owner_id: req.user.id }] },
+      order: [["id", "ASC"]]
+    });
 
     if (format === "json") {
       res.setHeader("Content-Disposition", 'attachment; filename="scrm_contacts_export.json"');
@@ -156,7 +160,7 @@ router.get("/export", async (req, res) => {
 });
 
 // GET /api/contacts/:id - fetch single contact with full details
-router.get("/:id", async (req, res) => {
+router.get("/:id", requirePermission("contacts.view"), async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id, {
       include: [
@@ -167,7 +171,7 @@ router.get("/:id", async (req, res) => {
       ]
     });
 
-    if (!contact) {
+    if (!contact || !canViewRecord(req.user, contact)) {
       return res.status(404).json({ error: "Contact not found" });
     }
 
@@ -199,7 +203,7 @@ router.get("/:id/activities", async (req, res) => {
 });
 
 // POST /api/contacts - create new contact
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("contacts.create"), async (req, res) => {
   try {
     let { name, first_name, last_name, email, phone, company, company_id, status, value, leadSource, tags, notes, expectedCloseDate, customFields } = req.body;
 
@@ -266,10 +270,10 @@ router.post("/", async (req, res) => {
 });
 
 // POST /api/contacts/:id/convert - 1-Click convert Lead into Contact + Deal
-router.post("/:id/convert", async (req, res) => {
+router.post("/:id/convert", requirePermission("contacts.edit"), async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id);
-    if (!contact) {
+    if (!contact || !canEditRecord(req.user, contact)) {
       return res.status(404).json({ error: "Lead/Contact not found" });
     }
 
@@ -326,7 +330,7 @@ router.post("/:id/convert", async (req, res) => {
 });
 
 // POST /api/contacts/bulk - CSV bulk import with column mapping
-router.post("/bulk", async (req, res) => {
+router.post("/bulk", requirePermission("contacts.create"), async (req, res) => {
   try {
     const { contacts } = req.body;
     if (!Array.isArray(contacts) || contacts.length === 0) {
@@ -380,10 +384,10 @@ router.post("/bulk", async (req, res) => {
 });
 
 // PUT /api/contacts/:id - update contact
-router.put("/:id", async (req, res) => {
+router.put("/:id", requirePermission("contacts.edit"), async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id);
-    if (!contact) {
+    if (!contact || !canEditRecord(req.user, contact)) {
       return res.status(404).json({ error: "Contact not found" });
     }
 
@@ -425,10 +429,10 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/contacts/:id - delete contact
-router.delete("/:id", requirePermission("delete_all"), async (req, res) => {
+router.delete("/:id", requirePermission("contacts.delete"), async (req, res) => {
   try {
     const contact = await Contact.findByPk(req.params.id);
-    if (!contact) {
+    if (!contact || (!canDeleteAll(req.user) && !canEditRecord(req.user, contact))) {
       return res.status(404).json({ error: "Contact not found" });
     }
 
@@ -442,7 +446,7 @@ router.delete("/:id", requirePermission("delete_all"), async (req, res) => {
 });
 
 // POST /api/contacts/merge - Duplicate Merging
-router.post("/merge", async (req, res) => {
+router.post("/merge", requirePermission("contacts.edit"), async (req, res) => {
   try {
     const { primaryId, duplicateId } = req.body;
     if (!primaryId || !duplicateId) {

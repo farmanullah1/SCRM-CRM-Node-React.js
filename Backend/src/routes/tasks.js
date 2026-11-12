@@ -1,20 +1,20 @@
 import express from "express";
 import { Op } from "sequelize";
 import { Task, Contact, User, Deal } from "../db.js";
-import { authenticateToken, logAudit } from "../middleware/auth.js";
+import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
+import { canViewAll, canEditRecord, canDeleteAll } from "../services/accessScope.js";
 import { sanitizeString } from "../middleware/security.js";
 
 const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/tasks - fetch tasks with filters, overdue status, assignment
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("tasks.view"), async (req, res) => {
   try {
     const { status, priority, contactId, dealId, assignedTo, overdue } = req.query;
     const whereClause = {};
 
-    // Standard user restriction: view assigned or created tasks
-    if (req.user.role === "standard_user" && !req.user.permissions?.view_all) {
+    if (!canViewAll(req.user)) {
       whereClause[Op.or] = [
         { userId: req.user.id },
         { assigned_to_user_id: req.user.id }
@@ -93,7 +93,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/tasks - create new task
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("tasks.create"), async (req, res) => {
   try {
     let { title, description, dueDate, priority, status, contactId, dealId, assignedToUserId } = req.body;
 
@@ -106,7 +106,11 @@ router.post("/", async (req, res) => {
 
     const targetContact = contactId ? parseInt(contactId, 10) : null;
     const targetDeal = dealId ? parseInt(dealId, 10) : null;
-    const assignedUser = assignedToUserId ? parseInt(assignedToUserId, 10) : req.user.id;
+    const requestedAssignee = assignedToUserId ? parseInt(assignedToUserId, 10) : req.user.id;
+    if (requestedAssignee !== Number(req.user.id) && !canViewAll(req.user)) {
+      return res.status(403).json({ error: "You can only assign tasks to yourself." });
+    }
+    const assignedUser = requestedAssignee;
 
     const task = await Task.create({
       userId: req.user.id,
@@ -143,10 +147,14 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/tasks/:id - update existing task
-router.put("/:id", async (req, res) => {
+router.put("/:id", requirePermission("tasks.edit"), async (req, res) => {
   try {
     const task = await Task.findByPk(req.params.id);
     if (!task) {
+      return res.status(404).json({ error: "Task not found." });
+    }
+    const isTaskOwner = Number(task.userId) === Number(req.user.id) || Number(task.assigned_to_user_id) === Number(req.user.id);
+    if (!canEditRecord(req.user, task) && !isTaskOwner) {
       return res.status(404).json({ error: "Task not found." });
     }
 
@@ -189,10 +197,14 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/tasks/:id - delete task
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("tasks.delete"), async (req, res) => {
   try {
     const task = await Task.findByPk(req.params.id);
     if (!task) {
+      return res.status(404).json({ error: "Task not found." });
+    }
+    const isTaskOwner = Number(task.userId) === Number(req.user.id) || Number(task.assigned_to_user_id) === Number(req.user.id);
+    if (!canDeleteAll(req.user) && !isTaskOwner) {
       return res.status(404).json({ error: "Task not found." });
     }
 

@@ -1,13 +1,14 @@
 import express from "express";
 import { Deal, Contact, User, PipelineStage, ActivityLog } from "../db.js";
 import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
+import { canViewAll, canEditRecord, canDeleteAll } from "../services/accessScope.js";
 import { sanitizeString } from "../middleware/security.js";
 
 const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/deals/stages - Get all pipeline stages in order
-router.get("/stages", async (req, res) => {
+router.get("/stages", requirePermission("deals.view"), async (req, res) => {
   try {
     const stages = await PipelineStage.findAll({
       order: [["order_index", "ASC"]]
@@ -19,17 +20,14 @@ router.get("/stages", async (req, res) => {
 });
 
 // GET /api/deals - List deals with owner & contact details
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("deals.view"), async (req, res) => {
   try {
     const { stage, ownerId } = req.query;
     const where = {};
     if (stage) where.stage_name = stage;
     if (ownerId) where.owner_id = ownerId;
 
-    // RBAC: Standard users can only view deals they own unless they have view_all
-    if (req.user.role === "standard_user" && !req.user.permissions?.view_all) {
-      where.owner_id = req.user.id;
-    }
+    if (!canViewAll(req.user)) where.owner_id = req.user.id;
 
     const deals = await Deal.findAll({
       where,
@@ -59,13 +57,10 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/deals/metrics - Sales performance & pipeline metrics
-router.get("/metrics", async (req, res) => {
+router.get("/metrics", requirePermission(["deals.view", "reports.view"]), async (req, res) => {
   try {
     // Metrics must honour the same ownership scope as the pipeline listing.
-    const where = {};
-    if (req.user.role === "standard_user" && !req.user.permissions?.view_all) {
-      where.owner_id = req.user.id;
-    }
+    const where = canViewAll(req.user) ? {} : { owner_id: req.user.id };
 
     const deals = await Deal.findAll({ where });
     
@@ -111,7 +106,7 @@ router.get("/metrics", async (req, res) => {
 });
 
 // POST /api/deals - Create new deal
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("deals.create"), async (req, res) => {
   try {
     let { title, value, stage_id, stage_name, expected_close_date, contact_id, owner_id, notes } = req.body;
     title = sanitizeString(title);
@@ -121,7 +116,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ error: "Deal title is required." });
     }
 
-    const assignedOwner = owner_id || req.user.id;
+    const assignedOwner = (canViewAll(req.user) && owner_id) || req.user.id;
     const currentStage = stage_name || "New";
 
     const deal = await Deal.create({
@@ -144,10 +139,13 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/deals/:id - Update deal or transition stage
-router.put("/:id", async (req, res) => {
+router.put("/:id", requirePermission("deals.edit"), async (req, res) => {
   try {
     const deal = await Deal.findByPk(req.params.id);
     if (!deal) {
+      return res.status(404).json({ error: "Deal not found" });
+    }
+    if (!canEditRecord(req.user, deal)) {
       return res.status(404).json({ error: "Deal not found" });
     }
 
@@ -160,7 +158,12 @@ router.put("/:id", async (req, res) => {
     if (stage_name !== undefined) deal.stage_name = stage_name;
     if (expected_close_date !== undefined) deal.expected_close_date = expected_close_date;
     if (contact_id !== undefined) deal.contact_id = contact_id;
-    if (owner_id !== undefined) deal.owner_id = owner_id;
+    if (owner_id !== undefined) {
+      if (!canViewAll(req.user) && Number(owner_id) !== Number(req.user.id)) {
+        return res.status(403).json({ error: "You can only assign deals to yourself." });
+      }
+      deal.owner_id = owner_id;
+    }
     if (notes !== undefined) deal.notes = sanitizeString(notes);
 
     await deal.save();
@@ -183,10 +186,13 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/deals/:id - Delete deal
-router.delete("/:id", requirePermission("delete_all"), async (req, res) => {
+router.delete("/:id", requirePermission("deals.delete"), async (req, res) => {
   try {
     const deal = await Deal.findByPk(req.params.id);
     if (!deal) {
+      return res.status(404).json({ error: "Deal not found" });
+    }
+    if (!canDeleteAll(req.user) && Number(deal.owner_id) !== Number(req.user.id)) {
       return res.status(404).json({ error: "Deal not found" });
     }
 

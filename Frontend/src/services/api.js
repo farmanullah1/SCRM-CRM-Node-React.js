@@ -66,6 +66,15 @@ API.interceptors.response.use(
 // Auth & Users
 export const loginUser = async (credentials) => (await API.post("/auth/login", credentials)).data;
 export const verify2FALogin = async (data) => (await API.post("/auth/2fa/verify", data)).data;
+export const verify2FARecovery = async (data) => (await API.post("/auth/2fa/recovery", data)).data;
+export const get2FAStatus = async () => (await API.get("/auth/2fa/status")).data;
+export const setup2FA = async (data) => (await API.post("/auth/2fa/setup", data)).data;
+export const enable2FA = async (data) => (await API.post("/auth/2fa/enable", data)).data;
+export const disable2FA = async (data) => (await API.post("/auth/2fa/disable", data)).data;
+export const regenerateRecoveryCodes = async (data) => (await API.post("/auth/2fa/recovery-codes", data)).data;
+export const loginWithGoogle = async (data) => (await API.post("/auth/google", data)).data;
+export const linkGoogleAccount = async (data) => (await API.post("/auth/google/link", data)).data;
+export const unlinkGoogleAccount = async (data) => (await API.post("/auth/google/unlink", data)).data;
 export const toggle2FA = async () => (await API.post("/auth/2fa/toggle")).data;
 export const forgotPassword = async (data) => (await API.post("/auth/forgot-password", data)).data;
 export const resetPassword = async (data) => (await API.post("/auth/reset-password", data)).data;
@@ -89,6 +98,18 @@ export const uploadProfileCover = async (file) => {
 export const removeProfileCover = async () => (await API.delete("/auth/profile/cover")).data;
 export const getSmtpStatus = async () => (await API.get("/auth/smtp/status")).data;
 export const sendSmtpTest = async (recipient) => (await API.post("/auth/smtp/test", { recipient })).data;
+
+// Users, roles and permission administration
+export const getAccessCatalog = async () => (await API.get("/access/catalog")).data;
+export const getAccessUsers = async () => (await API.get("/access/users")).data;
+export const getAccessRoles = async () => (await API.get("/access/roles")).data;
+export const updateUserAccess = async ({ id, data }) => (await API.patch(`/access/users/${id}`, data)).data;
+export const revokeUserSessions = async (id) => (await API.post(`/access/users/${id}/revoke-sessions`)).data;
+export const createAccessRole = async (data) => (await API.post("/access/roles", data)).data;
+export const updateAccessRole = async ({ id, data }) => (await API.put(`/access/roles/${id}`, data)).data;
+export const cloneAccessRole = async ({ id, data }) => (await API.post(`/access/roles/${id}/clone`, data)).data;
+export const deleteAccessRole = async (id) => (await API.delete(`/access/roles/${id}`)).data;
+export const getAccessAudit = async (params = {}) => (await API.get("/access/audit", { params })).data;
 
 // Companies
 export const getCompanies = async () => (await API.get("/companies")).data.companies;

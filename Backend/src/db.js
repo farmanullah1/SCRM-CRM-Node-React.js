@@ -40,6 +40,9 @@ export const Role = sequelize.define(
   {
     id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
     role_name: { type: DataTypes.STRING(50), allowNull: false, unique: true },
+    display_name: { type: DataTypes.STRING(100), allowNull: true },
+    description: { type: DataTypes.STRING(500), allowNull: true },
+    is_system: { type: DataTypes.BOOLEAN, defaultValue: false },
     permissions_json: { type: DataTypes.TEXT, allowNull: false }
   },
   { tableName: "roles", timestamps: true }
@@ -63,11 +66,25 @@ export const User = sequelize.define(
     role: { type: DataTypes.STRING(50), defaultValue: "admin" },
     role_id: { type: DataTypes.INTEGER, allowNull: true },
     refresh_token: { type: DataTypes.STRING(500), allowNull: true },
+    token_version: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
+    is_active: { type: DataTypes.BOOLEAN, defaultValue: true, allowNull: false },
+    google_id: { type: DataTypes.STRING(255), allowNull: true },
+    permission_overrides_json: { type: DataTypes.TEXT, allowNull: true },
     two_factor_enabled: { type: DataTypes.BOOLEAN, defaultValue: false },
     two_factor_code: { type: DataTypes.STRING(10), allowNull: true },
     two_factor_expires: { type: DataTypes.DATE, allowNull: true },
+    two_factor_secret: { type: DataTypes.STRING(500), allowNull: true },
+    two_factor_pending_secret: { type: DataTypes.STRING(500), allowNull: true },
+    two_factor_attempts: { type: DataTypes.INTEGER, defaultValue: 0, allowNull: false },
     reset_password_token: { type: DataTypes.STRING(100), allowNull: true },
-    reset_password_expires: { type: DataTypes.DATE, allowNull: true }
+    reset_password_expires: { type: DataTypes.DATE, allowNull: true },
+    department: { type: DataTypes.STRING(100), allowNull: true },
+    country: { type: DataTypes.STRING(100), allowNull: true },
+    timezone: { type: DataTypes.STRING(100), allowNull: true },
+    language: { type: DataTypes.STRING(20), allowNull: true },
+    terms_version: { type: DataTypes.STRING(20), allowNull: true },
+    terms_accepted_at: { type: DataTypes.DATE, allowNull: true },
+    last_login_at: { type: DataTypes.DATE, allowNull: true }
   },
   { tableName: "users", timestamps: true }
 );

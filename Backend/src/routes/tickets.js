@@ -1,15 +1,16 @@
 import express from "express";
 import { Ticket, Contact } from "../db.js";
-import { authenticateToken } from "../middleware/auth.js";
+import { authenticateToken, requirePermission } from "../middleware/auth.js";
+import { canViewAll, canEditAll, canDeleteAll } from "../services/accessScope.js";
 
 const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/tickets - list support tickets
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("tickets.view"), async (req, res) => {
   try {
     const { status, priority } = req.query;
-    const where = { userId: req.user.id };
+    const where = canViewAll(req.user) ? {} : { userId: req.user.id };
     if (status && status !== "All") where.status = status;
     if (priority && priority !== "All") where.priority = priority;
 
@@ -26,7 +27,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/tickets - create ticket
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("tickets.create"), async (req, res) => {
   try {
     const { contactId, subject, description, priority, status } = req.body;
     if (!subject) return res.status(400).json({ error: "Subject is required." });
@@ -49,9 +50,11 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/tickets/:id - update ticket
-router.put("/:id", async (req, res) => {
+router.put("/:id", requirePermission("tickets.edit"), async (req, res) => {
   try {
-    const ticket = await Ticket.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const ticket = await Ticket.findOne({
+      where: canEditAll(req.user) ? { id: req.params.id } : { id: req.params.id, userId: req.user.id }
+    });
     if (!ticket) return res.status(404).json({ error: "Ticket not found" });
 
     const { status, priority, description } = req.body;
@@ -68,9 +71,11 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/tickets/:id - delete ticket
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("tickets.delete"), async (req, res) => {
   try {
-    const ticket = await Ticket.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const ticket = await Ticket.findOne({
+      where: canDeleteAll(req.user) ? { id: req.params.id } : { id: req.params.id, userId: req.user.id }
+    });
     if (!ticket) return res.status(404).json({ error: "Ticket not found" });
     await ticket.destroy();
     res.json({ message: "Ticket deleted successfully", id: Number(req.params.id) });

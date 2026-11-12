@@ -1,6 +1,6 @@
 import express from "express";
 import { Product, Supplier, ActivityLog } from "../db.js";
-import { authenticateToken, requireRole } from "../middleware/auth.js";
+import { authenticateToken, requirePermission } from "../middleware/auth.js";
 import { sanitizeString } from "../middleware/security.js";
 
 const router = express.Router();
@@ -10,7 +10,7 @@ const router = express.Router();
 // -----------------------------------------------------------------------------
 
 // GET /api/catalog/products - List products
-router.get("/products", authenticateToken, async (req, res) => {
+router.get("/products", authenticateToken, requirePermission("catalog.view"), async (req, res) => {
   try {
     const products = await Product.findAll({
       order: [["name", "ASC"]]
@@ -22,7 +22,7 @@ router.get("/products", authenticateToken, async (req, res) => {
 });
 
 // POST /api/catalog/products - Create product
-router.post("/products", authenticateToken, async (req, res) => {
+router.post("/products", authenticateToken, requirePermission("catalog.create"), async (req, res) => {
   try {
     const { name, sku, description, price, cost, unit, category, is_active } = req.body;
     if (!name) {
@@ -55,7 +55,7 @@ router.post("/products", authenticateToken, async (req, res) => {
 });
 
 // PUT /api/catalog/products/:id - Update product
-router.put("/products/:id", authenticateToken, async (req, res) => {
+router.put("/products/:id", authenticateToken, requirePermission("catalog.edit"), async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found." });
@@ -78,7 +78,7 @@ router.put("/products/:id", authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/catalog/products/:id - Remove product (Admin/Manager)
-router.delete("/products/:id", authenticateToken, requireRole(["admin", "manager"]), async (req, res) => {
+router.delete("/products/:id", authenticateToken, requirePermission("catalog.delete"), async (req, res) => {
   try {
     const product = await Product.findByPk(req.params.id);
     if (!product) return res.status(404).json({ error: "Product not found." });

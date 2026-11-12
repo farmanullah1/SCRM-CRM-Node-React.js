@@ -7,7 +7,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/activities - list recent activity logs & audit stream
-router.get("/", async (req, res) => {
+router.get("/", requirePermission(["activities.view", "audit.view"]), async (req, res) => {
   try {
     const { contactId, action, targetType } = req.query;
     const where = {};
@@ -28,7 +28,7 @@ router.get("/", async (req, res) => {
 });
 
 // POST /api/activities - log a call, meeting, note or event manually
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("activities.create"), async (req, res) => {
   try {
     let { contactId, type, title, description, outcome } = req.body;
     title = sanitizeString(title);

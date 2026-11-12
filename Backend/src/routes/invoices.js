@@ -1,6 +1,7 @@
 import express from "express";
 import { Invoice, Contact } from "../db.js";
-import { authenticateToken, logAudit } from "../middleware/auth.js";
+import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
+import { canViewAll, canEditAll, canDeleteAll } from "../services/accessScope.js";
 import { sanitizeString } from "../middleware/security.js";
 
 const router = express.Router();
@@ -61,10 +62,10 @@ const generateInvoiceNumber = (type) =>
   `${type === "Quote" ? "QT" : "INV"}-${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, "0")}-${Date.now().toString().slice(-6)}`;
 
 // GET /api/invoices - list invoices/quotes with contact and payment state
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("invoices.view"), async (req, res) => {
   try {
     const { type, status } = req.query;
-    const where = { userId: req.user.id };
+    const where = canViewAll(req.user) ? {} : { userId: req.user.id };
     if (type && type !== "All") where.type = type;
     if (status && status !== "All") where.status = status;
 
@@ -81,10 +82,10 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/invoices/:id - full invoice record
-router.get("/:id", async (req, res) => {
+router.get("/:id", requirePermission("invoices.view"), async (req, res) => {
   try {
     const invoice = await Invoice.findOne({
-      where: { id: req.params.id, userId: req.user.id },
+      where: canViewAll(req.user) ? { id: req.params.id } : { id: req.params.id, userId: req.user.id },
       include: [{ model: Contact, attributes: ["id", "name", "email", "company", "phone"] }]
     });
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
@@ -95,7 +96,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST /api/invoices - create invoice or quote with server-calculated totals
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("invoices.create"), async (req, res) => {
   try {
     const { contactId, type, status, dueDate, notes, taxRate } = req.body;
     const items = normalizeItems(req.body.items);
@@ -143,9 +144,11 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/invoices/:id - edit document, line items or lifecycle status
-router.put("/:id", async (req, res) => {
+router.put("/:id", requirePermission("invoices.edit"), async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const invoice = await Invoice.findOne({
+      where: canEditAll(req.user) ? { id: req.params.id } : { id: req.params.id, userId: req.user.id }
+    });
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
     const { contactId, type, status, dueDate, notes, taxRate } = req.body;
@@ -206,9 +209,11 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/invoices/:id - remove an invoice or quote
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("invoices.delete"), async (req, res) => {
   try {
-    const invoice = await Invoice.findOne({ where: { id: req.params.id, userId: req.user.id } });
+    const invoice = await Invoice.findOne({
+      where: canDeleteAll(req.user) ? { id: req.params.id } : { id: req.params.id, userId: req.user.id }
+    });
     if (!invoice) return res.status(404).json({ error: "Invoice not found" });
 
     await invoice.destroy();

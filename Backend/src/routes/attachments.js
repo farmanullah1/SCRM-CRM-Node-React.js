@@ -4,7 +4,7 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import { FileAttachment } from "../db.js";
-import { authenticateToken, logAudit } from "../middleware/auth.js";
+import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -34,7 +34,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/attachments/:entityType/:entityId - List files for contact, deal, ticket, etc.
-router.get("/:entityType/:entityId", async (req, res) => {
+router.get("/:entityType/:entityId", requirePermission("attachments.view"), async (req, res) => {
   try {
     const { entityType, entityId } = req.params;
     const attachments = await FileAttachment.findAll({
@@ -48,7 +48,7 @@ router.get("/:entityType/:entityId", async (req, res) => {
 });
 
 // POST /api/attachments/upload - Upload attachment for entity
-router.post("/upload", upload.single("file"), async (req, res) => {
+router.post("/upload", requirePermission("attachments.create"), upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No file provided for upload." });
@@ -84,7 +84,7 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 });
 
 // DELETE /api/attachments/:id - Delete attachment
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", requirePermission("attachments.delete"), async (req, res) => {
   try {
     const attachment = await FileAttachment.findByPk(req.params.id);
     if (!attachment) {

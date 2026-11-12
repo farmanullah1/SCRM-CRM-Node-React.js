@@ -1,15 +1,16 @@
 import express from "express";
 import { Lead, Contact, Company, Deal, ActivityLog, sequelize, Op } from "../db.js";
-import { authenticateToken, logAudit } from "../middleware/auth.js";
+import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
+import { canViewAll, canEditRecord, canDeleteRecord } from "../services/accessScope.js";
 import { sanitizeString, isValidEmail } from "../middleware/security.js";
 
 const router = express.Router();
 
 // GET /api/leads - List leads with search, status filtering, and sorting
-router.get("/", authenticateToken, async (req, res) => {
+router.get("/", authenticateToken, requirePermission("leads.view"), async (req, res) => {
   try {
     const { status, search, page = 1, limit = 50 } = req.query;
-    const where = {};
+    const where = canViewAll(req.user) ? {} : { owner_id: req.user.id };
 
     if (status && status !== "All") {
       where.status = status;
@@ -46,7 +47,7 @@ router.get("/", authenticateToken, async (req, res) => {
 });
 
 // POST /api/leads - Ingest / Create a new lead
-router.post("/", authenticateToken, async (req, res) => {
+router.post("/", authenticateToken, requirePermission("leads.create"), async (req, res) => {
   try {
     let { name, email, phone, company_name, title, source, estimated_value, notes } = req.body;
 
@@ -101,6 +102,9 @@ router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const lead = await Lead.findByPk(req.params.id);
     if (!lead) return res.status(404).json({ error: "Lead not found." });
+    if (!canViewAll(req.user) && Number(lead.owner_id) !== Number(req.user.id)) {
+      return res.status(404).json({ error: "Lead not found." });
+    }
     res.json({ lead });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch lead", details: err.message });
@@ -108,10 +112,11 @@ router.get("/:id", authenticateToken, async (req, res) => {
 });
 
 // PUT /api/leads/:id - Update lead details or status
-router.put("/:id", authenticateToken, async (req, res) => {
+router.put("/:id", authenticateToken, requirePermission("leads.edit"), async (req, res) => {
   try {
     const lead = await Lead.findByPk(req.params.id);
     if (!lead) return res.status(404).json({ error: "Lead not found." });
+    if (!canEditRecord(req.user, lead)) return res.status(404).json({ error: "Lead not found." });
 
     const { name, email, phone, company_name, title, source, status, estimated_value, disqualification_reason, notes } = req.body;
 
@@ -143,10 +148,11 @@ router.put("/:id", authenticateToken, async (req, res) => {
 });
 
 // DELETE /api/leads/:id - Remove lead
-router.delete("/:id", authenticateToken, async (req, res) => {
+router.delete("/:id", authenticateToken, requirePermission("leads.delete"), async (req, res) => {
   try {
     const lead = await Lead.findByPk(req.params.id);
     if (!lead) return res.status(404).json({ error: "Lead not found." });
+    if (!canDeleteRecord(req.user, lead)) return res.status(404).json({ error: "Lead not found." });
 
     const leadInfo = { id: lead.id, name: lead.name, email: lead.email };
     await lead.destroy();
@@ -160,11 +166,15 @@ router.delete("/:id", authenticateToken, async (req, res) => {
 });
 
 // POST /api/leads/:id/convert - Safe, transactional 1-click lead qualification into Contact + Company + Deal
-router.post("/:id/convert", authenticateToken, async (req, res) => {
+router.post("/:id/convert", authenticateToken, requirePermission("leads.edit"), async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const lead = await Lead.findByPk(req.params.id, { transaction });
     if (!lead) {
+      await transaction.rollback();
+      return res.status(404).json({ error: "Lead not found." });
+    }
+    if (!canEditRecord(req.user, lead)) {
       await transaction.rollback();
       return res.status(404).json({ error: "Lead not found." });
     }

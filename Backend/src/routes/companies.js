@@ -8,7 +8,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // GET /api/companies - List all companies with associated contact count and total deal value
-router.get("/", async (req, res) => {
+router.get("/", requirePermission("companies.view"), async (req, res) => {
   try {
     const companies = await Company.findAll({
       include: [
@@ -39,7 +39,7 @@ router.get("/", async (req, res) => {
 });
 
 // GET /api/companies/:id - Company record with linked contacts, deals and totals
-router.get("/:id", async (req, res) => {
+router.get("/:id", requirePermission("companies.view"), async (req, res) => {
   try {
     const company = await Company.findByPk(req.params.id);
     if (!company) {
@@ -84,7 +84,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST /api/companies - Create new company
-router.post("/", async (req, res) => {
+router.post("/", requirePermission("companies.create"), async (req, res) => {
   try {
     let { name, domain, phone, address } = req.body;
     name = sanitizeString(name);
@@ -106,7 +106,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT /api/companies/:id - Update company
-router.put("/:id", async (req, res) => {
+router.put("/:id", requirePermission("companies.edit"), async (req, res) => {
   try {
     const company = await Company.findByPk(req.params.id);
     if (!company) {
@@ -129,7 +129,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE /api/companies/:id - Delete company
-router.delete("/:id", requirePermission("delete_all"), async (req, res) => {
+router.delete("/:id", requirePermission("companies.delete"), async (req, res) => {
   try {
     const company = await Company.findByPk(req.params.id);
     if (!company) {

@@ -124,28 +124,38 @@ export async function sendEmail({
   trackingPixelId = null
 }) {
   const fromAddress = process.env.SMTP_FROM || (process.env.GMAIL_USER ? `"SCRM Enterprise" <${process.env.GMAIL_USER}>` : `"SCRM Team" <noreply@scrm.enterprise>`);
-  let status = "Sent";
+  let status = "Queued";
+  let failure = null;
 
-  if (isSmtpConfigured && transporter) {
+  if (!isSmtpConfigured || !transporter) {
+    status = "Failed";
+    failure = "SMTP is not configured. No message was sent.";
+  } else {
     try {
-      await transporter.sendMail({
+      const info = await transporter.sendMail({
         from: fromAddress,
         to,
         subject,
         text: text || "Please open this email in an HTML compatible mail client.",
         html
       });
-      console.log(`[Email Service] Dispatched live email to ${to}: "${subject}"`);
+      // Several providers accept a message with no accepted recipients. Treat
+      // that as a failure rather than claiming delivery.
+      if (Array.isArray(info.rejected) && info.rejected.length > 0 && (!info.accepted || info.accepted.length === 0)) {
+        status = "Rejected";
+        failure = "The mail provider rejected every recipient.";
+      } else {
+        status = "Accepted";
+        console.log(`[Email Service] Provider accepted message to ${to}: "${subject}"`);
+      }
     } catch (err) {
-      console.warn(`[Email Service] SMTP live dispatch failed for ${to}: ${err.message}. Recording as simulated delivery.`);
-      status = "Sent (Simulated Fallback)";
+      status = "Failed";
+      failure = err.message;
+      console.error(`[Email Service] SMTP dispatch failed for ${to}: ${err.message}`);
     }
-  } else {
-    console.log(`[Email Service] SMTP not configured. Simulated delivery for ${to}: "${subject}"`);
-    status = "Sent (Simulated)";
   }
 
-  // Record in EmailLog table
+  // Record the real outcome. Provider acceptance is not proof of inbox delivery.
   try {
     const log = await EmailLog.create({
       user_id: userId,
@@ -157,9 +167,21 @@ export async function sendEmail({
       tracking_pixel_id: trackingPixelId,
       status
     });
+    if (failure) {
+      const error = new Error(failure);
+      error.status = 502;
+      error.logId = log.id;
+      throw error;
+    }
     return { success: true, status, logId: log.id };
   } catch (dbErr) {
+    if (dbErr.status === 502) throw dbErr;
     console.error("[Email Service] Failed to save email log to DB:", dbErr.message);
+    if (failure) {
+      const error = new Error(failure);
+      error.status = 502;
+      throw error;
+    }
     return { success: true, status };
   }
 }

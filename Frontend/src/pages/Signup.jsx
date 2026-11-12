@@ -2,10 +2,12 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import BrandLogo from "../components/BrandLogo";
+import GoogleSignInButton from "../components/GoogleSignInButton";
+import { uploadProfileAvatar } from "../services/api";
 import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function Signup() {
-  const { user, signup } = useAuth();
+  const { user, signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,6 +21,9 @@ export default function Signup() {
   const [phone, setPhone] = useState("");
   const [companyName, setCompanyName] = useState("");
   const [title, setTitle] = useState("");
+  const [department, setDepartment] = useState("");
+  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+  const [avatarFile, setAvatarFile] = useState(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -34,8 +39,13 @@ export default function Signup() {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password must contain at least 8 characters.");
+    if (password.length < 12) {
+      setError("Password must contain at least 12 characters.");
+      return;
+    }
+
+    if (!companyName.trim()) {
+      setError("Enter your organization or workspace name.");
       return;
     }
 
@@ -46,10 +56,42 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      await signup(name, email, password, phone, companyName, title);
+      await signup(name, email, password, phone, companyName, title, {
+        department,
+        timezone,
+        termsAccepted: true
+      });
+      if (avatarFile) {
+        try {
+          await uploadProfileAvatar(avatarFile);
+        } catch {
+          // Account creation succeeded; the optional photo can be retried in Settings.
+        }
+      }
       navigate("/app");
     } catch (err) {
       setError(err.response?.data?.error || "Unable to register account. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogle = async (credential) => {
+    setError("");
+    if (!termsAccepted) {
+      setError("Accept the Terms of Service and Privacy Policy before continuing with Google.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await loginWithGoogle(credential, true);
+      if (result?.twoFactorRequired) {
+        navigate("/login", { state: { message: "Complete two-step verification from the sign-in page." } });
+        return;
+      }
+      navigate("/app");
+    } catch (err) {
+      setError(err.response?.data?.error || "Google sign-up could not be completed.");
     } finally {
       setLoading(false);
     }
@@ -127,14 +169,49 @@ export default function Signup() {
           </div>
 
           <div className="circuit-form-group">
-            <label className="circuit-label">Company / Organization</label>
+            <label className="circuit-label">Organization / Workspace name *</label>
             <input
               type="text"
+              required
               className="circuit-input"
               placeholder="e.g. Black Mesa Technologies"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
             />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+            <div className="circuit-form-group">
+              <label className="circuit-label">Department / team</label>
+              <input
+                type="text"
+                className="circuit-input"
+                placeholder="Sales, Support…"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+              />
+            </div>
+            <div className="circuit-form-group">
+              <label className="circuit-label">Time zone</label>
+              <input
+                type="text"
+                className="circuit-input"
+                placeholder="Europe/London"
+                value={timezone}
+                onChange={(e) => setTimezone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="circuit-form-group">
+            <label className="circuit-label">Profile photo (optional)</label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp,image/gif"
+              className="circuit-input circuit-file-input"
+              onChange={(e) => setAvatarFile(e.target.files?.[0] || null)}
+            />
+            <p className="field-hint">JPEG, PNG, WEBP or GIF up to 5 MB. You can add or change this later.</p>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "1.75rem" }}>
@@ -143,10 +220,10 @@ export default function Signup() {
               <input
                 type="password"
                 required
-                minLength={8}
+                minLength={12}
                 className="circuit-input"
                 autoComplete="new-password"
-                placeholder="Min 8 characters"
+                placeholder="At least 12 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -189,6 +266,9 @@ export default function Signup() {
             {!loading && <ArrowRight size={18} />}
           </button>
         </form>
+
+        <div className="auth-divider" role="separator"><span>or continue with</span></div>
+        <GoogleSignInButton onCredential={handleGoogle} disabled={loading} mode="signup" />
 
         <p className="auth-switch-text" style={{ marginTop: "1.25rem", textAlign: "center" }}>
           Already registered?{" "}

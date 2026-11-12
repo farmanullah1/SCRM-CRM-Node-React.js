@@ -1,5 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
-import { loginUser, signupUser, getCurrentUser, verify2FALogin, logoutUser } from "../services/api";
+import {
+  loginUser,
+  signupUser,
+  getCurrentUser,
+  verify2FALogin,
+  verify2FARecovery,
+  loginWithGoogle as loginWithGoogleRequest,
+  logoutUser
+} from "../services/api";
 
 const AuthContext = createContext(null);
 
@@ -45,8 +53,7 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const complete2FA = async (tempToken, otpCode) => {
-    const data = await verify2FALogin({ tempToken, otpCode });
+  const establishSession = (data) => {
     localStorage.setItem("crm_token", data.token);
     if (data.refreshToken) {
       localStorage.setItem("crm_refresh_token", data.refreshToken);
@@ -57,8 +64,24 @@ export const AuthProvider = ({ children }) => {
     return data;
   };
 
-  const signup = async (name, email, password, phone, company_name, title) => {
-    const data = await signupUser({ name, email, password, phone, company_name, title });
+  const complete2FA = async (tempToken, otpCode) => {
+    const data = await verify2FALogin({ tempToken, otpCode });
+    return establishSession(data);
+  };
+
+  const completeRecovery = async (tempToken, recoveryCode) => {
+    const data = await verify2FARecovery({ tempToken, recoveryCode });
+    return establishSession(data);
+  };
+
+  const loginWithGoogle = async (credential, termsAccepted = false) => {
+    const data = await loginWithGoogleRequest({ credential, termsAccepted });
+    if (data.twoFactorRequired) return data;
+    return establishSession(data);
+  };
+
+  const signup = async (name, email, password, phone, company_name, title, extras = {}) => {
+    const data = await signupUser({ name, email, password, phone, company_name, title, ...extras });
     localStorage.setItem("crm_token", data.token);
     if (data.refreshToken) {
       localStorage.setItem("crm_refresh_token", data.refreshToken);
@@ -105,6 +128,8 @@ export const AuthProvider = ({ children }) => {
         token,
         login,
         complete2FA,
+        completeRecovery,
+        loginWithGoogle,
         signup,
         refreshUser,
         logout,

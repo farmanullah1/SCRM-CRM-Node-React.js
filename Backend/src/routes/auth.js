@@ -6,25 +6,40 @@ import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
 import multer from "multer";
+import { OAuth2Client } from "google-auth-library";
 import { User, Role } from "../db.js";
-import { authenticateToken, requireRole, logAudit } from "../middleware/auth.js";
+import { authenticateToken, requireRole, requirePermission, logAudit } from "../middleware/auth.js";
 import { authLimiter, sanitizeString, isValidEmail, validatePasswordStrength } from "../middleware/security.js";
-import { 
-  sendWelcomeEmail, 
-  sendSecurityAlertEmail, 
-  sendPasswordResetEmail, 
+import {
+  sendWelcomeEmail,
+  sendSecurityAlertEmail,
+  sendPasswordResetEmail,
   send2FAVerificationEmail,
   verifySmtpConnection,
   sendTestEmail
 } from "../services/emailService.js";
+import {
+  encryptSecret,
+  decryptSecret,
+  createTotpEnrollment,
+  buildQrDataUrl,
+  verifyTotp,
+  generateRecoveryCodes,
+  consumeRecoveryCode
+} from "../services/twoFactor.js";
+import { resolvePermissions, PERMISSION_CATALOG } from "../permissions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 const JWT_SECRET = process.env.JWT_SECRET || "default_jwt_secret_dev";
-const ACCESS_TOKEN_EXPIRY = "2h";
+const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE_CLIENT_ID || "";
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
+const DUMMY_PASSWORD_HASH = "$2b$12$8vT7vXl0VQ0nU8rD9J5zQeK4oM2qBw7rY1sW3cN6fH9kL0pR5tU2q";
+const TERMS_VERSION = "2026-11";
 
 // Multer Storage Configuration for Avatar and Cover Photos
 const avatarStorage = multer.diskStorage({
@@ -80,18 +95,37 @@ function formatUserResponse(user) {
     phone: user.phone,
     company_name: user.company_name,
     title: user.title,
+    department: user.department,
+    country: user.country,
+    timezone: user.timezone,
+    language: user.language,
     avatar_url: user.avatar_url,
     cover_url: user.cover_url,
     bio: user.bio,
     role: user.role,
     role_id: user.role_id,
-    twoFactorEnabled: Boolean(user.two_factor_enabled)
+    isActive: user.is_active !== false,
+    twoFactorEnabled: Boolean(user.two_factor_enabled),
+    twoFactorMethod: user.two_factor_secret ? "totp" : user.two_factor_enabled ? "email" : null,
+    googleLinked: Boolean(user.google_id),
+    termsVersion: user.terms_version || null
   };
+}
+
+function hashToken(token) {
+  return crypto.createHash("sha256").update(String(token)).digest("hex");
 }
 
 function generateTokens(user) {
   const accessToken = jwt.sign(
-    { id: user.id, email: user.email, name: user.name, role: user.role },
+    {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      ver: Number(user.token_version || 0),
+      jti: crypto.randomUUID()
+    },
     JWT_SECRET,
     { expiresIn: ACCESS_TOKEN_EXPIRY }
   );
@@ -100,20 +134,68 @@ function generateTokens(user) {
   return { accessToken, refreshToken };
 }
 
+async function issueTokens(user) {
+  const tokens = generateTokens(user);
+  user.refresh_token = hashToken(tokens.refreshToken);
+  user.last_login_at = new Date();
+  await user.save();
+  return tokens;
+}
+
+async function permissionsForUser(user) {
+  const roleRecord = user.role_id
+    ? await Role.findByPk(user.role_id)
+    : await Role.findOne({ where: { role_name: user.role } });
+  const effective = resolvePermissions(roleRecord?.permissions_json, user.role);
+  return { ...effective, permissions: [...effective.permissions] };
+}
+
+async function verifyGoogleCredential(credential) {
+  if (!googleClient) {
+    const error = new Error("Google sign-in is not configured on this server.");
+    error.status = 503;
+    throw error;
+  }
+  if (!credential || typeof credential !== "string") {
+    const error = new Error("A Google credential is required.");
+    error.status = 400;
+    throw error;
+  }
+  const ticket = await googleClient.verifyIdToken({
+    idToken: credential,
+    audience: GOOGLE_CLIENT_ID
+  });
+  const payload = ticket.getPayload();
+  if (!payload?.sub || !payload.email || payload.email_verified !== true) {
+    const error = new Error("Google did not return a verified email address.");
+    error.status = 401;
+    throw error;
+  }
+  return payload;
+}
+
 // POST /api/auth/signup - Register new account with high-salt hashing and automated Welcome Email
 // Strictly assigns lowest privilege ('standard_user') by default. Client cannot self-elevate to admin.
 router.post("/signup", authLimiter, async (req, res) => {
   try {
-    let { name, email, password, phone, company_name, title } = req.body;
+        let { name, email, password, phone, company_name, title, department, country, timezone, language, termsAccepted } = req.body;
 
     name = sanitizeString(name);
     email = sanitizeString(email)?.toLowerCase();
     phone = phone ? sanitizeString(phone) : null;
     company_name = company_name ? sanitizeString(company_name) : null;
     title = title ? sanitizeString(title) : null;
+    department = department ? sanitizeString(department) : null;
+    country = country ? sanitizeString(country) : null;
+    timezone = timezone ? sanitizeString(timezone) : null;
+    language = language ? sanitizeString(language) : "en";
 
-    if (!name || !email || !password) {
-      return res.status(400).json({ error: "Name, email, and password are required." });
+    if (!name || !email || !password || !company_name) {
+      return res.status(400).json({ error: "Full name, work email, workspace name and password are required." });
+    }
+
+    if (termsAccepted !== true) {
+      return res.status(400).json({ error: "You must accept the Terms of Service and Privacy Policy." });
     }
 
     if (!isValidEmail(email)) {
@@ -133,7 +215,7 @@ router.post("/signup", authLimiter, async (req, res) => {
     // Default first user to admin if empty DB, otherwise standard_user ONLY (client cannot pass role)
     const totalUsers = await User.count();
     const assignedRole = totalUsers === 0 ? "admin" : "standard_user";
-    
+
     // Find matching role_id from roles table
     const roleRecord = await Role.findOne({ where: { role_name: assignedRole } });
     const roleId = roleRecord ? roleRecord.id : null;
@@ -148,36 +230,35 @@ router.post("/signup", authLimiter, async (req, res) => {
       phone,
       company_name,
       title,
+      department,
+      country,
+      timezone,
+      language,
       password: hashedPassword,
       role: assignedRole,
       role_id: roleId,
-      two_factor_enabled: false
+      two_factor_enabled: false,
+      is_active: true,
+      terms_version: TERMS_VERSION,
+      terms_accepted_at: new Date()
     });
 
-    const { accessToken, refreshToken } = generateTokens(user);
-    user.refresh_token = refreshToken;
-    await user.save();
+    const { accessToken, refreshToken } = await issueTokens(user);
 
-    await logAudit(user.id, "USER_SIGNUP", "User", user.id, { email: user.email, role: user.role });
+    await logAudit(user.id, "USER_SIGNUP", "User", user.id, {
+      email: user.email,
+      role: user.role,
+      termsVersion: TERMS_VERSION
+    });
 
-    // System Trigger: Automated Welcome Email
+    // System Trigger: Automated Welcome Email (delivery failures are logged, not faked)
     sendWelcomeEmail(user).catch(e => console.error("[Email Trigger Error]", e.message));
 
     res.status(201).json({
       message: "User registered successfully",
       token: accessToken,
       refreshToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        company_name: user.company_name,
-        title: user.title,
-        role: user.role,
-        role_id: user.role_id,
-        twoFactorEnabled: false
-      }
+      user: formatUserResponse(user)
     });
   } catch (err) {
     console.error("Signup Error:", err);
@@ -196,45 +277,65 @@ router.post("/login", authLimiter, async (req, res) => {
       return res.status(400).json({ error: "Email and password are required." });
     }
 
-    const user = await User.findOne({ where: { email } });
-    if (!user) {
+        const user = await User.findOne({ where: { email } });
+
+    // Compare against a dummy hash for unknown accounts to reduce timing-based
+    // account enumeration. The response stays generic in both cases.
+    const isMatch = await bcrypt.compare(password, user?.password || DUMMY_PASSWORD_HASH);
+    if (!user || !isMatch) {
+      if (user) await logAudit(user.id, "LOGIN_FAILED", "Auth", user.id, { email });
       return res.status(401).json({ error: "Invalid email or password." });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      await logAudit(user.id, "LOGIN_FAILED", "Auth", user.id, { email });
-      return res.status(401).json({ error: "Invalid email or password." });
+    if (user.is_active === false) {
+      return res.status(403).json({ error: "This account is suspended. Contact an administrator." });
     }
 
-    // Check if user has Two-Factor Authentication (2FA) enabled
+    // Real authenticator-app TOTP challenge.
+    if (user.two_factor_enabled && user.two_factor_secret) {
+      user.two_factor_attempts = 0;
+      await user.save();
+      const tempToken = jwt.sign(
+        { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
+        JWT_SECRET,
+        { expiresIn: "10m" }
+      );
+      return res.json({
+        twoFactorRequired: true,
+        method: "totp",
+        tempToken,
+        email: user.email,
+        message: "Enter the 6-digit code from your authenticator app."
+      });
+    }
+
+    // Legacy email OTP remains available only for accounts that enabled the
+    // old flow and have not yet enrolled an authenticator app.
     if (user.two_factor_enabled) {
-      const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpCode = crypto.randomInt(100000, 1000000).toString();
       user.two_factor_code = otpCode;
-      user.two_factor_expires = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes expiry
+      user.two_factor_expires = new Date(Date.now() + 10 * 60 * 1000);
+      user.two_factor_attempts = 0;
       await user.save();
 
-      // Trigger 2FA Verification Email
       await send2FAVerificationEmail(user, otpCode);
 
-      // Temporary token for 2FA validation step
       const tempToken = jwt.sign(
-        { userId: user.id, twoFactorPending: true },
+        { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
         JWT_SECRET,
         { expiresIn: "10m" }
       );
 
       return res.json({
         twoFactorRequired: true,
+        method: "email",
         tempToken,
         email: user.email,
-        message: "Two-Factor Authentication code sent to your email."
+        message: "A verification code was sent to your email."
       });
     }
 
-    const { accessToken, refreshToken } = generateTokens(user);
-    user.refresh_token = refreshToken;
-    await user.save();
+    const { accessToken, refreshToken } = await issueTokens(user);
 
     await logAudit(user.id, "LOGIN_SUCCESS", "Auth", user.id, { email });
 
@@ -359,50 +460,134 @@ router.post("/2fa/recovery", authLimiter, async (req, res) => {
   }
 });
 
-// POST /api/auth/2fa/toggle - Enable or disable 2FA for logged in user
-router.post("/2fa/toggle", authenticateToken, async (req, res) => {
+// Legacy toggle endpoint. It is intentionally disabled: 2FA is now enrolled
+// through /2fa/setup and /2fa/enable so a verified TOTP secret always exists.
+router.post("/2fa/toggle", authenticateToken, (req, res) => {
+  res.status(410).json({
+    error: "Use the authenticator-app setup flow in Settings → Security to change two-step verification."
+  });
+});
+
+// POST /api/auth/google - Verify a Google ID token server-side and sign in.
+// Existing accounts are never linked solely because an email string matches.
+router.post("/google", authLimiter, async (req, res) => {
+  try {
+    const { credential, termsAccepted } = req.body;
+    let payload;
+    try {
+      payload = await verifyGoogleCredential(credential);
+    } catch (err) {
+      return res.status(err.status || 401).json({ error: err.message || "Google sign-in failed." });
+    }
+
+    const email = String(payload.email).toLowerCase();
+    let user = await User.findOne({ where: { google_id: payload.sub } });
+    if (!user) {
+      const existing = await User.findOne({ where: { email } });
+      if (existing) {
+        return res.status(409).json({
+          code: "ACCOUNT_LINK_REQUIRED",
+          error: "An account with this email already exists. Sign in with your password, then link Google from Settings → Security."
+        });
+      }
+
+      if (termsAccepted !== true) {
+        return res.status(400).json({
+          code: "TERMS_REQUIRED",
+          error: "Accept the Terms of Service and Privacy Policy before creating a Google account."
+        });
+      }
+
+      const totalUsers = await User.count();
+      const assignedRole = totalUsers === 0 ? "admin" : "standard_user";
+      const roleRecord = await Role.findOne({ where: { role_name: assignedRole } });
+      const randomPassword = await bcrypt.hash(crypto.randomBytes(32).toString("hex"), 12);
+      user = await User.create({
+        name: sanitizeString(payload.name || email.split("@")[0]),
+        email,
+        password: randomPassword,
+        company_name: sanitizeString(payload.hd || "Google Workspace"),
+        role: assignedRole,
+        role_id: roleRecord?.id || null,
+        google_id: payload.sub,
+        is_active: true,
+        terms_version: TERMS_VERSION,
+        terms_accepted_at: new Date()
+      });
+      await logAudit(user.id, "USER_SIGNUP_GOOGLE", "User", user.id, { email: user.email });
+    }
+
+    if (user.is_active === false) {
+      return res.status(403).json({ error: "This account is suspended. Contact an administrator." });
+    }
+
+    if (user.two_factor_enabled) {
+      const tempToken = jwt.sign(
+        { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
+        JWT_SECRET,
+        { expiresIn: "10m" }
+      );
+      return res.json({
+        twoFactorRequired: true,
+        method: user.two_factor_secret ? "totp" : "email",
+        tempToken,
+        email: user.email,
+        message: user.two_factor_secret
+          ? "Enter the 6-digit code from your authenticator app."
+          : "A verification code was sent to your email."
+      });
+    }
+
+    const { accessToken, refreshToken } = await issueTokens(user);
+    await logAudit(user.id, "LOGIN_SUCCESS_GOOGLE", "Auth", user.id, { email: user.email });
+    res.json({
+      message: "Google sign-in successful.",
+      token: accessToken,
+      refreshToken,
+      user: formatUserResponse(user)
+    });
+  } catch (err) {
+    console.error("Google Sign-In Error:", err.message);
+    res.status(500).json({ error: "Google sign-in could not be completed." });
+  }
+});
+
+// POST /api/auth/google/link - link Google only to the authenticated account
+router.post("/google/link", authenticateToken, async (req, res) => {
+  try {
+    const payload = await verifyGoogleCredential(req.body.credential);
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (String(payload.email).toLowerCase() !== String(user.email).toLowerCase()) {
+      return res.status(400).json({ error: "The Google account email does not match this SCRM account." });
+    }
+    const claimed = await User.findOne({ where: { google_id: payload.sub } });
+    if (claimed && claimed.id !== user.id) {
+      return res.status(409).json({ error: "This Google account is already linked to another user." });
+    }
+    user.google_id = payload.sub;
+    await user.save();
+    await logAudit(user.id, "GOOGLE_ACCOUNT_LINKED", "User", user.id, { email: user.email });
+    res.json({ message: "Google account linked.", googleLinked: true });
+  } catch (err) {
+    res.status(err.status || 500).json({ error: err.message || "Google account could not be linked." });
+  }
+});
+
+// POST /api/auth/google/unlink - never remove the only usable login method
+router.post("/google/unlink", authenticateToken, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id);
     if (!user) return res.status(404).json({ error: "User not found." });
-
-    user.two_factor_enabled = !user.two_factor_enabled;
-    user.two_factor_code = null;
-
-    let recoveryCodes = null;
-    if (user.two_factor_enabled) {
-      const rawCodes = [];
-      const hashedCodes = [];
-      for (let i = 0; i < 8; i++) {
-        const part1 = crypto.randomBytes(2).toString("hex").toUpperCase();
-        const part2 = crypto.randomBytes(2).toString("hex").toUpperCase();
-        const code = `${part1}-${part2}`;
-        rawCodes.push(code);
-        hashedCodes.push(crypto.createHash("sha256").update(code).digest("hex"));
-      }
-      user.recovery_codes_json = JSON.stringify(hashedCodes);
-      recoveryCodes = rawCodes;
-    } else {
-      user.recovery_codes_json = null;
+    if (!req.body.currentPassword || !(await bcrypt.compare(req.body.currentPassword, user.password))) {
+      return res.status(401).json({ error: "Enter your current password to unlink Google." });
     }
-
+    user.google_id = null;
     await user.save();
-
-    const statusStr = user.two_factor_enabled ? "ENABLED" : "DISABLED";
-    await logAudit(user.id, "2FA_TOGGLED", "User", user.id, { status: statusStr });
-
-    // System Trigger: Security Alert Email
-    sendSecurityAlertEmail(user, {
-      action: "Two-Factor Authentication Setting Changed",
-      details: `2-Step verification is now ${statusStr} for your account.`
-    }).catch(e => {});
-
-    res.json({
-      message: `Two-Factor Authentication is now ${statusStr}.`,
-      twoFactorEnabled: Boolean(user.two_factor_enabled),
-      recoveryCodes
-    });
+    await logAudit(user.id, "GOOGLE_ACCOUNT_UNLINKED", "User", user.id, {});
+    res.json({ message: "Google account unlinked.", googleLinked: false });
   } catch (err) {
-    res.status(500).json({ error: "Failed to toggle 2FA" });
+    res.status(500).json({ error: "Google account could not be unlinked." });
   }
 });
 
@@ -712,18 +897,18 @@ router.post("/refresh", async (req, res) => {
       return res.status(400).json({ error: "Refresh token is required." });
     }
 
-    const user = await User.findOne({ where: { refresh_token: refreshToken } });
-    if (!user) {
+    const hashed = hashToken(refreshToken);
+    const user = await User.findOne({ where: { refresh_token: hashed } });
+    if (!user || user.is_active === false) {
       return res.status(403).json({ error: "Invalid or expired refresh token." });
     }
 
-    const tokens = generateTokens(user);
-    user.refresh_token = tokens.refreshToken;
-    await user.save();
-
+    // Rotate both tokens. The previous refresh token is immediately invalid.
+    const tokens = await issueTokens(user);
     res.json({
       token: tokens.accessToken,
-      refreshToken: tokens.refreshToken
+      refreshToken: tokens.refreshToken,
+      user: formatUserResponse(user)
     });
   } catch (err) {
     res.status(500).json({ error: "Token refresh failed." });
@@ -746,7 +931,15 @@ router.get("/me", authenticateToken, async (req, res) => {
         "cover_url",
         "role",
         "role_id",
+        "is_active",
         "two_factor_enabled",
+        "two_factor_secret",
+        "google_id",
+        "department",
+        "country",
+        "timezone",
+        "language",
+        "last_login_at",
         "createdAt"
       ]
     });
@@ -755,12 +948,18 @@ router.get("/me", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "User not found." });
     }
 
-    res.json({ 
+    res.json({
       user: {
-        ...user.toJSON(),
-        twoFactorEnabled: Boolean(user.two_factor_enabled),
-        permissions: req.user.permissions
-      } 
+        ...formatUserResponse(user),
+        department: user.department,
+        country: user.country,
+        timezone: user.timezone,
+        language: user.language,
+        lastLoginAt: user.last_login_at,
+        createdAt: user.createdAt,
+        permissions: req.user.permissions,
+        permissionList: [...req.user.effectivePermissions.permissions]
+      }
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch user profile." });
@@ -770,8 +969,11 @@ router.get("/me", authenticateToken, async (req, res) => {
 // GET /api/auth/users - List system users for assigning tasks, deals, owners
 router.get("/users", authenticateToken, async (req, res) => {
   try {
+    // Minimal directory for assignment controls. Full access details live in
+    // /api/access/users and require users.view.
     const users = await User.findAll({
-      attributes: ["id", "name", "email", "role", "createdAt"],
+      where: { is_active: true },
+      attributes: ["id", "name", "title", "avatar_url", "role"],
       order: [["name", "ASC"]]
     });
     res.json({ users });
@@ -780,10 +982,12 @@ router.get("/users", authenticateToken, async (req, res) => {
   }
 });
 
-// GET /api/auth/roles - List system roles & permissions
-router.get("/roles", authenticateToken, async (req, res) => {
+// GET /api/auth/roles - List role summaries for authorised administrators
+router.get("/roles", authenticateToken, requirePermission(["roles.view", "users.view"]), async (req, res) => {
   try {
-    const roles = await Role.findAll();
+    const roles = await Role.findAll({
+      attributes: ["id", "role_name", "display_name", "description", "is_system", "permissions_json"]
+    });
     res.json({ roles });
   } catch (err) {
     res.status(500).json({ error: "Failed to fetch roles." });
@@ -861,8 +1065,14 @@ router.post("/logout", authenticateToken, async (req, res) => {
     const user = await User.findByPk(req.user.id);
     if (user) {
       user.refresh_token = null;
+      // Bumping the version invalidates the current access token and every
+      // other still-unexpired access token for this account immediately.
+      user.token_version = Number(user.token_version || 0) + 1;
       await user.save();
-      await logAudit(user.id, "USER_LOGOUT", "Auth", user.id, { email: user.email });
+      await logAudit(user.id, "USER_LOGOUT", "Auth", user.id, {
+        email: user.email,
+        allAccessTokensRevoked: true
+      });
     }
     res.json({ message: "Session successfully terminated and revoked." });
   } catch (err) {
@@ -880,14 +1090,16 @@ router.get("/sessions", authenticateToken, async (req, res) => {
     res.json({
       sessions: [
         {
-          id: `sess-${user.id}`,
-          ip: req.ip || "127.0.0.1",
+          id: `jwt-${user.id}`,
+          ip: req.ip || "unknown",
           userAgent: req.headers["user-agent"] || "Web Browser",
-          lastActive: user.updatedAt,
+          lastActive: user.last_login_at || user.updatedAt,
           current: true,
-          twoFactorActive: Boolean(user.two_factor_enabled)
+          twoFactorActive: Boolean(user.two_factor_enabled),
+          revocation: "Server-enforced token version"
         }
-      ]
+      ],
+      note: "Access tokens are revalidated against the account on every request. Revoking sessions is immediate."
     });
   } catch (err) {
     res.status(500).json({ error: "Failed to retrieve active sessions." });

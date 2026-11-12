@@ -19,16 +19,18 @@ import {
   removeProfileAvatar,
   removeProfileCover,
   sendSmtpTest,
-  toggle2FA,
   updateProfile,
   uploadProfileAvatar,
   uploadProfileCover
 } from "../services/api";
 import useModalAccessibility from "../hooks/useModalAccessibility";
+import SecuritySettings from "./SecuritySettings";
+import AccessManagement from "./AccessManagement";
 
 const TABS = [
   { key: "profile", label: "My account" },
   { key: "security", label: "Security" },
+  { key: "access", label: "Users & access", accessOnly: true },
   { key: "email", label: "Email & SMTP", adminOnly: true },
   { key: "account", label: "Account" }
 ];
@@ -49,7 +51,11 @@ function initialsOf(name = "") {
 export default function SettingsView({ user, refreshUser, logout, showToast }) {
   const { tab: rawTab } = useParams();
   const navigate = useNavigate();
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || Boolean(user?.permissions?.all);
+  const canManageAccess =
+    isAdmin ||
+    Boolean(user?.permissionList?.includes("users.view")) ||
+    Boolean(user?.permissionList?.includes("users.edit"));
   const tab = TABS.some((item) => item.key === rawTab) ? rawTab : "profile";
 
   const [profile, setProfile] = useState({
@@ -100,15 +106,6 @@ export default function SettingsView({ user, refreshUser, logout, showToast }) {
     }
   });
 
-  const toggle2FAMutation = useMutation({
-    mutationFn: toggle2FA,
-    onSuccess: async (data) => {
-      await refreshUser?.();
-      showToast(data.message || "Two-step verification updated.");
-    },
-    onError: (err) => showToast(err.response?.data?.error || "Could not update two-step verification.")
-  });
-
   const smtpQuery = useQuery({
     queryKey: ["smtpStatus"],
     queryFn: getSmtpStatus,
@@ -135,8 +132,8 @@ export default function SettingsView({ user, refreshUser, logout, showToast }) {
       setFormError("The new password and confirmation do not match.");
       return;
     }
-    if (passwords.next.length < 8) {
-      setFormError("Choose a new password with at least 8 characters.");
+    if (passwords.next.length < 12) {
+      setFormError("Choose a new password with at least 12 characters.");
       return;
     }
     updateProfileMutation.mutate(
@@ -237,7 +234,7 @@ export default function SettingsView({ user, refreshUser, logout, showToast }) {
       </header>
 
       <nav className="settings-tabs" aria-label="Settings sections">
-        {TABS.filter((item) => !item.adminOnly || isAdmin).map((item) => (
+        {TABS.filter((item) => (!item.adminOnly || isAdmin) && (!item.accessOnly || canManageAccess)).map((item) => (
           <NavLink
             key={item.key}
             to={`/app/settings/${item.key}`}
@@ -438,108 +435,11 @@ export default function SettingsView({ user, refreshUser, logout, showToast }) {
       )}
 
       {tab === "security" && (
-        <div className="settings-grid">
-          <section className="settings-card" aria-labelledby="two-step-title">
-            <div className="settings-card-header">
-              <div className="settings-card-title">
-                <ShieldCheck size={18} aria-hidden="true" />
-                <span id="two-step-title">Two-step verification</span>
-              </div>
-              <span className={`status-badge ${user?.twoFactorEnabled ? "won" : "in-progress"}`}>
-                {user?.twoFactorEnabled ? "Enabled" : "Disabled"}
-              </span>
-            </div>
+        <SecuritySettings user={user} refreshUser={refreshUser} showToast={showToast} />
+      )}
 
-            <p className="settings-card-copy">
-              When enabled, signing in requires a 6-digit one-time code delivered to your verified email
-              address. Authenticator-app and recovery-code factors are not implemented yet.
-            </p>
-
-            <button
-              type="button"
-              className={user?.twoFactorEnabled ? "btn-ghost-dark" : "btn-primary-yellow"}
-              onClick={() => toggle2FAMutation.mutate()}
-              disabled={toggle2FAMutation.isPending}
-            >
-              <ShieldCheck size={16} aria-hidden="true" />
-              <span>
-                {toggle2FAMutation.isPending
-                  ? "Updating…"
-                  : user?.twoFactorEnabled
-                    ? "Disable two-step verification"
-                    : "Enable two-step verification"}
-              </span>
-            </button>
-          </section>
-
-          <section className="settings-card" aria-labelledby="password-title">
-            <div className="settings-card-header">
-              <div className="settings-card-title">
-                <Lock size={18} aria-hidden="true" />
-                <span id="password-title">Password</span>
-              </div>
-            </div>
-
-            <form onSubmit={handlePasswordSubmit}>
-              <div className="form-group-circuit">
-                <label htmlFor="current-password">Current password *</label>
-                <input
-                  id="current-password"
-                  type="password"
-                  required
-                  autoComplete="current-password"
-                  value={passwords.current}
-                  onChange={(event) => setPasswords({ ...passwords, current: event.target.value })}
-                />
-              </div>
-              <div className="form-row-2col">
-                <div className="form-group-circuit">
-                  <label htmlFor="new-password">New password *</label>
-                  <input
-                    id="new-password"
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    value={passwords.next}
-                    onChange={(event) => setPasswords({ ...passwords, next: event.target.value })}
-                  />
-                </div>
-                <div className="form-group-circuit">
-                  <label htmlFor="confirm-password">Confirm new password *</label>
-                  <input
-                    id="confirm-password"
-                    type="password"
-                    required
-                    minLength={8}
-                    autoComplete="new-password"
-                    value={passwords.confirm}
-                    onChange={(event) => setPasswords({ ...passwords, confirm: event.target.value })}
-                  />
-                </div>
-              </div>
-              <button type="submit" className="btn-primary-yellow small" disabled={updateProfileMutation.isPending}>
-                {updateProfileMutation.isPending ? "Updating…" : "Update password"}
-              </button>
-            </form>
-          </section>
-
-          <section className="settings-card" aria-labelledby="session-title">
-            <div className="settings-card-header">
-              <div className="settings-card-title">
-                <LogOut size={18} aria-hidden="true" />
-                <span id="session-title">Session</span>
-              </div>
-            </div>
-            <p className="settings-card-copy">
-              Signing out ends this device session and clears the access token stored in this browser.
-            </p>
-            <button type="button" className="btn-ghost-dark" onClick={() => setSignOutOpen(true)}>
-              <LogOut size={16} aria-hidden="true" />
-              <span>Sign out…</span>
-            </button>
-          </section>
-        </div>
+      {tab === "access" && canManageAccess && (
+        <AccessManagement user={user} showToast={showToast} />
       )}
 
       {tab === "email" && isAdmin && (
