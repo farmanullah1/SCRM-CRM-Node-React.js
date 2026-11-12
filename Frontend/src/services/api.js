@@ -96,6 +96,35 @@ export const uploadProfileCover = async (file) => {
   return (await API.post("/auth/profile/cover", formData, { headers: { "Content-Type": "multipart/form-data" } })).data;
 };
 export const removeProfileCover = async () => (await API.delete("/auth/profile/cover")).data;
+export const getMediaStatus = async () => (await API.get("/media/status")).data;
+export const getImageKitAuth = async (kind) => (await API.post("/media/imagekit/auth", { kind })).data;
+export const saveExternalProfileImage = async (kind, data) =>
+  (await API.post(`/media/profile/${kind}`, data)).data;
+
+/** Upload directly to ImageKit, then attach the returned URL to the signed-in profile. */
+export const uploadImageKitProfileImage = async (kind, file) => {
+  const auth = await getImageKitAuth(kind);
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("fileName", file.name.replace(/[^\w.-]/g, "_") || "profile-image");
+  formData.append("publicKey", auth.publicKey);
+  formData.append("signature", auth.signature);
+  formData.append("expire", String(auth.expire));
+  formData.append("token", auth.token);
+  formData.append("folder", auth.folder);
+  formData.append("useUniqueFileName", "true");
+
+  const response = await fetch("https://upload.imagekit.io/api/v1/files/upload", {
+    method: "POST",
+    body: formData
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(result.message || "ImageKit rejected the upload.");
+  }
+
+  return saveExternalProfileImage(kind, { url: result.url, fileId: result.fileId });
+};
 export const getSmtpStatus = async () => (await API.get("/auth/smtp/status")).data;
 export const sendSmtpTest = async (recipient) => (await API.post("/auth/smtp/test", { recipient })).data;
 

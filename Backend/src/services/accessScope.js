@@ -4,16 +4,23 @@ import { hasPermission, resolvePermissions, normalizeRolePayload } from "../perm
  * Data-scope helpers. They are deliberately centralised so routes use one
  * interpretation of "own", "team" and "all" records.
  */
+function effectiveFor(user) {
+  return user?.effectivePermissions || user?.permissions;
+}
+
 export function canViewAll(user) {
-  return Boolean(user?.permissions?.all || hasPermission(user?.permissions, "records.view_all"));
+  const effective = effectiveFor(user);
+  return Boolean(effective?.all || hasPermission(effective, "records.view_all"));
 }
 
 export function canEditAll(user) {
-  return Boolean(user?.permissions?.all || hasPermission(user?.permissions, "records.edit_all"));
+  const effective = effectiveFor(user);
+  return Boolean(effective?.all || hasPermission(effective, "records.edit_all"));
 }
 
 export function canDeleteAll(user) {
-  return Boolean(user?.permissions?.all || hasPermission(user?.permissions, "records.delete_all"));
+  const effective = effectiveFor(user);
+  return Boolean(effective?.all || hasPermission(effective, "records.delete_all"));
 }
 
 export function isOwnedBy(user, record, ownerField = "owner_id") {

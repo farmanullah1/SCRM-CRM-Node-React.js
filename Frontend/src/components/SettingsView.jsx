@@ -20,6 +20,7 @@ import {
   removeProfileCover,
   sendSmtpTest,
   updateProfile,
+  uploadImageKitProfileImage,
   uploadProfileAvatar,
   uploadProfileCover
 } from "../services/api";
@@ -163,8 +164,14 @@ export default function SettingsView({ user, refreshUser, logout, showToast }) {
 
     setMediaBusy(kind);
     try {
-      if (kind === "avatar") await uploadProfileAvatar(file);
-      else await uploadProfileCover(file);
+      try {
+        await uploadImageKitProfileImage(kind, file);
+      } catch (mediaError) {
+        // A 503 means the server has no ImageKit keys; keep the local uploader as fallback.
+        if (mediaError?.response?.status !== 503) throw mediaError;
+        if (kind === "avatar") await uploadProfileAvatar(file);
+        else await uploadProfileCover(file);
+      }
       await refreshUser?.();
       showToast(kind === "avatar" ? "Profile photo updated." : "Cover photo updated.");
     } catch (err) {
@@ -316,8 +323,8 @@ export default function SettingsView({ user, refreshUser, logout, showToast }) {
               <div className="profile-avatar-copy">
                 <p className="profile-avatar-title">Profile photo</p>
                 <p className="profile-avatar-hint">
-                  JPEG, PNG, WEBP or GIF · up to 5 MB. Crop controls are not available yet; images are
-                  fitted inside the frame.
+                  JPEG, PNG, WEBP or GIF · up to 5 MB. Images are optimised and served by ImageKit when
+                  the server keys are configured; otherwise they are stored with the app.
                 </p>
                 <div className="profile-avatar-actions">
                   <label className="btn-ghost-dark small">

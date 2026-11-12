@@ -155,7 +155,8 @@ export const ROLE_TEMPLATES = {
         "tasks.view", "tasks.create", "tasks.edit",
         "activities.view", "activities.create", "activities.edit",
         "invoices.view", "invoices.create", "invoices.edit", "invoices.send",
-        "catalog.view", "tickets.view", "tickets.create", "tickets.edit",
+        "catalog.view", "catalog.create", "catalog.edit",
+        "tickets.view", "tickets.create", "tickets.edit",
         "attachments.view", "attachments.create", "attachments.delete",
         "emails.view", "emails.create", "emails.send",
         "reports.view", "forecasts.view", "saved_views.view", "saved_views.create"
