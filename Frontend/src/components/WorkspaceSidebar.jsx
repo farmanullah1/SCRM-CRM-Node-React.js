@@ -15,7 +15,8 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  ShieldCheck
+  ShieldCheck,
+  UserCog
 } from "lucide-react";
 import BrandLogo from "./BrandLogo";
 import { assetUrl } from "../services/api";
@@ -28,30 +29,30 @@ const GROUPS = [
   {
     label: "CRM",
     items: [
-      { to: "/app/leads", label: "Leads", icon: Target, countKey: "leads" },
-      { to: "/app/contacts", label: "Contacts", icon: Users, countKey: "contacts" },
-      { to: "/app/companies", label: "Companies", icon: Building2, countKey: "companies" }
+      { to: "/app/leads", label: "Leads", icon: Target, countKey: "leads", permission: "leads.view" },
+      { to: "/app/contacts", label: "Contacts", icon: Users, countKey: "contacts", permission: "contacts.view" },
+      { to: "/app/companies", label: "Companies", icon: Building2, countKey: "companies", permission: "companies.view" }
     ]
   },
   {
     label: "Sales",
     items: [
-      { to: "/app/pipeline", label: "Pipeline", icon: Layers },
-      { to: "/app/catalog", label: "Catalog", icon: Package, countKey: "catalog" },
-      { to: "/app/invoices", label: "Invoices", icon: FileText }
+      { to: "/app/pipeline", label: "Pipeline", icon: Layers, permission: "deals.view" },
+      { to: "/app/catalog", label: "Catalog", icon: Package, countKey: "catalog", permission: "catalog.view" },
+      { to: "/app/invoices", label: "Invoices", icon: FileText, permission: "invoices.view" }
     ]
   },
   {
     label: "Productivity",
     items: [
-      { to: "/app/tasks", label: "Tasks", icon: CheckSquare, countKey: "tasks" },
-      { to: "/app/activities", label: "Activity Log", icon: Clock3 },
-      { to: "/app/outbox", label: "Outbox", icon: Mail }
+      { to: "/app/tasks", label: "Tasks", icon: CheckSquare, countKey: "tasks", permission: "tasks.view" },
+      { to: "/app/activities", label: "Activity Log", icon: Clock3, permission: "activities.view" },
+      { to: "/app/outbox", label: "Outbox", icon: Mail, permission: "emails.view" }
     ]
   },
   {
     label: "Support",
-    items: [{ to: "/app/tickets", label: "Tickets", icon: LifeBuoy, countKey: "tickets" }]
+    items: [{ to: "/app/tickets", label: "Tickets", icon: LifeBuoy, countKey: "tickets", permission: "tickets.view" }]
   }
 ];
 
@@ -96,6 +97,10 @@ export default function WorkspaceSidebar({
   onClose
 }) {
   const linkClass = ({ isActive }) => `ws-nav-link${isActive ? " is-active" : ""}`;
+  const permissionList = user?.permissionList || [];
+  const hasAll = Boolean(user?.permissions?.all || user?.permissionList?.includes("*"));
+  const can = (permission) => !permission || hasAll || permissionList.includes(permission);
+  const canManageAccess = hasAll || permissionList.includes("users.view") || permissionList.includes("users.edit");
 
   return (
     <aside
@@ -122,7 +127,7 @@ export default function WorkspaceSidebar({
         {GROUPS.map((group) => (
           <div className="ws-nav-group" key={group.label}>
             <p className="ws-nav-group-label">{group.label}</p>
-            {group.items.map((item) => {
+            {group.items.filter((item) => can(item.permission)).map((item) => {
               const Icon = item.icon;
               const count = item.countKey ? counts[item.countKey] : 0;
               return (
@@ -144,13 +149,21 @@ export default function WorkspaceSidebar({
           </div>
         ))}
 
-        {user?.role === "admin" && (
+        {(canManageAccess || user?.role === "admin") && (
           <div className="ws-nav-group">
             <p className="ws-nav-group-label">System</p>
-            <NavLink to="/app/security" className={linkClass} onClick={onClose} title={collapsed ? "Security & backup" : undefined}>
-              <ShieldCheck size={17} aria-hidden="true" />
-              <span className="ws-nav-label">Security & backup</span>
-            </NavLink>
+            {canManageAccess && (
+              <NavLink to="/app/settings/access" className={linkClass} onClick={onClose} title={collapsed ? "Users & access" : undefined}>
+                <UserCog size={17} aria-hidden="true" />
+                <span className="ws-nav-label">Users &amp; access</span>
+              </NavLink>
+            )}
+            {user?.role === "admin" && (
+              <NavLink to="/app/security" className={linkClass} onClick={onClose} title={collapsed ? "Security & backup" : undefined}>
+                <ShieldCheck size={17} aria-hidden="true" />
+                <span className="ws-nav-label">Security &amp; backup</span>
+              </NavLink>
+            )}
           </div>
         )}
       </nav>

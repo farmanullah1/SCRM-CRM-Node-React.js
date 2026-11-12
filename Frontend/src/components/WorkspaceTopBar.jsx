@@ -21,6 +21,9 @@ const LABELS = {
 
 export default function WorkspaceTopBar({ user, onMenu, onNewLead, menuExpanded = false }) {
   const { pathname } = useLocation();
+  const canCreateLead =
+    Boolean(user?.permissions?.all) ||
+    Boolean(user?.permissionList?.includes("leads.create"));
   const segments = pathname.split("/").filter(Boolean);
   const section = LABELS[segments[1]] || "Workspace";
   const sub = segments[2];
@@ -57,15 +60,17 @@ export default function WorkspaceTopBar({ user, onMenu, onNewLead, menuExpanded 
       </div>
 
       <div className="ws-topbar-actions">
-        <button
-          type="button"
-          className="btn-primary-yellow ws-quick-create"
-          onClick={onNewLead}
-          aria-label="Create new lead"
-        >
-          <Plus size={16} aria-hidden="true" />
-          <span>New lead</span>
-        </button>
+        {canCreateLead && (
+          <button
+            type="button"
+            className="btn-primary-yellow ws-quick-create"
+            onClick={onNewLead}
+            aria-label="Create new lead"
+          >
+            <Plus size={16} aria-hidden="true" />
+            <span>New lead</span>
+          </button>
+        )}
 
         <Link to="/app/settings/profile" className="ws-topbar-profile" aria-label="Open your profile">
           <UserAvatar user={user} size={30} />

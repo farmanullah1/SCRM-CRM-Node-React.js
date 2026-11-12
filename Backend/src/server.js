@@ -30,7 +30,8 @@ const __dirname = path.dirname(__filename);
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const configuredPort = Number(process.env.PORT);
+const PORT = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 5000;
 
 // Security Middleware: Helmet & CORS
 app.use(

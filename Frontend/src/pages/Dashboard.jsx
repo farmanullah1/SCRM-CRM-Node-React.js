@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import BrandLogo from "../components/BrandLogo";
 import WorkspaceShell from "../components/WorkspaceShell";
 import SettingsView from "../components/SettingsView";
+import ConfirmDialog from "../components/ConfirmDialog";
 import useModalAccessibility from "../hooks/useModalAccessibility";
 import { 
   UserPlus, 
@@ -183,6 +184,10 @@ export default function Dashboard() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(""), 4000);
   };
+
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  const requestConfirm = (options) => setConfirmDialog(options);
+  const closeConfirm = () => setConfirmDialog(null);
 
   // Form Error States
   const [leadFormError, setLeadFormError] = useState("");
@@ -1626,11 +1631,15 @@ export default function Dashboard() {
                             </button>
                             <button
                               className="action-icon-btn delete"
-                              onClick={() => {
-                                if (window.confirm(`Delete lead "${lead.name}"?`)) {
+                              onClick={() => requestConfirm({
+                                title: "Delete this lead?",
+                                message: `This permanently removes the lead “${lead.name}”. It cannot be undone.`,
+                                confirmLabel: "Delete lead",
+                                onConfirm: () => {
+                                  closeConfirm();
                                   deleteLeadMutation.mutate(lead.id);
                                 }
-                              }}
+                              })}
                               title="Delete Lead"
                             >
                               <Trash2 size={15} />
@@ -1785,9 +1794,15 @@ export default function Dashboard() {
                           <button 
                             className="action-icon-btn delete" 
                             title="Delete"
-                            onClick={() => {
-                              if (confirm(`Delete ${c.name}?`)) deleteContactMutation.mutate(c.id);
-                            }}
+                            onClick={() => requestConfirm({
+                              title: "Delete this contact?",
+                              message: `“${c.name}” and their contact details will be permanently removed. Linked activities may remain in the audit log.`,
+                              confirmLabel: "Delete contact",
+                              onConfirm: () => {
+                                closeConfirm();
+                                deleteContactMutation.mutate(c.id);
+                              }
+                            })}
                           >
                             <Trash2 size={15} />
                           </button>
@@ -1917,9 +1932,15 @@ export default function Dashboard() {
                               <button
                                 className="action-icon-btn delete"
                                 title="Delete deal"
-                                onClick={() => {
-                                  if (window.confirm(`Delete deal "${d.title}"?`)) deleteDealMutation.mutate(d.id);
-                                }}
+                                onClick={() => requestConfirm({
+                                  title: "Delete this deal?",
+                                  message: `“${d.title}” will be removed from the pipeline. This cannot be undone.`,
+                                  confirmLabel: "Delete deal",
+                                  onConfirm: () => {
+                                    closeConfirm();
+                                    deleteDealMutation.mutate(d.id);
+                                  }
+                                })}
                               >
                                 <Trash2 size={14} />
                               </button>
@@ -2005,11 +2026,15 @@ export default function Dashboard() {
                       <button 
                         className="btn-ghost-dark small" 
                         style={{ color: "#EF4444" }}
-                        onClick={() => {
-                          if (window.confirm(`Delete company record for ${comp.name}? Associated contacts will remain.`)) {
+                        onClick={() => requestConfirm({
+                          title: "Delete this company?",
+                          message: `The company record “${comp.name}” will be removed. Associated contacts remain, but their company link is cleared.`,
+                          confirmLabel: "Delete company",
+                          onConfirm: () => {
+                            closeConfirm();
                             deleteCompanyMutation.mutate(comp.id);
                           }
-                        }}
+                        })}
                       >
                         <Trash2 size={13} />
                         <span>Delete</span>
@@ -2203,9 +2228,15 @@ export default function Dashboard() {
                           <button className="action-icon-btn" title="Edit invoice" onClick={() => openEditInvoice(inv)}>
                             <Edit3 size={14} />
                           </button>
-                          <button className="action-icon-btn delete" title="Delete invoice" onClick={() => {
-                            if (window.confirm(`Delete ${inv.type.toLowerCase()} ${inv.invoiceNumber}?`)) deleteInvoiceMutation.mutate(inv.id);
-                          }}>
+                          <button className="action-icon-btn delete" title="Delete invoice" onClick={() => requestConfirm({
+                            title: `Delete this ${inv.type.toLowerCase()}?`,
+                            message: `${inv.invoiceNumber} will be permanently removed. This cannot be undone.`,
+                            confirmLabel: `Delete ${inv.type.toLowerCase()}`,
+                            onConfirm: () => {
+                              closeConfirm();
+                              deleteInvoiceMutation.mutate(inv.id);
+                            }
+                          })}>
                             <Trash2 size={14} />
                           </button>
                         </div>
@@ -2325,11 +2356,15 @@ export default function Dashboard() {
                               )}
                               <button
                                 className="action-icon-btn delete"
-                                onClick={() => {
-                                  if (window.confirm(`Permanently delete catalog item ${p.name}?`)) {
+                                onClick={() => requestConfirm({
+                                  title: "Delete this catalog item?",
+                                  message: `${p.name} will be permanently removed from the catalog. Existing invoice lines keep their saved descriptions and prices.`,
+                                  confirmLabel: "Delete item",
+                                  onConfirm: () => {
+                                    closeConfirm();
                                     deleteProductMutation.mutate(p.id);
                                   }
-                                }}
+                                })}
                                 title="Delete Product"
                               >
                                 <Trash2 size={14} />
@@ -4276,11 +4311,15 @@ export default function Dashboard() {
                     <span>Edit company</span>
                   </button>
                   {user?.role === "admin" && (
-                    <button className="btn-ghost-dark small" style={{ color: "#EF4444" }} onClick={() => {
-                      if (window.confirm(`Delete company record for ${companyRecord.name}? Associated contacts will remain.`)) {
+                    <button className="btn-ghost-dark small" style={{ color: "#EF4444" }} onClick={() => requestConfirm({
+                      title: "Delete this company?",
+                      message: `The company record “${companyRecord.name}” will be removed. Associated contacts remain, but their company link is cleared.`,
+                      confirmLabel: "Delete company",
+                      onConfirm: () => {
+                        closeConfirm();
                         deleteCompanyMutation.mutate(companyRecord.id);
                       }
-                    }}>
+                    })}>
                       <Trash2 size={14} />
                       <span>Delete</span>
                     </button>
@@ -4410,6 +4449,18 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={Boolean(confirmDialog)}
+        title={confirmDialog?.title}
+        message={confirmDialog?.message}
+        detail={confirmDialog?.detail}
+        confirmLabel={confirmDialog?.confirmLabel}
+        tone={confirmDialog?.tone || "danger"}
+        busy={Boolean(confirmDialog?.busy)}
+        onConfirm={confirmDialog?.onConfirm}
+        onCancel={closeConfirm}
+      />
     </>
   );
 }

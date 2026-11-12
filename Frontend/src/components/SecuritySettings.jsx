@@ -51,6 +51,7 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [unlinkPassword, setUnlinkPassword] = useState("");
+  const [confirmDisable, setConfirmDisable] = useState(false);
 
   useEffect(() => {
     if (statusQuery.error) {
@@ -96,7 +97,11 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
 
   const disable = async (event) => {
     event.preventDefault();
-    if (!window.confirm("Disable two-step verification for this account?")) return;
+    if (!confirmDisable) {
+      setConfirmDisable(true);
+      setInfo("Press the disable button again to confirm. This removes your authenticator requirement.");
+      return;
+    }
     setError("");
     setInfo("");
     setBusy("disable");
@@ -104,6 +109,7 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
       await disable2FA({ currentPassword: password });
       setPassword("");
       setRecoveryCodes([]);
+      setConfirmDisable(false);
       await statusQuery.refetch();
       await refreshUser?.();
       showToast("Two-step verification disabled.");
@@ -332,7 +338,7 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
               </div>
               <button type="submit" className="btn-danger" disabled={busy === "disable"}>
                 <Lock size={16} aria-hidden="true" />
-                <span>{busy === "disable" ? "Disabling…" : "Disable two-step verification"}</span>
+                <span>{busy === "disable" ? "Disabling…" : confirmDisable ? "Confirm disable two-step verification" : "Disable two-step verification"}</span>
               </button>
             </form>
           </div>

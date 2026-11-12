@@ -12,6 +12,8 @@ async function runTests() {
     name: "Alex Standard",
     email: `user_${Date.now()}@scrm.enterprise`,
     password: "SecureUserPassword2026!",
+    company_name: "SCRM QA Workspace",
+    termsAccepted: true,
     role: "admin" // Attempt privilege escalation: must be ignored and assigned standard_user
   };
 
@@ -23,8 +25,8 @@ async function runTests() {
   const signupData = await signupRes.json();
   if (!signupRes.ok) throw new Error(JSON.stringify(signupData));
   console.log("✓ User registered (Role enforced):", signupData.user.email, "Assigned Role:", signupData.user.role);
-  if (signupData.user.role !== "standard_user" && signupData.user.role !== "admin") {
-    throw new Error("Expected assigned role to be safe standard_user or admin");
+  if (signupData.user.role !== "standard_user") {
+    throw new Error("Expected public signup to assign the safe standard_user role");
   }
 
   const token = signupData.token;
@@ -102,13 +104,18 @@ async function runTests() {
   const sessData = await sessRes.json();
   console.log("✓ Active Sessions inspected:", sessData.sessions.length, "session active");
 
-  // 10. Test 2FA Toggle
+  // 10. Legacy 2FA toggle must be disabled in favour of verified TOTP enrollment.
   const toggle2FARes = await fetch(`${base}/auth/2fa/toggle`, {
     method: "POST",
     headers: authHeaders
   });
-  const toggle2FAData = await toggle2FARes.json();
-  console.log("✓ 2FA Toggle tested:", toggle2FAData.message);
+  console.log("✓ Legacy 2FA toggle blocked with status:", toggle2FARes.status);
+  if (toggle2FARes.status !== 410) throw new Error("Legacy 2FA toggle should return 410");
+
+  // 10b. A standard user must not be able to administer access.
+  const accessRes = await fetch(`${base}/access/users`, { headers: authHeaders });
+  console.log("✓ Access administration denied to standard user:", accessRes.status);
+  if (accessRes.status !== 403) throw new Error("Expected 403 for access administration");
 
   // 11. Test Product Catalog (Supply Pillar)
   const productRes = await fetch(`${base}/catalog/products`, {
