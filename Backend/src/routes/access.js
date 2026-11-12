@@ -19,14 +19,15 @@ router.use(authenticateToken);
 
 function rolePayload(role) {
   const parsed = normalizeRolePayload(role.permissions_json);
+  const effective = serializePermissions(resolvePermissions(role.permissions_json, role.role_name));
   return {
     id: role.id,
     role_name: role.role_name,
     display_name: role.display_name || role.role_name,
     description: role.description || "",
     is_system: Boolean(role.is_system),
-    permissions: Array.isArray(parsed.permissions) ? parsed.permissions : [],
-    all: parsed.all === true
+    permissions: effective.permissions,
+    all: effective.all
   };
 }
 

@@ -50,10 +50,17 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("crm_user", JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
+    try {
+      const me = await getCurrentUser();
+      setUser(me.user);
+      localStorage.setItem("crm_user", JSON.stringify(me.user));
+    } catch {
+      // The session is still valid; permissions arrive on the next /auth/me refresh.
+    }
     return data;
   };
 
-  const establishSession = (data) => {
+  const establishSession = async (data) => {
     localStorage.setItem("crm_token", data.token);
     if (data.refreshToken) {
       localStorage.setItem("crm_refresh_token", data.refreshToken);
@@ -61,6 +68,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("crm_user", JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
+    try {
+      const me = await getCurrentUser();
+      setUser(me.user);
+      localStorage.setItem("crm_user", JSON.stringify(me.user));
+    } catch {
+      // Keep the authenticated session; permissions are hydrated on reload.
+    }
     return data;
   };
 
@@ -89,6 +103,13 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem("crm_user", JSON.stringify(data.user));
     setToken(data.token);
     setUser(data.user);
+    try {
+      const me = await getCurrentUser();
+      setUser(me.user);
+      localStorage.setItem("crm_user", JSON.stringify(me.user));
+    } catch {
+      // Signup succeeded even if the permission hydration request failed.
+    }
     return data;
   };
 

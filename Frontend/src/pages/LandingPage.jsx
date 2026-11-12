@@ -273,7 +273,7 @@ export default function LandingPage() {
           </a>
         </div>
 
-        {/* Live Interactive CRM Dashboard Preview Frame with Floating Animation */}
+        {/* Honest workspace preview: illustrates the flow, no invented customer data. */}
         <div className="scrm-float-card interactive-lift" style={{
           backgroundColor: "rgba(32, 32, 32, 0.78)",
           backdropFilter: "blur(14px)",
@@ -283,87 +283,47 @@ export default function LandingPage() {
           boxShadow: "0 24px 60px rgba(0, 0, 0, 0.65), 0 0 25px rgba(240, 255, 96, 0.12)",
           textAlign: "left"
         }}>
-          {/* Mock Window Header */}
           <div style={{
             backgroundColor: "#181818",
             borderBottom: "1px solid #414141",
             padding: "12px 18px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between"
+            justifyContent: "space-between",
+            gap: "12px",
+            flexWrap: "wrap"
           }}>
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#FB2C36" }} />
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#E17100" }} />
               <div style={{ width: "10px", height: "10px", borderRadius: "50%", backgroundColor: "#22C55E" }} />
               <span style={{ fontSize: "12px", color: "#9E9E9E", marginLeft: "12px", fontFamily: "monospace" }}>
-                scrm.workspace.internal/app/pipeline
+                your-workspace / pipeline
               </span>
             </div>
-            <div style={{ fontSize: "12px", color: "#F0FF60", fontWeight: 700 }}>
-              PIPELINE VALUE: $148,500.00
+            <div style={{ fontSize: "11px", color: "#F0FF60", fontWeight: 700, letterSpacing: "0.08em" }}>
+              LIVE WORKSPACE · YOUR DATA ONLY
             </div>
           </div>
 
-          {/* Mock Kanban Pipeline Preview */}
-          <div style={{ padding: "20px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "14px" }}>
-            {/* Stage: New */}
-            <div style={{ backgroundColor: "#181818", borderRadius: "8px", border: "1px solid #414141", padding: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#FFFFFF" }}>New Leads</span>
-                <span style={{ fontSize: "11px", backgroundColor: "#303018", color: "#F0FF60", padding: "2px 6px", borderRadius: "4px" }}>4</span>
+          <div style={{ padding: "20px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: "14px" }}>
+            {[
+              { stage: "New leads", detail: "Web forms, landing pages and email capture arrive with source and owner.", color: "#FFFFFF" },
+              { stage: "Qualified", detail: "Lead scoring surfaces intent; round-robin assigns the right rep.", color: "#F0FF60" },
+              { stage: "Proposal", detail: "Line-item quotes, tax and weighted pipeline value in one record.", color: "#F0FF60" },
+              { stage: "Won", detail: "Invoice, payment status and the full customer timeline stay linked.", color: "#22C55E" }
+            ].map((item, index) => (
+              <div key={item.stage} style={{ backgroundColor: "#181818", borderRadius: "8px", border: "1px solid #414141", padding: "16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "10px" }}>
+                  <span style={{ fontSize: "12px", fontWeight: 700, color: item.color }}>{item.stage}</span>
+                  <span style={{ fontSize: "10px", color: "#777", fontFamily: "monospace" }}>0{index + 1}</span>
+                </div>
+                <p style={{ fontSize: "12px", color: "#9E9E9E", lineHeight: 1.6, margin: 0 }}>{item.detail}</p>
               </div>
-              <div style={{ backgroundColor: "#242424", border: "1px solid #414141", borderRadius: "6px", padding: "10px", marginBottom: "8px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Aura Technologies</div>
-                <div style={{ fontSize: "11px", color: "#9E9E9E", marginTop: "4px" }}>Contact: Elena Rostova</div>
-                <div style={{ fontSize: "12px", color: "#F0FF60", fontWeight: 700, marginTop: "6px" }}>$18,000.00</div>
-              </div>
-              <div style={{ backgroundColor: "#242424", border: "1px solid #414141", borderRadius: "6px", padding: "10px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>Summit Logistics</div>
-                <div style={{ fontSize: "11px", color: "#9E9E9E", marginTop: "4px" }}>Contact: Marcus Brody</div>
-                <div style={{ fontSize: "12px", color: "#F0FF60", fontWeight: 700, marginTop: "6px" }}>$24,500.00</div>
-              </div>
-            </div>
-
-            {/* Stage: Qualified */}
-            <div style={{ backgroundColor: "#181818", borderRadius: "8px", border: "1px solid #414141", padding: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#FFFFFF" }}>Qualified</span>
-                <span style={{ fontSize: "11px", backgroundColor: "#303018", color: "#F0FF60", padding: "2px 6px", borderRadius: "4px" }}>2</span>
-              </div>
-              <div style={{ backgroundColor: "#242424", border: "1px solid #414141", borderRadius: "6px", padding: "10px", marginBottom: "8px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>CyberShield Systems</div>
-                <div style={{ fontSize: "11px", color: "#9E9E9E", marginTop: "4px" }}>Decision Maker Aligned</div>
-                <div style={{ fontSize: "12px", color: "#F0FF60", fontWeight: 700, marginTop: "6px" }}>$32,000.00</div>
-              </div>
-            </div>
-
-            {/* Stage: Proposal */}
-            <div style={{ backgroundColor: "#181818", borderRadius: "8px", border: "1px solid #414141", padding: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#FFFFFF" }}>Proposal Sent</span>
-                <span style={{ fontSize: "11px", backgroundColor: "#303018", color: "#F0FF60", padding: "2px 6px", borderRadius: "4px" }}>1</span>
-              </div>
-              <div style={{ backgroundColor: "#242424", border: "1px solid #4F5101", borderRadius: "6px", padding: "10px", position: "relative" }}>
-                <div style={{ fontSize: "11px", color: "#FAFF69", fontWeight: 700, textTransform: "uppercase" }}>High Probability</div>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF", marginTop: "2px" }}>Vanguard Energy Corp</div>
-                <div style={{ fontSize: "11px", color: "#9E9E9E", marginTop: "4px" }}>Quote #QT-2026-089 sent</div>
-                <div style={{ fontSize: "12px", color: "#F0FF60", fontWeight: 700, marginTop: "6px" }}>$45,000.00</div>
-              </div>
-            </div>
-
-            {/* Stage: Won */}
-            <div style={{ backgroundColor: "#181818", borderRadius: "8px", border: "1px solid #414141", padding: "14px" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "12px" }}>
-                <span style={{ fontSize: "12px", fontWeight: 700, color: "#22C55E" }}>Closed Won</span>
-                <span style={{ fontSize: "11px", backgroundColor: "rgba(34, 197, 94, 0.15)", color: "#22C55E", padding: "2px 6px", borderRadius: "4px" }}>3</span>
-              </div>
-              <div style={{ backgroundColor: "#242424", border: "1px solid #414141", borderRadius: "6px", padding: "10px" }}>
-                <div style={{ fontSize: "13px", fontWeight: 600, color: "#FFFFFF" }}>NovaBio Labs</div>
-                <div style={{ fontSize: "11px", color: "#9E9E9E", marginTop: "4px" }}>Invoice Generated · Paid</div>
-                <div style={{ fontSize: "12px", color: "#22C55E", fontWeight: 700, marginTop: "6px" }}>$29,000.00</div>
-              </div>
-            </div>
+            ))}
+          </div>
+          <div style={{ borderTop: "1px solid #303030", padding: "12px 20px", fontSize: "11px", color: "#888" }}>
+            Sign in to see your own pipeline. No demo records are seeded into your workspace.
           </div>
         </div>
       </section>
