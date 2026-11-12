@@ -1,15 +1,17 @@
-import React, { useState, useMemo } from "react";
+import React, { Suspense, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import BrandLogo from "../components/BrandLogo";
 import WorkspaceShell from "../components/WorkspaceShell";
-import SettingsView from "../components/SettingsView";
 import ConfirmDialog from "../components/ConfirmDialog";
 import SavedViewsBar from "../components/SavedViewsBar";
 import AttachmentsPanel from "../components/AttachmentsPanel";
 import ForecastPanel from "../components/ForecastPanel";
-import WhatsAppPanel from "../components/WhatsAppPanel";
+
+const SettingsView = React.lazy(() => import("../components/SettingsView"));
+const WhatsAppPanel = React.lazy(() => import("../components/WhatsAppPanel"));
 import useModalAccessibility from "../hooks/useModalAccessibility";
+import { hasPermission, isSectionBlocked } from "../utils/access";
 import { 
   UserPlus, 
   Search, 
@@ -113,7 +115,8 @@ import {
   updateCompany,
   deleteCompany,
   getAuthUsers,
-  exportAuditLog
+  exportAuditLog,
+  downloadBackup
 } from "../services/api";
 import "../App.css";
 
@@ -124,7 +127,7 @@ export default function Dashboard() {
   const queryClient = useQueryClient();
 
   // URL-driven workspace navigation: /app/:section and /app/settings/:tab
-  const { section } = useParams();
+  const { section, tab } = useParams();
   const navigate = useNavigate();
 
   const SECTION_TO_TAB = {
@@ -165,9 +168,14 @@ export default function Dashboard() {
 
   const activeTab = SECTION_TO_TAB[section] || "dashboard";
   const navigateTo = (tab, options) => navigate(TAB_TO_PATH[tab] || "/app/dashboard", options);
-  const permissionList = user?.permissionList || [];
-  const can = (permission) => Boolean(user?.permissions?.all || permissionList.includes("*") || permissionList.includes(permission));
+  const can = (permission) => hasPermission(user, permission);
   const canExportAudit = can("audit.export");
+
+  React.useEffect(() => {
+    if (isSectionBlocked(section, tab, user)) {
+      navigate("/app/dashboard", { replace: true });
+    }
+  }, [section, tab, user, navigate]);
 
   React.useEffect(() => {
     const knownSections = [
@@ -236,6 +244,7 @@ export default function Dashboard() {
   const [outboxView, setOutboxView] = useState("messages");
   const [selectedThreadId, setSelectedThreadId] = useState("");
   const [auditExportBusy, setAuditExportBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
 
   // Contact Modal State
   const [isContactModalOpen, setIsContactModalOpen] = useState(false);
@@ -1372,6 +1381,18 @@ export default function Dashboard() {
       showToast(err.response?.data?.error || "The audit log could not be exported.");
     } finally {
       setAuditExportBusy(false);
+    }
+  };
+
+  const handleBackupDownload = async () => {
+    setBackupBusy(true);
+    try {
+      await downloadBackup();
+      showToast("Database backup downloaded.");
+    } catch (err) {
+      showToast(err.response?.data?.error || "The database backup could not be downloaded.");
+    } finally {
+      setBackupBusy(false);
     }
   };
 
@@ -2759,7 +2780,9 @@ export default function Dashboard() {
 
         {/* TAB 9: EMAIL OUTBOX & OPEN TRACKING */}
         {activeTab === "whatsapp" && (
-          <WhatsAppPanel contacts={contacts} showToast={showToast} />
+          <Suspense fallback={<div className="settings-card access-loading" role="status">Loading WhatsApp workspace…</div>}>
+            <WhatsAppPanel contacts={contacts} showToast={showToast} />
+          </Suspense>
         )}
 
         {activeTab === "emails" && (
@@ -2931,16 +2954,10 @@ export default function Dashboard() {
                   Download immediate full-database JSON backups or trigger automated server storage snapshots. Backups are encrypted with enterprise access control.
                 </p>
                 <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", margin: "16px 0" }}>
-                  <a 
-                    href="http://localhost:5000/api/backup/download" 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="btn-primary-yellow"
-                    style={{ textDecoration: "none" }}
-                  >
+                  <button type="button" className="btn-primary-yellow" onClick={handleBackupDownload} disabled={backupBusy}>
                     <Download size={16} />
-                    <span>Download Full Backup Dump</span>
-                  </a>
+                    <span>{backupBusy ? "Preparing backup…" : "Download Full Backup Dump"}</span>
+                  </button>
                   <button className="btn-ghost-dark" onClick={() => createSnapshotMutation.mutate()}>
                     <ShieldCheck size={16} color="#F0FF60" />
                     <span>Create Server Snapshot</span>
@@ -3023,12 +3040,14 @@ export default function Dashboard() {
         )}
 
         {activeTab === "settings" && (
-          <SettingsView
-            user={user}
-            refreshUser={refreshUser}
-            logout={logout}
-            showToast={showToast}
-          />
+          <Suspense fallback={<div className="settings-card access-loading" role="status">Loading settings…</div>}>
+            <SettingsView
+              user={user}
+              refreshUser={refreshUser}
+              logout={logout}
+              showToast={showToast}
+            />
+          </Suspense>
         )}
       </WorkspaceShell>
 

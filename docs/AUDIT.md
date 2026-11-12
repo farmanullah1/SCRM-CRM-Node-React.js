@@ -7,6 +7,13 @@
 
 ---
 
+> **Update 2026-11-12:** This audit is retained for history. The following statements below are now outdated and are corrected by `docs/SECURITY_REVIEW.md`, `docs/FEATURE_GAP_MATRIX.md`, `docs/ARCHITECTURE.md`, `docs/DATA_MODEL.md`, and `docs/INTEGRATIONS.md`:
+> - TOTP authenticator enrollment, recovery codes and immediate `token_version` revocation are implemented and verified; the row below that says TOTP is “planned” is stale.
+> - Access changes apply on the next request without revoking the user's session; suspension and explicit revoke do terminate sessions.
+> - Backup dumps now exclude password hashes, refresh tokens, TOTP secrets/codes, recovery codes and reset tokens.
+> - Business attachments are no longer publicly served from `/uploads`; they require an authenticated download.
+> - Organization tables exist, but operational records are still **not** organization-scoped. The product is single-workspace today.
+
 ## 1. Executive Summary
 
 This audit evaluates the SCRM platform across its architecture, security posture, relational data integrity, and feature implementations. The system is built with Node.js/Express 5, Microsoft SQL Server 2022 (via Sequelize), and React 19 + Vite 8 adhering to the **Electric Obsidian** design system (`#181818` canvas, `#F0FF60` electric yellow accents).

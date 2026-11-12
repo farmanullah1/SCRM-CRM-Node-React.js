@@ -45,7 +45,19 @@ export async function generateFullDatabaseDump() {
     tickets,
     attachments
   ] = await Promise.all([
-    User.findAll({ attributes: { exclude: ["password", "refresh_token"] } }),
+    User.findAll({
+      attributes: {
+        exclude: [
+          "password",
+          "refresh_token",
+          "two_factor_code",
+          "two_factor_secret",
+          "two_factor_pending_secret",
+          "recovery_codes_json",
+          "reset_password_token"
+        ]
+      }
+    }),
     Role.findAll(),
     Company.findAll(),
     Contact.findAll(),

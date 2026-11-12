@@ -148,16 +148,33 @@ export const updateAccessRole = async ({ id, data }) => (await API.put(`/access/
 export const cloneAccessRole = async ({ id, data }) => (await API.post(`/access/roles/${id}/clone`, data)).data;
 export const deleteAccessRole = async (id) => (await API.delete(`/access/roles/${id}`)).data;
 export const getAccessAudit = async (params = {}) => (await API.get("/access/audit", { params })).data;
-export const exportAuditLog = async () => {
-  const response = await API.get("/access/audit/export", { responseType: "blob" });
-  const url = URL.createObjectURL(response.data);
+function saveBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `scrm-audit-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
   URL.revokeObjectURL(url);
+}
+
+export const exportAuditLog = async () => {
+  const response = await API.get("/access/audit/export", { responseType: "blob" });
+  saveBlob(response.data, `scrm-audit-${new Date().toISOString().slice(0, 10)}.csv`);
+};
+
+export const downloadBackup = async () => {
+  const response = await API.get("/backup/download", { responseType: "blob" });
+  saveBlob(response.data, `scrm-backup-${new Date().toISOString().slice(0, 10)}.json`);
+};
+
+export const downloadAttachment = async (id, fallbackName = "attachment") => {
+  const response = await API.get(`/attachments/${id}/download`, { responseType: "blob" });
+  const disposition = response.headers?.["content-disposition"] || "";
+  const match = disposition.match(/filename\*?=(?:UTF-8''|")?([^";]+)/i);
+  const filename = match ? decodeURIComponent(match[1].replace(/"/g, "")) : fallbackName;
+  saveBlob(response.data, filename);
 };
 
 // Companies

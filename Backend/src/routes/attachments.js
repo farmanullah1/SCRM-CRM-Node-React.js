@@ -75,6 +75,26 @@ const upload = multer({
 const router = express.Router();
 router.use(authenticateToken);
 
+// GET /api/attachments/:id/download - Authenticated file download.
+// Business attachments must never be reachable through the public /uploads path.
+router.get("/:id/download", requirePermission("attachments.view"), async (req, res) => {
+  try {
+    const attachment = await FileAttachment.findByPk(req.params.id);
+    if (!attachment) return res.status(404).json({ error: "Attachment not found." });
+
+    const access = await authorizeEntity(req.user, attachment.entity_type, attachment.entity_id);
+    if (access.error) return res.status(access.status).json({ error: access.error });
+
+    const diskPath = path.join(UPLOAD_DIR, path.basename(attachment.file_path));
+    if (!fs.existsSync(diskPath)) return res.status(404).json({ error: "The stored file could not be found." });
+
+    res.download(diskPath, attachment.file_name);
+  } catch (err) {
+    console.error("[Attachments] download", err.message);
+    if (!res.headersSent) res.status(500).json({ error: "The file could not be downloaded." });
+  }
+});
+
 // GET /api/attachments/:entityType/:entityId - List files for contact, deal, ticket, etc.
 router.get("/:entityType/:entityId", requirePermission("attachments.view"), async (req, res) => {
   try {

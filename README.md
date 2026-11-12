@@ -289,7 +289,7 @@ SMTP_PASS=your_smtp_password
 SMTP_FROM="SCRM Team" <noreply@scrm.enterprise>
 ```
 
-> **Note:** If SMTP credentials are not provided, SCRM automatically operates in simulated dispatch mode without throwing errors.
+> **Note:** There is no simulated dispatch mode. If SMTP is not configured or the provider rejects a message, the API returns a real error and records no successful send. Use Settings → Email & SMTP to verify the connection.
 
 ---
 

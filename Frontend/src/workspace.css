@@ -1912,10 +1912,14 @@
 .attachments-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .attachments-list li { display: flex; align-items: center; gap: 9px; padding: 7px 8px; border-radius: 6px; background: var(--bg); }
 .attachments-list li > svg { color: var(--text-muted); flex: none; }
-.attachments-list a { flex: 1; min-width: 0; text-decoration: none; color: var(--text); }
-.attachments-list a strong { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attachments-list a span { display: block; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
-.attachments-list a:hover strong { color: var(--accent); }
+.attachments-list a,
+.attachments-list .attachment-download { flex: 1; min-width: 0; text-align: left; text-decoration: none; color: var(--text); background: none; border: 0; padding: 0; cursor: pointer; }
+.attachments-list a strong,
+.attachments-list .attachment-download strong { display: block; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.attachments-list a span,
+.attachments-list .attachment-download span { display: block; font-size: 10px; color: var(--text-muted); margin-top: 2px; }
+.attachments-list a:hover strong,
+.attachments-list .attachment-download:hover strong { color: var(--accent); }
 
 /* ---- Weighted forecast ---- */
 .forecast-panel { border: 1px solid var(--border); border-radius: 11px; background: var(--surface); padding: 16px 18px; }

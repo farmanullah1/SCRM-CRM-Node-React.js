@@ -72,15 +72,18 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"]
+    allowedHeaders: ["Content-Type", "Authorization"],
+    exposedHeaders: ["Content-Disposition"]
   })
 );
 
 // General rate limiter across all /api endpoints
 app.use("/api", apiLimiter);
 
-// Serve uploads statically
-app.use("/uploads", express.static(path.resolve(__dirname, "../uploads")));
+// Profile media is intentionally public. Business attachments are not: they
+// are served only by the authenticated /api/attachments/:id/download route.
+app.use("/uploads/avatars", express.static(path.resolve(__dirname, "../uploads/avatars")));
+app.use("/uploads/covers", express.static(path.resolve(__dirname, "../uploads/covers")));
 
 // Parse JSON request bodies
 app.use(express.json({ limit: "15mb" }));

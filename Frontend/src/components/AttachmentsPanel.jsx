@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { FileText, Loader2, Paperclip, Trash2, Upload } from "lucide-react";
-import { assetUrl, deleteAttachment, getAttachments, uploadAttachment } from "../services/api";
+import { deleteAttachment, downloadAttachment, getAttachments, uploadAttachment } from "../services/api";
 import ConfirmDialog from "./ConfirmDialog";
 
 function sizeLabel(bytes) {
@@ -54,6 +54,15 @@ export default function AttachmentsPanel({ entityType, entityId, title = "Attach
     }
   };
 
+  const download = async (attachment) => {
+    setError("");
+    try {
+      await downloadAttachment(attachment.id, attachment.file_name);
+    } catch (err) {
+      setError(err.response?.data?.error || "The file could not be downloaded.");
+    }
+  };
+
   const remove = async () => {
     if (!pendingDelete) return;
     setBusy(true);
@@ -98,10 +107,10 @@ export default function AttachmentsPanel({ entityType, entityId, title = "Attach
           {attachments.map((attachment) => (
             <li key={attachment.id}>
               <FileText size={15} aria-hidden="true" />
-              <a href={assetUrl(attachment.file_path)} target="_blank" rel="noreferrer">
+              <button type="button" className="attachment-download" onClick={() => download(attachment)}>
                 <strong>{attachment.file_name}</strong>
                 <span>{sizeLabel(attachment.file_size)} · {new Date(attachment.uploaded_at || attachment.createdAt).toLocaleDateString()}</span>
-              </a>
+              </button>
               <button type="button" className="action-icon-btn delete" aria-label={`Delete ${attachment.file_name}`} onClick={() => setPendingDelete(attachment)}>
                 <Trash2 size={13} />
               </button>
