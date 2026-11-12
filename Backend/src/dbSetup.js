@@ -286,6 +286,10 @@ export async function ensureDatabaseAndSchema() {
           [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
       END
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'leads' AND COLUMN_NAME = 'score')
+        ALTER TABLE [leads] ADD [score] INT DEFAULT 0;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'leads' AND COLUMN_NAME = 'last_activity_at')
+        ALTER TABLE [leads] ADD [last_activity_at] DATETIMEOFFSET NULL;
     `);
 
     // 5. Companies table

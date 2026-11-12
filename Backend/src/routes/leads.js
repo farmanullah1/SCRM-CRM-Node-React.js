@@ -3,6 +3,7 @@ import { Lead, Contact, Company, Deal, ActivityLog, sequelize, Op } from "../db.
 import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
 import { canViewAll, canEditRecord, canDeleteRecord } from "../services/accessScope.js";
 import { sanitizeString, isValidEmail } from "../middleware/security.js";
+import { runLeadAutomation, calculateLeadScore } from "../services/leadAutomation.js";
 
 const router = express.Router();
 
@@ -80,6 +81,7 @@ router.post("/", authenticateToken, requirePermission("leads.create"), async (re
       notes,
       owner_id: req.user.id
     });
+    await runLeadAutomation(lead, { assign: false });
 
     await logAudit(req.user.id, "LEAD_CREATED", "Lead", lead.id, {
       name: lead.name,
@@ -134,6 +136,8 @@ router.put("/:id", authenticateToken, requirePermission("leads.edit"), async (re
     if (disqualification_reason !== undefined) lead.disqualification_reason = sanitizeString(disqualification_reason);
     if (notes !== undefined) lead.notes = notes;
 
+    lead.score = calculateLeadScore(lead);
+    lead.last_activity_at = new Date();
     await lead.save();
 
     await logAudit(req.user.id, "LEAD_UPDATED", "Lead", lead.id, {
@@ -144,6 +148,20 @@ router.put("/:id", authenticateToken, requirePermission("leads.edit"), async (re
     res.json({ message: "Lead updated successfully", lead });
   } catch (err) {
     res.status(500).json({ error: "Failed to update lead", details: err.message });
+  }
+});
+
+// POST /api/leads/:id/score - Recalculate the persisted lead score
+router.post("/:id/score", authenticateToken, requirePermission("leads.edit"), async (req, res) => {
+  try {
+    const lead = await Lead.findByPk(req.params.id);
+    if (!lead) return res.status(404).json({ error: "Lead not found." });
+    if (!canEditRecord(req.user, lead)) return res.status(404).json({ error: "Lead not found." });
+    lead.score = calculateLeadScore(lead);
+    await lead.save();
+    res.json({ message: "Lead score refreshed.", score: lead.score, lead });
+  } catch (err) {
+    res.status(500).json({ error: "Lead score could not be refreshed." });
   }
 });
 

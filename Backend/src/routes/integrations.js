@@ -4,29 +4,27 @@ import { authenticateToken, logAudit } from "../middleware/auth.js";
 const router = express.Router();
 router.use(authenticateToken);
 
-// In-memory or extensible registry for workflow automation rules
+// These are the automations that really run in the lead pipeline.
 const AUTOMATION_RULES = [
   {
-    id: "auto-assign",
+    id: "lead-capture",
+    name: "Web-to-Lead Auto-Capture",
+    event: "web_lead.submitted",
+    action: "create_lead_and_score",
+    active: true
+  },
+  {
+    id: "lead-scoring",
+    name: "Behavioural Lead Scoring",
+    event: "lead.created_or_updated",
+    action: "recalculate_score",
+    active: true
+  },
+  {
+    id: "round-robin",
     name: "Round-Robin Lead Assignment",
-    event: "contact.created",
-    action: "assign_next_rep",
-    active: true
-  },
-  {
-    id: "stage-proposal-alert",
-    name: "Proposal Stage Notification",
-    event: "deal.stage_changed",
-    condition: "stage === 'Proposal'",
-    action: "create_task_and_alert",
-    active: true
-  },
-  {
-    id: "won-invoice-generate",
-    name: "Deal Won Auto-Invoice Draft",
-    event: "deal.stage_changed",
-    condition: "stage === 'Won'",
-    action: "generate_draft_invoice",
+    event: "lead.unassigned_created",
+    action: "assign_least_loaded_rep",
     active: true
   }
 ];
@@ -45,12 +43,13 @@ router.post("/automations/test", async (req, res) => {
       return res.status(404).json({ error: "Automation rule not found" });
     }
 
-    await logAudit(req.user.id, "TEST_AUTOMATION", "System", null, { ruleId, payload });
+    await logAudit(req.user.id, "AUTOMATION_DRY_RUN", "System", null, { ruleId, payload });
 
     res.json({
       success: true,
-      message: `Automation trigger '${rule.name}' executed successfully in test mode.`,
-      executedAction: rule.action,
+      dryRun: true,
+      message: `'${rule.name}' is active on real records. This dry run checked the trigger only and changed no data.`,
+      actionThatRuns: rule.action,
       timestamp: new Date().toISOString()
     });
   } catch (err) {
@@ -61,36 +60,41 @@ router.post("/automations/test", async (req, res) => {
 // GET /api/integrations/calendar/sync - Google/Outlook Calendar Sync status & hook
 router.get("/calendar/sync", async (req, res) => {
   res.json({
-    status: "connected",
+    status: "not_configured",
     providers: [
       { name: "Google Calendar", connected: false, syncUrl: "/api/integrations/calendar/google" },
       { name: "Microsoft Outlook", connected: false, syncUrl: "/api/integrations/calendar/outlook" }
     ],
-    lastSync: new Date().toISOString(),
+    lastSync: null,
     scheduledEventsCount: 0
   });
 });
 
 // POST /api/integrations/calendar/sync - Sync task/meeting to calendar
 router.post("/calendar/sync", async (req, res) => {
-  const { eventTitle, startTime, provider } = req.body;
-  await logAudit(req.user.id, "CALENDAR_SYNC", "Calendar", null, { eventTitle, provider });
-
-  res.json({
-    success: true,
-    message: `Calendar event '${eventTitle || "CRM Task"}' scheduled with ${provider || "Google Calendar"}.`,
-    syncId: `sync_${Date.now()}`
+  res.status(501).json({
+    error: "Calendar sync is not configured. Connect a Google or Microsoft OAuth app before scheduling events."
   });
 });
 
 // POST /api/integrations/webhooks/slack - Slack notification dispatch
 router.post("/webhooks/slack", async (req, res) => {
+  const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+  if (!webhookUrl) {
+    return res.status(503).json({ error: "Slack is not configured. Add SLACK_WEBHOOK_URL on the server." });
+  }
   const { channel, message } = req.body;
-  res.json({
-    success: true,
-    message: `Slack notification queued for #${channel || "sales-crm"}.`,
-    dispatchedAt: new Date().toISOString()
-  });
+  try {
+    const response = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: `#${channel || "sales-crm"}: ${message || "CRM notification"}` })
+    });
+    if (!response.ok) throw new Error(`Slack returned ${response.status}`);
+    res.json({ success: true, message: "Slack accepted the notification.", dispatchedAt: new Date().toISOString() });
+  } catch (error) {
+    res.status(502).json({ error: `Slack delivery failed: ${error.message}` });
+  }
 });
 
 // POST /api/integrations/webhooks/zapier - Zapier webhook receiver
@@ -100,7 +104,8 @@ router.post("/webhooks/zapier", async (req, res) => {
 
   res.json({
     success: true,
-    message: "Zapier event received and processed.",
+    processed: false,
+    message: "Zapier event received and written to the audit log. No record was changed by this endpoint.",
     receivedKeys: Object.keys(payload || {})
   });
 });

@@ -127,6 +127,8 @@ export const Lead = sequelize.define(
     source: { type: DataTypes.STRING(100), defaultValue: "Website" },
     status: { type: DataTypes.STRING(50), defaultValue: "New" }, // New, Contacted, Engaged, Qualified, Converted, Disqualified
     estimated_value: { type: DataTypes.DECIMAL(12, 2), defaultValue: 0.0 },
+    score: { type: DataTypes.INTEGER, defaultValue: 0 },
+    last_activity_at: { type: DataTypes.DATE, allowNull: true },
     disqualification_reason: { type: DataTypes.STRING(300), allowNull: true },
     notes: { type: DataTypes.TEXT, allowNull: true },
     owner_id: { type: DataTypes.INTEGER, allowNull: true },
@@ -475,6 +477,8 @@ Invoice.belongsTo(Contact, { foreignKey: "contactId" });
 
 Invoice.hasMany(InvoicePayment, { foreignKey: "invoiceId", onDelete: "CASCADE" });
 InvoicePayment.belongsTo(Invoice, { foreignKey: "invoiceId" });
+Company.hasMany(Invoice, { foreignKey: "companyId" });
+Invoice.belongsTo(Company, { foreignKey: "companyId" });
 User.hasMany(InvoicePayment, { foreignKey: "userId" });
 InvoicePayment.belongsTo(User, { foreignKey: "userId" });
 
@@ -488,6 +492,8 @@ User.hasMany(Ticket, { foreignKey: "userId", onDelete: "CASCADE" });
 Ticket.belongsTo(User, { foreignKey: "userId" });
 Contact.hasMany(Ticket, { foreignKey: "contactId" });
 Ticket.belongsTo(Contact, { foreignKey: "contactId" });
+Company.hasMany(Ticket, { foreignKey: "companyId" });
+Ticket.belongsTo(Company, { foreignKey: "companyId" });
 
 export async function connectDB() {
   try {

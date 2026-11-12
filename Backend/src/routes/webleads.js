@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { WebLead, Lead, ApiKey, ActivityLog } from "../db.js";
 import { authenticateToken, requireRole } from "../middleware/auth.js";
 import { sanitizeString } from "../middleware/security.js";
+import { runLeadAutomation } from "../services/leadAutomation.js";
 
 const router = express.Router();
 
@@ -39,9 +40,10 @@ router.post("/web-lead", async (req, res) => {
       company_name: company_name ? sanitizeString(company_name) : "Web Inbound Lead",
       source: "Web Form",
       status: "New",
-      estimated_value: 5000.00,
+      estimated_value: 0,
       notes: message ? `Inquiry Message: ${sanitizeString(message)}` : "Submitted via SCRM Web Form"
     });
+    await runLeadAutomation(newLead, { assign: true });
 
     res.status(201).json({
       success: true,

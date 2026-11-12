@@ -5,6 +5,7 @@ import BrandLogo from "../components/BrandLogo";
 import WorkspaceShell from "../components/WorkspaceShell";
 import SettingsView from "../components/SettingsView";
 import ConfirmDialog from "../components/ConfirmDialog";
+import SavedViewsBar from "../components/SavedViewsBar";
 import useModalAccessibility from "../hooks/useModalAccessibility";
 import { 
   UserPlus, 
@@ -76,6 +77,8 @@ import {
   createInvoice,
   updateInvoice,
   deleteInvoice,
+  recordInvoicePayment,
+  downloadInvoicePdf,
   getTickets,
   createTicket,
   updateTicket,
@@ -188,6 +191,10 @@ export default function Dashboard() {
   const [confirmDialog, setConfirmDialog] = useState(null);
   const requestConfirm = (options) => setConfirmDialog(options);
   const closeConfirm = () => setConfirmDialog(null);
+
+  const [paymentInvoice, setPaymentInvoice] = useState(null);
+  const [paymentForm, setPaymentForm] = useState({ amount: "", kind: "Payment", method: "Bank transfer", reference: "", note: "" });
+  const [paymentError, setPaymentError] = useState("");
 
   // Form Error States
   const [leadFormError, setLeadFormError] = useState("");
@@ -777,6 +784,20 @@ export default function Dashboard() {
       showToast(`Invoice marked ${invoice.status.toLowerCase()}.`);
     },
     onError: (err) => showToast(err.response?.data?.error || "Failed to update invoice status.")
+  });
+
+  const invoicePaymentMutation = useMutation({
+    mutationFn: ({ id, data }) => recordInvoicePayment({ id, data }),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["activities"] });
+      setSelectedInvoice((current) => current?.id === result.invoice?.id ? result.invoice : current);
+      setPaymentInvoice(null);
+      setPaymentForm({ amount: "", kind: "Payment", method: "Bank transfer", reference: "", note: "" });
+      setPaymentError("");
+      showToast(`${paymentForm.kind} recorded. Balance $${Number(result.invoice?.balance || 0).toFixed(2)}.`);
+    },
+    onError: (err) => setPaymentError(err.response?.data?.error || "The payment could not be recorded.")
   });
 
   const openNewInvoice = () => {
@@ -1515,6 +1536,15 @@ export default function Dashboard() {
               </div>
             </div>
 
+            <SavedViewsBar
+              entity="leads"
+              currentQuery={{ search: leadSearchTerm, status: leadStatusFilter }}
+              onApply={(query) => {
+                setLeadSearchTerm(query.search || "");
+                setLeadStatusFilter(query.status || "All");
+              }}
+            />
+
             {leads.length === 0 ? (
               <div className="table-card-circuit empty-state">
                 <Target size={40} color="#F0FF60" />
@@ -2194,6 +2224,7 @@ export default function Dashboard() {
                     <th>Type</th>
                     <th>Contact</th>
                     <th>Amount</th>
+                    <th>Balance</th>
                     <th>Status</th>
                     <th>Due</th>
                     <th style={{ textAlign: "right" }}>Actions</th>
@@ -2210,6 +2241,7 @@ export default function Dashboard() {
                       <td>{inv.type}</td>
                       <td>{inv.Contact?.name || "—"}</td>
                       <td className="value-cell">${(Number(inv.amount) || 0).toLocaleString()}</td>
+                      <td className="value-cell">${(Number(inv.balance ?? inv.amount) || 0).toFixed(2)}</td>
                       <td>
                         <span className={`status-badge ${(inv.status || "Draft").toLowerCase()}`}>{inv.status}</span>
                         {inv.isOverdue && <span className="status-badge overdue" style={{ marginLeft: "6px" }}>Overdue</span>}
@@ -2220,6 +2252,18 @@ export default function Dashboard() {
                           <button className="action-icon-btn" title="View invoice" onClick={() => setSelectedInvoice(inv)}>
                             <Eye size={14} />
                           </button>
+                          <button className="action-icon-btn" title="Download PDF" onClick={() => downloadInvoicePdf(inv).catch((err) => showToast(err.response?.data?.error || "The PDF could not be generated."))}>
+                            <Download size={14} />
+                          </button>
+                          {!["Paid", "Void"].includes(inv.status) && (
+                            <button className="action-icon-btn" title="Record payment or credit" onClick={() => {
+                              setPaymentInvoice(inv);
+                              setPaymentError("");
+                              setPaymentForm({ amount: String(inv.balance ?? inv.amount ?? ""), kind: "Payment", method: "Bank transfer", reference: "", note: "" });
+                            }}>
+                              <DollarSign size={14} />
+                            </button>
+                          )}
                           {!["Paid", "Void"].includes(inv.status) && (
                             <button className="action-icon-btn" title="Mark as paid" onClick={() => invoiceStatusMutation.mutate({ id: inv.id, data: { status: "Paid" } })}>
                               <CheckCircle2 size={14} color="#22C55E" />
@@ -2245,7 +2289,7 @@ export default function Dashboard() {
                   ))}
                   {invoices.length === 0 && (
                     <tr>
-                      <td colSpan="7" className="empty-table-cell">No invoices or quotes yet. Generate one from a catalog item or a custom line.</td>
+                      <td colSpan="8" className="empty-table-cell">No invoices or quotes yet. Generate one from a catalog item or a custom line.</td>
                     </tr>
                   )}
                 </tbody>
@@ -4461,6 +4505,62 @@ export default function Dashboard() {
         onConfirm={confirmDialog?.onConfirm}
         onCancel={closeConfirm}
       />
+
+      {paymentInvoice && (
+        <div className="confirm-dialog-overlay" onMouseDown={(event) => { if (event.target === event.currentTarget) setPaymentInvoice(null); }}>
+          <form
+            className="confirm-dialog payment-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="payment-dialog-title"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setPaymentError("");
+              invoicePaymentMutation.mutate({ id: paymentInvoice.id, data: paymentForm });
+            }}
+          >
+            <h2 id="payment-dialog-title">Record payment</h2>
+            <p>{paymentInvoice.invoiceNumber} · outstanding ${Number(paymentInvoice.balance ?? paymentInvoice.amount ?? 0).toFixed(2)}</p>
+            <div className="payment-dialog-grid">
+              <label>
+                <span>Amount</span>
+                <input type="number" min="0.01" step="0.01" required value={paymentForm.amount} onChange={(event) => setPaymentForm((form) => ({ ...form, amount: event.target.value }))} />
+              </label>
+              <label>
+                <span>Type</span>
+                <select value={paymentForm.kind} onChange={(event) => setPaymentForm((form) => ({ ...form, kind: event.target.value }))}>
+                  <option value="Payment">Payment</option>
+                  <option value="Credit">Credit note</option>
+                </select>
+              </label>
+              <label>
+                <span>Method</span>
+                <select value={paymentForm.method} onChange={(event) => setPaymentForm((form) => ({ ...form, method: event.target.value }))}>
+                  <option>Bank transfer</option>
+                  <option>Card</option>
+                  <option>Cash</option>
+                  <option>Other</option>
+                </select>
+              </label>
+              <label>
+                <span>Reference</span>
+                <input value={paymentForm.reference} onChange={(event) => setPaymentForm((form) => ({ ...form, reference: event.target.value }))} placeholder="Transaction reference" />
+              </label>
+              <label className="payment-dialog-wide">
+                <span>Note</span>
+                <input value={paymentForm.note} onChange={(event) => setPaymentForm((form) => ({ ...form, note: event.target.value }))} placeholder="Optional internal note" />
+              </label>
+            </div>
+            {paymentError && <p className="form-error" role="alert">{paymentError}</p>}
+            <div className="confirm-dialog-actions">
+              <button type="button" className="btn-ghost-dark" onClick={() => setPaymentInvoice(null)} disabled={invoicePaymentMutation.isPending}>Cancel</button>
+              <button type="submit" className="btn-primary-yellow" disabled={invoicePaymentMutation.isPending}>
+                {invoicePaymentMutation.isPending ? "Recording…" : "Record payment"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   );
 }

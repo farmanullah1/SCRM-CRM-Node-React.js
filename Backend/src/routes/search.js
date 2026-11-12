@@ -20,11 +20,16 @@ router.get("/", async (req, res) => {
   const effective = req.user.effectivePermissions || req.user.permissions;
   const allowed = (key) => hasPermission(effective, key);
   const ownScope = (field) => (canViewAll(req.user) ? {} : { [field]: req.user.id });
+  const scopeFor = (type) => {
+    if (canViewAll(req.user) || type === "companies") return {};
+    if (type === "invoices" || type === "tickets") return { userId: req.user.id };
+    return { owner_id: req.user.id };
+  };
   const sections = [];
 
   async function section(type, label, permission, model, where, mapper) {
     if (!allowed(permission)) return;
-    const rows = await model.findAll({ where: { ...where, ...ownScope(type === "invoices" || type === "tickets" ? "userId" : "owner_id") }, limit, order: [["createdAt", "DESC"]] });
+    const rows = await model.findAll({ where: { ...where, ...scopeFor(type) }, limit, order: [["createdAt", "DESC"]] });
     sections.push({ type, label, items: rows.map(mapper) });
   }
 
@@ -42,7 +47,7 @@ router.get("/", async (req, res) => {
       (row) => ({ id: row.id, title: row.name, subtitle: row.domain || row.industry, href: `/app/companies?search=${encodeURIComponent(row.name || "")}` }));
 
     await section("deals", "Deals", "deals.view", Deal,
-      { [Op.or]: [{ title: { [Op.like]: like } }, { company_name: { [Op.like]: like } }] },
+      { title: { [Op.like]: like } },
       (row) => ({ id: row.id, title: row.title, subtitle: `${row.stage || "Deal"} · $${Number(row.value || 0).toLocaleString()}`, href: "/app/pipeline" }));
 
     await section("invoices", "Invoices", "invoices.view", Invoice,

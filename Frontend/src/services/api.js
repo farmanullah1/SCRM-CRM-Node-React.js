@@ -128,6 +128,15 @@ export const uploadImageKitProfileImage = async (kind, file) => {
 export const getSmtpStatus = async () => (await API.get("/auth/smtp/status")).data;
 export const sendSmtpTest = async (recipient) => (await API.post("/auth/smtp/test", { recipient })).data;
 
+// Global search, saved views and in-app notifications
+export const globalSearch = async (q) => (await API.get("/search", { params: { q } })).data;
+export const getSavedViews = async (entity) => (await API.get("/views", { params: entity ? { entity } : {} })).data;
+export const createSavedView = async (data) => (await API.post("/views", data)).data;
+export const deleteSavedView = async (id) => (await API.delete(`/views/${id}`)).data;
+export const getNotifications = async () => (await API.get("/notifications")).data;
+export const markNotificationRead = async (id) => (await API.post(`/notifications/${id}/read`)).data;
+export const markAllNotificationsRead = async () => (await API.post("/notifications/read-all")).data;
+
 // Users, roles and permission administration
 export const getAccessCatalog = async () => (await API.get("/access/catalog")).data;
 export const getAccessUsers = async () => (await API.get("/access/users")).data;
@@ -192,6 +201,19 @@ export const getInvoices = async (params = {}) => (await API.get("/invoices", { 
 export const createInvoice = async (data) => (await API.post("/invoices", data)).data;
 export const updateInvoice = async ({ id, data }) => (await API.put(`/invoices/${id}`, data)).data;
 export const deleteInvoice = async (id) => (await API.delete(`/invoices/${id}`)).data;
+export const recordInvoicePayment = async ({ id, data }) => (await API.post(`/invoices/${id}/payments`, data)).data;
+export const getInvoicePayments = async (id) => (await API.get(`/invoices/${id}/payments`)).data;
+export const downloadInvoicePdf = async (invoice) => {
+  const response = await API.get(`/invoices/${invoice.id}/pdf`, { responseType: "blob" });
+  const url = URL.createObjectURL(response.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `${invoice.invoiceNumber || "document"}.pdf`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+};
 
 // Support Tickets
 export const getTickets = async (params = {}) => (await API.get("/tickets", { params })).data;
