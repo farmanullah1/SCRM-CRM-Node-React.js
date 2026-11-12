@@ -1,5 +1,5 @@
 import express from "express";
-import { Ticket, Contact } from "../db.js";
+import { Ticket, Contact, Company } from "../db.js";
 import { authenticateToken, requirePermission } from "../middleware/auth.js";
 import { canViewAll, canEditAll, canDeleteAll } from "../services/accessScope.js";
 
@@ -16,7 +16,10 @@ router.get("/", requirePermission("tickets.view"), async (req, res) => {
 
     const tickets = await Ticket.findAll({
       where,
-      include: [{ model: Contact, attributes: ["id", "name", "email", "company"] }],
+      include: [
+        { model: Contact, attributes: ["id", "name", "email", "company"] },
+        { model: Company, attributes: ["id", "name", "domain"] }
+      ],
       order: [["id", "DESC"]]
     });
 
@@ -29,13 +32,14 @@ router.get("/", requirePermission("tickets.view"), async (req, res) => {
 // POST /api/tickets - create ticket
 router.post("/", requirePermission("tickets.create"), async (req, res) => {
   try {
-    const { contactId, subject, description, priority, status } = req.body;
+    const { contactId, companyId, subject, description, priority, status } = req.body;
     if (!subject) return res.status(400).json({ error: "Subject is required." });
 
     const ticketNumber = `TCK-${Date.now().toString().slice(-6)}`;
     const ticket = await Ticket.create({
       userId: req.user.id,
       contactId: contactId ? parseInt(contactId, 10) : null,
+      companyId: companyId ? parseInt(companyId, 10) : null,
       ticketNumber,
       subject: subject.trim(),
       description: description ? description.trim() : null,
@@ -57,11 +61,13 @@ router.put("/:id", requirePermission("tickets.edit"), async (req, res) => {
     });
     if (!ticket) return res.status(404).json({ error: "Ticket not found" });
 
-    const { status, priority, description } = req.body;
+    const { status, priority, description, contactId, companyId } = req.body;
     await ticket.update({
       status: status !== undefined ? status : ticket.status,
       priority: priority !== undefined ? priority : ticket.priority,
-      description: description !== undefined ? description : ticket.description
+      description: description !== undefined ? description : ticket.description,
+      contactId: contactId !== undefined ? (contactId ? parseInt(contactId, 10) : null) : ticket.contactId,
+      companyId: companyId !== undefined ? (companyId ? parseInt(companyId, 10) : null) : ticket.companyId
     });
 
     res.json(ticket);

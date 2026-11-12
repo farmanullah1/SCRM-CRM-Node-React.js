@@ -100,7 +100,7 @@ export default function AttachmentsPanel({ entityType, entityId, title = "Attach
               <FileText size={15} aria-hidden="true" />
               <a href={assetUrl(attachment.file_path)} target="_blank" rel="noreferrer">
                 <strong>{attachment.file_name}</strong>
-                <span>{sizeLabel(attachment.file_size)} · {new Date(attachment.createdAt).toLocaleDateString()}</span>
+                <span>{sizeLabel(attachment.file_size)} · {new Date(attachment.uploaded_at || attachment.createdAt).toLocaleDateString()}</span>
               </a>
               <button type="button" className="action-icon-btn delete" aria-label={`Delete ${attachment.file_name}`} onClick={() => setPendingDelete(attachment)}>
                 <Trash2 size={13} />

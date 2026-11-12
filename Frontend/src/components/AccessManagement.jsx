@@ -135,7 +135,7 @@ export default function AccessManagement({ user, showToast }) {
   const saveMutation = useMutation({
     mutationFn: (payload) => updateUserAccess({ id: selectedUser.id, data: payload }),
     onSuccess: async () => {
-      setMessage("Access saved. This user's existing sessions were revoked.");
+      setMessage("Access saved. The change applies on this user's next request.");
       setError("");
       await invalidate();
       showToast?.("User access updated.");
@@ -254,7 +254,7 @@ export default function AccessManagement({ user, showToast }) {
           <span className="eyebrow">Workspace administration</span>
           <h2 className="settings-view-title">Users &amp; access</h2>
           <p className="settings-view-subtitle">
-            Grant only the roles and permissions each person needs. Changes revoke existing sessions immediately.
+            Grant only the roles and permissions each person needs. Permission changes apply immediately without signing the user out; suspension revokes all sessions.
           </p>
         </div>
         <div className="access-summary">

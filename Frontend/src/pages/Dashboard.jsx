@@ -3566,35 +3566,6 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                <div className="contact-detail-columns">
-                  <div>
-                    <h4 className="contact-detail-section-title">Invoices ({companyInvoices.length})</h4>
-                    <div className="contact-detail-list">
-                      {companyInvoices.map((invoice) => (
-                        <button type="button" className="contact-detail-item link-item" key={invoice.id} onClick={() => setSelectedInvoice(invoice)}>
-                          <span><strong>{invoice.invoiceNumber}</strong><br />{invoice.status}</span>
-                          <span>${(Number(invoice.amount) || 0).toLocaleString()}</span>
-                        </button>
-                      ))}
-                      {companyInvoices.length === 0 && <div className="empty-state-notice">No invoices or quotes for this company.</div>}
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="contact-detail-section-title">Tickets ({companyTickets.length})</h4>
-                    <div className="contact-detail-list">
-                      {companyTickets.map((ticket) => (
-                        <div className="contact-detail-item" key={ticket.id}>
-                          <span><strong>{ticket.subject}</strong><br />{ticket.ticketNumber}</span>
-                          <span>{ticket.status}</span>
-                        </div>
-                      ))}
-                      {companyTickets.length === 0 && <div className="empty-state-notice">No tickets for this company.</div>}
-                    </div>
-                  </div>
-                </div>
-
-                <AttachmentsPanel entityType="Company" entityId={companyRecord.id} title="Company attachments" />
-
                 <div className="contact-detail-actions">
                   <button className="btn-ghost-dark small" onClick={() => {
                     setEditingContact(contactDetail);
@@ -4327,7 +4298,7 @@ export default function Dashboard() {
               <div><span>Subtotal</span><span>${(Number(selectedInvoice.subtotal) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               <div><span>Tax ({Number(selectedInvoice.tax_rate) || 0}%)</span><span>${(Number(selectedInvoice.tax_amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               <div className="invoice-total-row"><span>Total</span><span>${(Number(selectedInvoice.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
-              <div><span>Paid / credited</span><span>$${((Number(selectedInvoice.amount_paid) || 0) + (Number(selectedInvoice.credit_amount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
+              <div><span>Paid / credited</span><span>${((Number(selectedInvoice.amount_paid) || 0) + (Number(selectedInvoice.credit_amount) || 0)).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
               <div className="invoice-total-row"><span>Balance due</span><span>${(Number(selectedInvoice.balance ?? selectedInvoice.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span></div>
             </div>
 
@@ -4820,6 +4791,35 @@ export default function Dashboard() {
                     </div>
                   </div>
                 </div>
+
+                <div className="contact-detail-columns">
+                  <div>
+                    <h4 className="contact-detail-section-title">Invoices ({companyInvoices.length})</h4>
+                    <div className="contact-detail-list">
+                      {companyInvoices.map((invoice) => (
+                        <button type="button" className="contact-detail-item link-item" key={invoice.id} onClick={() => { setSelectedCompanyId(null); setSelectedInvoice(invoice); }}>
+                          <span><strong>{invoice.invoiceNumber}</strong><br />{invoice.status}</span>
+                          <span>${(Number(invoice.amount) || 0).toLocaleString()}</span>
+                        </button>
+                      ))}
+                      {companyInvoices.length === 0 && <div className="empty-state-notice">No invoices or quotes for this company.</div>}
+                    </div>
+                  </div>
+                  <div>
+                    <h4 className="contact-detail-section-title">Tickets ({companyTickets.length})</h4>
+                    <div className="contact-detail-list">
+                      {companyTickets.map((ticket) => (
+                        <button type="button" className="contact-detail-item link-item" key={ticket.id} onClick={() => { setSelectedCompanyId(null); setSelectedTicket(ticket); }}>
+                          <span><strong>{ticket.subject}</strong><br />{ticket.ticketNumber}</span>
+                          <span>{ticket.status}</span>
+                        </button>
+                      ))}
+                      {companyTickets.length === 0 && <div className="empty-state-notice">No tickets for this company.</div>}
+                    </div>
+                  </div>
+                </div>
+
+                <AttachmentsPanel entityType="Company" entityId={companyRecord.id} title="Company attachments" />
 
                 <div className="contact-detail-actions">
                   <button className="btn-primary-yellow small" onClick={() => {
