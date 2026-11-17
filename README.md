@@ -90,7 +90,10 @@ SCRM is organized around six foundational operational pillars:
 
 ### 6. 📄 Commercial Quotes & Invoices
 - **Billing Generator**: Issues line-item commercial quotes and tax invoices with unique numbers (`INV-XXXXXX`).
-- **Status Lifecycles**: Workflow states tracking `Draft`, `Sent`, `Paid`, `Overdue`, and `Cancelled`.
+- **Status Lifecycles**: Workflow states tracking `Draft`, `Sent`, `Partially Paid`, `Paid`, `Overdue`, and `Void`.
+- **Hosted Online Checkout**: Stripe-hosted card payments for full or partial balances, with server-created sessions and success/cancel redirects.
+- **Verified Webhooks**: Raw-body Stripe signature verification records payments exactly once, marks the checkout complete, and keeps invoice balances in sync.
+- **Manual Payments & Credits**: Staff can still record bank transfers, cash, card, and credit notes alongside gateway payments.
 
 ### 7. 🛟 Customer Support & Incident Queues
 - **Support Ticketing**: Customer issue ticketing with urgency weighting (`Low`, `Medium`, `High`, `Urgent`) and lifecycle tracking (`Open`, `In Progress`, `Resolved`, `Closed`).
@@ -291,7 +294,16 @@ SMTP_PORT=587
 SMTP_USER=postmaster@yourdomain.com
 SMTP_PASS=your_smtp_password
 SMTP_FROM="SCRM Team" <noreply@scrm.enterprise>
+
+# Online invoice payments (Stripe hosted Checkout)
+PAYMENT_GATEWAY=stripe
+STRIPE_SECRET_KEY=sk_test_or_live_key
+STRIPE_WEBHOOK_SECRET=whsec_from_stripe_webhook_endpoint
+PAYMENT_CURRENCY=usd
+PAYMENT_APP_URL=http://localhost:5173
 ```
+
+Create a Stripe webhook endpoint at `https://<backend-host>/api/payments/webhook` and subscribe it to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, and `checkout.session.expired`. The signing secret is `STRIPE_WEBHOOK_SECRET`. Card details are collected only by Stripe's hosted page and never reach this server.
 
 > **Note:** There is no simulated dispatch mode. If SMTP is not configured or the provider rejects a message, the API returns a real error and records no successful send. Use Settings → Email & SMTP to verify the connection.
 
@@ -318,9 +330,11 @@ Run the focused backend unit tests and the frontend test/build gates:
 ```bash
 cd Backend
 npm run test:whatsapp   # 13 passing: phone matching + inbound media safety
+npm run test:pagination # 5 passing: pagination, saved views and audit export
+npm run test:payments   # 6 passing: hosted checkout, signatures, partial payments, permissions
 
 cd ../Frontend
-npm test                # 12 passing: access, dialog and WhatsApp panel states
+npm test                # 15 passing: access, dialogs, catalog, and WhatsApp panel states
 npm run build           # production SPA build
 ```
 

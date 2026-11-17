@@ -5,6 +5,7 @@ import { authenticateToken, requirePermission, logAudit } from "../middleware/au
 import { canViewAll, canEditAll, canDeleteAll } from "../services/accessScope.js";
 import { sanitizeString } from "../middleware/security.js";
 import { createNotification } from "./notifications.js";
+import { recalculateInvoicePayments } from "../services/invoicePayments.js";
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -232,25 +233,6 @@ router.put("/:id", requirePermission("invoices.edit"), async (req, res) => {
 // ---------------------------------------------------------------------------
 // Payment lifecycle: partial payments, credits and server-side balances
 // ---------------------------------------------------------------------------
-async function recalculatePayments(invoice) {
-  const payments = await InvoicePayment.findAll({ where: { invoiceId: invoice.id } });
-  const paid = payments.filter((entry) => entry.kind !== "Credit").reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const credits = payments.filter((entry) => entry.kind === "Credit").reduce((sum, entry) => sum + Number(entry.amount || 0), 0);
-  const balance = Number(Math.max(0, Number(invoice.amount || 0) - paid - credits).toFixed(2));
-
-  invoice.amount_paid = Number(paid.toFixed(2));
-  invoice.credit_amount = Number(credits.toFixed(2));
-  if (balance <= 0.009) {
-    invoice.status = "Paid";
-    invoice.paid_at = invoice.paid_at || new Date();
-  } else if (paid + credits > 0 && ["Sent", "Partially Paid", "Overdue"].includes(invoice.status)) {
-    invoice.status = "Partially Paid";
-    invoice.paid_at = null;
-  }
-  await invoice.save();
-  return { paid, credits, balance };
-}
-
 router.get("/:id/payments", requirePermission("payments.view"), async (req, res) => {
   try {
     const invoice = await Invoice.findOne({
@@ -289,7 +271,7 @@ router.post("/:id/payments", requirePermission("payments.create"), async (req, r
       note: sanitizeString(req.body?.note) || null,
       paid_at: req.body?.paid_at ? new Date(req.body.paid_at) : new Date()
     });
-    const totals = await recalculatePayments(invoice);
+    const totals = await recalculateInvoicePayments(invoice);
     await logAudit(req.user.id, kind === "Credit" ? "INVOICE_CREDIT" : "INVOICE_PAYMENT", "Invoice", invoice.id, {
       amount: payment.amount,
       method: payment.method,

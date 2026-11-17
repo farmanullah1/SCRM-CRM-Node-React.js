@@ -235,6 +235,8 @@ export const createInvoice = async (data) => (await API.post("/invoices", data))
 export const updateInvoice = async ({ id, data }) => (await API.put(`/invoices/${id}`, data)).data;
 export const deleteInvoice = async (id) => (await API.delete(`/invoices/${id}`)).data;
 export const recordInvoicePayment = async ({ id, data }) => (await API.post(`/invoices/${id}/payments`, data)).data;
+export const getPaymentConfig = async () => (await API.get("/payments/config")).data;
+export const createInvoiceCheckout = async ({ id, amount }) => (await API.post(`/payments/invoices/${id}/checkout`, { amount })).data;
 export const getInvoicePayments = async (id) => (await API.get(`/invoices/${id}/payments`)).data;
 export const downloadInvoicePdf = async (invoice) => {
   const response = await API.get(`/invoices/${invoice.id}/pdf`, { responseType: "blob" });

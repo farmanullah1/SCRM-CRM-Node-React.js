@@ -9,6 +9,8 @@
     "dev": "nodemon src/server.js",
     "postinstall": "node scripts/patch-wwebjs.cjs",
     "test:whatsapp": "node --test tests/whatsapp.test.js tests/whatsappMedia.test.js",
+    "test:pagination": "node --test tests/paginationAudit.test.js",
+    "test:payments": "node --test tests/payments.test.js",
     "test:e2e": "node tests/live-e2e.mjs"
   },
   "dependencies": {
@@ -26,6 +28,7 @@
     "pdfkit": "^0.20.2",
     "qrcode": "^1.5.4",
     "sequelize": "^6.37.8",
+    "stripe": "^23.1.0",
     "tedious": "^20.3.8",
     "whatsapp-web.js": "1.34.7"
   },

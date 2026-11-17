@@ -645,6 +645,28 @@ export async function ensureDatabaseAndSchema() {
           [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
         );
       END
+      IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'payment_checkouts')
+      BEGIN
+        CREATE TABLE [payment_checkouts] (
+          [id] INT IDENTITY(1,1) PRIMARY KEY,
+          [invoiceId] INT NOT NULL,
+          [userId] INT NULL,
+          [provider] NVARCHAR(30) DEFAULT 'stripe',
+          [providerSessionId] NVARCHAR(255) NULL,
+          [amount] DECIMAL(12,2) NOT NULL,
+          [currency] NVARCHAR(10) NOT NULL,
+          [status] NVARCHAR(20) DEFAULT 'Pending',
+          [checkoutUrl] NVARCHAR(MAX) NULL,
+          [expiresAt] DATETIMEOFFSET NULL,
+          [completedAt] DATETIMEOFFSET NULL,
+          [createdAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET(),
+          [updatedAt] DATETIMEOFFSET DEFAULT SYSDATETIMEOFFSET()
+        );
+      END
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = N'IX_payment_checkouts_session' AND object_id = OBJECT_ID(N'payment_checkouts'))
+        CREATE INDEX [IX_payment_checkouts_session] ON [payment_checkouts] ([providerSessionId]);
+      IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = N'IX_payment_checkouts_invoice' AND object_id = OBJECT_ID(N'payment_checkouts'))
+        CREATE INDEX [IX_payment_checkouts_invoice] ON [payment_checkouts] ([invoiceId], [id] DESC);
       IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = N'saved_views')
       BEGIN
         CREATE TABLE [saved_views] (

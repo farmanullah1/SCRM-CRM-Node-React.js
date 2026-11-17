@@ -53,7 +53,8 @@ import {
   Eye,
   Sliders,
   ExternalLink,
-  Package
+  Package,
+  CreditCard
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { 
@@ -83,6 +84,8 @@ import {
   updateInvoice,
   deleteInvoice,
   recordInvoicePayment,
+  getPaymentConfig,
+  createInvoiceCheckout,
   downloadInvoicePdf,
   getTickets,
   createTicket,
@@ -447,6 +450,13 @@ export default function Dashboard() {
   const { data: invoices = [], refetch: refetchInvoices } = useQuery({
     queryKey: ["invoices"],
     queryFn: () => getInvoices({})
+  });
+
+  const { data: paymentConfig = { checkoutReady: false, message: "" }, isLoading: paymentConfigLoading } = useQuery({
+    queryKey: ["paymentConfig"],
+    queryFn: getPaymentConfig,
+    enabled: can("payments.create"),
+    retry: false
   });
 
   const { data: tickets = [], refetch: refetchTickets } = useQuery({
@@ -849,6 +859,22 @@ export default function Dashboard() {
       showToast(`Invoice marked ${invoice.status.toLowerCase()}.`);
     },
     onError: (err) => showToast(err.response?.data?.error || "Failed to update invoice status.")
+  });
+
+  const checkoutMutation = useMutation({
+    mutationFn: ({ id, amount }) => createInvoiceCheckout({ id, amount }),
+    onSuccess: (result) => {
+      if (!result.checkoutUrl) {
+        setPaymentError("The payment provider did not return a checkout URL.");
+        return;
+      }
+      window.location.assign(result.checkoutUrl);
+    },
+    onError: (err) => {
+      const message = err.response?.data?.error || "The online checkout could not be opened.";
+      if (paymentInvoice) setPaymentError(message);
+      else showToast(message);
+    }
   });
 
   const invoicePaymentMutation = useMutation({
@@ -2453,6 +2479,19 @@ export default function Dashboard() {
                           <button className="action-icon-btn" title="Download PDF" onClick={() => downloadInvoicePdf(inv).catch((err) => showToast(err.response?.data?.error || "The PDF could not be generated."))}>
                             <Download size={14} />
                           </button>
+                          {paymentConfig.checkoutReady && can("payments.create") && !["Paid", "Void"].includes(inv.status) && Number(inv.balance ?? inv.amount ?? 0) > 0 && (
+                            <button
+                              className="action-icon-btn"
+                              title="Pay the full balance online"
+                              disabled={checkoutMutation.isPending}
+                              onClick={() => checkoutMutation.mutate({
+                                id: inv.id,
+                                amount: Number(inv.balance ?? inv.amount)
+                              })}
+                            >
+                              <CreditCard size={14} />
+                            </button>
+                          )}
                           {!["Paid", "Void"].includes(inv.status) && (
                             <button className="action-icon-btn" title="Record payment or credit" onClick={() => {
                               setPaymentInvoice(inv);
@@ -5102,9 +5141,27 @@ export default function Dashboard() {
               </label>
             </div>
             {paymentError && <p className="form-error" role="alert">{paymentError}</p>}
+            {!paymentConfigLoading && !paymentConfig.checkoutReady && can("payments.create") && (
+              <p className="payment-dialog-wide" style={{ color: "var(--text-secondary)", fontSize: "0.8rem" }}>
+                {paymentConfig.message || "Online card payments are not configured on this server."}
+              </p>
+            )}
             <div className="confirm-dialog-actions">
-              <button type="button" className="btn-ghost-dark" onClick={() => setPaymentInvoice(null)} disabled={invoicePaymentMutation.isPending}>Cancel</button>
-              <button type="submit" className="btn-primary-yellow" disabled={invoicePaymentMutation.isPending}>
+              <button type="button" className="btn-ghost-dark" onClick={() => setPaymentInvoice(null)} disabled={invoicePaymentMutation.isPending || checkoutMutation.isPending}>Cancel</button>
+              {paymentConfig.checkoutReady && paymentForm.kind === "Payment" && (
+                <button
+                  type="button"
+                  className="btn-ghost-dark"
+                  disabled={checkoutMutation.isPending || invoicePaymentMutation.isPending}
+                  onClick={() => {
+                    setPaymentError("");
+                    checkoutMutation.mutate({ id: paymentInvoice.id, amount: Number(paymentForm.amount) });
+                  }}
+                >
+                  <CreditCard size={14} /> {checkoutMutation.isPending ? "Opening checkout…" : "Pay online"}
+                </button>
+              )}
+              <button type="submit" className="btn-primary-yellow" disabled={invoicePaymentMutation.isPending || checkoutMutation.isPending}>
                 {invoicePaymentMutation.isPending ? "Recording…" : "Record payment"}
               </button>
             </div>

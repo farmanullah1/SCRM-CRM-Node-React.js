@@ -20,6 +20,7 @@ import tasksRouter from "./routes/tasks.js";
 import activitiesRouter from "./routes/activities.js";
 import emailsRouter from "./routes/emails.js";
 import invoicesRouter from "./routes/invoices.js";
+import paymentsRouter, { stripeWebhookHandler } from "./routes/payments.js";
 import ticketsRouter from "./routes/tickets.js";
 import backupRouter, { startDailyBackupScheduler } from "./routes/backup.js";
 import attachmentsRouter from "./routes/attachments.js";
@@ -99,6 +100,14 @@ app.use("/api", apiLimiter);
 app.use("/uploads/avatars", express.static(path.resolve(__dirname, "../uploads/avatars")));
 app.use("/uploads/covers", express.static(path.resolve(__dirname, "../uploads/covers")));
 
+// Stripe signs the raw request bytes, so this route must be mounted before the
+// global JSON parser. Authentication is provided by the verified signature.
+app.post(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json", limit: "1mb" }),
+  stripeWebhookHandler
+);
+
 // Parse JSON request bodies
 app.use(express.json({ limit: "15mb" }));
 app.use(express.urlencoded({ extended: true, limit: "15mb" }));
@@ -134,6 +143,7 @@ app.use("/api/tasks", tasksRouter);
 app.use("/api/activities", activitiesRouter);
 app.use("/api/emails", emailsRouter);
 app.use("/api/invoices", invoicesRouter);
+app.use("/api/payments", paymentsRouter);
 app.use("/api/tickets", ticketsRouter);
 app.use("/api/backup", backupRouter);
 app.use("/api/attachments", attachmentsRouter);

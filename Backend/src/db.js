@@ -332,6 +332,26 @@ export const InvoicePayment = sequelize.define(
   { tableName: "invoice_payments", timestamps: true }
 );
 
+// Hosted-checkout attempts. The gateway session remains the source of truth
+// for payment, while this row makes webhook handling idempotent and auditable.
+export const PaymentCheckout = sequelize.define(
+  "PaymentCheckout",
+  {
+    id: { type: DataTypes.INTEGER, autoIncrement: true, primaryKey: true },
+    invoiceId: { type: DataTypes.INTEGER, allowNull: false },
+    userId: { type: DataTypes.INTEGER, allowNull: true },
+    provider: { type: DataTypes.STRING(30), defaultValue: "stripe" },
+    providerSessionId: { type: DataTypes.STRING(255), allowNull: true },
+    amount: { type: DataTypes.DECIMAL(12, 2), allowNull: false },
+    currency: { type: DataTypes.STRING(10), allowNull: false },
+    status: { type: DataTypes.STRING(20), defaultValue: "Pending" },
+    checkoutUrl: { type: DataTypes.TEXT, allowNull: true },
+    expiresAt: { type: DataTypes.DATE, allowNull: true },
+    completedAt: { type: DataTypes.DATE, allowNull: true }
+  },
+  { tableName: "payment_checkouts", timestamps: true }
+);
+
 export const SavedView = sequelize.define(
   "SavedView",
   {
@@ -509,6 +529,10 @@ Company.hasMany(Invoice, { foreignKey: "companyId" });
 Invoice.belongsTo(Company, { foreignKey: "companyId" });
 User.hasMany(InvoicePayment, { foreignKey: "userId" });
 InvoicePayment.belongsTo(User, { foreignKey: "userId" });
+Invoice.hasMany(PaymentCheckout, { foreignKey: "invoiceId", onDelete: "CASCADE" });
+PaymentCheckout.belongsTo(Invoice, { foreignKey: "invoiceId" });
+User.hasMany(PaymentCheckout, { foreignKey: "userId" });
+PaymentCheckout.belongsTo(User, { foreignKey: "userId" });
 
 User.hasMany(SavedView, { foreignKey: "userId", onDelete: "CASCADE" });
 SavedView.belongsTo(User, { foreignKey: "userId" });
