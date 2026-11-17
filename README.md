@@ -500,9 +500,9 @@ See `DEPLOYMENT.md` for volume-writability checks, required variables and server
 
 ## Vercel multi-service deployment (November 2026)
 
-- Root `vercel.json` deploys the Vite frontend and Express backend as one project with shared routing.
+- Root `vercel.json` deploys the Vite frontend and Express backend as one project with shared routing. Select **Framework Preset → Services** in the Vercel project settings.
 - `/api/*`, `/uploads/*` and `/health` route to `backend`; every other path routes to `frontend`.
-- The browser calls same-origin `/api`; Vite development proxies `/api` to `localhost:5000`.
+- No service bindings are required: the browser calls same-origin `/api`, and neither service calls the other over HTTP. Vite development proxies `/api` to `localhost:5000`.
 - The Express entrypoint exports the app and skips the long-lived listener, WhatsApp startup and backup scheduler when `VERCEL` is set.
 
 See `DEPLOYMENT.md` for environment variables and the persistent-storage limitations of running WhatsApp and attachments on Vercel Functions.

@@ -15,12 +15,3 @@ export function matchContactByPhone(contacts, incomingPhone, defaultCountryCode 
     ) || null
   );
 }
-
-export function phoneMatchCandidates(phone, defaultCountryCode = "") {
-  const normalized = tryNormalizePhone(phone, defaultCountryCode);
-  if (!normalized) return null;
-  return {
-    normalized,
-    suffix: normalized.slice(-4)
-  };
-}

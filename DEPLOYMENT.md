@@ -9,11 +9,12 @@ The repository now includes a deployable Express + SQL Server target:
 
 ## Vercel multi-service deployment
 
-The root `vercel.json` deploys both applications as Vercel services in one project:
+The root `vercel.json` deploys both applications as Vercel services in one project. In the Vercel project settings, set **Framework Preset → Services**; the presence of `vercel.json` alone does not switch an existing project to services mode.
 
-- `frontend` (Vite) owns `/` and SPA deep links.
-- `backend` (Express) owns `/api/*`, `/uploads/*` and `/health`.
-- The browser calls the API same-origin at `/api`; there is no build-time or server-to-server service binding to configure.
+- `frontend` (Vite) is public at `/` and handles SPA deep links through its service-local rewrite to `/index.html`.
+- `backend` (Express) is reachable at `/api/*`, `/uploads/*` and `/health`. It stays internal otherwise.
+- The browser calls the API same-origin at `/api`; there is no build-time or server-to-server service binding to configure. No service bindings are declared because neither service invokes the other over HTTP at runtime.
+- `/api` is kept on the Express service, so the Express routers continue to see the original `/api/...` path. No path-stripping transform is required.
 
 Set these Vercel environment variables for Production and Preview:
 
@@ -25,6 +26,15 @@ Set these Vercel environment variables for Production and Preview:
 - `VITE_GOOGLE_CLIENT_ID` for the frontend build. Leave `VITE_API_URL` unset (or set it to `/api`).
 
 Use `vercel dev -L` to run both services locally. The configuration allows Vercel's own deployment/branch hostnames for CORS, so Preview deployments work without manually adding every preview URL.
+
+Final public routing order:
+
+| Public path | Service | Notes |
+| :--- | :--- | :--- |
+| `/api/*` | `backend` | Express routers already mount under `/api`. |
+| `/uploads/*` | `backend` | Public avatar/cover files only. |
+| `/health` | `backend` | Express health check. |
+| `/*` | `frontend` | Vite SPA; deep links rewrite to `index.html`. |
 
 **Serverless limitations:** Vercel Functions have no persistent local filesystem or long-lived background process. WhatsApp Web pairing, the daily backup scheduler, and business attachments stored in `Backend/uploads` require a persistent host such as the Docker Compose target below. Profile images use ImageKit and work on Vercel. For full WhatsApp, attachment and scheduled-backup behavior, keep the backend on the Docker target and use Vercel only for the frontend, or move attachments and automation to managed storage/queues first.
 
