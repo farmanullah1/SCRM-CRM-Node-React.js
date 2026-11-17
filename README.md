@@ -345,6 +345,15 @@ cd Backend
 node tests/api.test.js
 ```
 
+### 🤖 Continuous integration
+
+GitHub Actions runs `.github/workflows/ci.yml` on pushes to `main` and on pull requests:
+
+- **Frontend tests** installs `Frontend` dependencies and runs the Vitest suite.
+- **Backend integration tests** starts a SQL Server 2022 service container, waits for it to become healthy, starts the Express API against a CI-only database (`SCRM_CI`), waits for `/health`, then runs `npm run test:pagination` (pagination, saved views and audit export) and `npm run test:payments`.
+
+The CI values are disposable test credentials and do not require repository secrets. To reproduce the backend job locally, provide any reachable SQL Server and run the backend with `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, and `WHATSAPP_ENABLED=false`, then run the two test scripts.
+
 ---
 
 ## 📡 Complete API Reference

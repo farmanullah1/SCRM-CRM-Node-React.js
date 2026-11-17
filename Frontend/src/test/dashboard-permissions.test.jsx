@@ -3,33 +3,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 
-const { mockState, emptyData } = vi.hoisted(() => ({
+const { mockState } = vi.hoisted(() => ({
   mockState: {
     user: null,
     queryData: {}
-  },
-  emptyData: {
-    leads: { leads: [], totalCount: 0, totalPages: 1 },
-    contacts: { contacts: [], totalCount: 0, totalPages: 1 },
-    companies: { companies: [], totalCount: 0, totalPages: 1 },
-    deals: { deals: [], totalsByStage: {}, totalPipelineValue: 0 },
-    dealMetrics: {},
-    duplicates: { count: 0, duplicates: [] },
-    tasks: { tasks: [], stats: { total: 0, overdue: 0, dueToday: 0, pending: 0 } },
-    activities: { activities: [], totalCount: 0, totalPages: 1 },
-    invoices: [],
-    tickets: [],
-    emailTemplates: [],
-    emailLogs: [],
-    emailThreads: { threads: [] },
-    backupHistory: { snapshots: [] },
-    automations: { automations: [] },
-    products: [],
-    calendarSync: { status: "connected", scheduledEventsCount: 0 },
-    authUsers: { users: [] },
-    contactActivities: { activities: [] },
-    contact: null,
-    company: null
   }
 }));
 
@@ -42,7 +19,7 @@ vi.mock("../context/AuthContext", () => ({
 }));
 
 vi.mock("../components/WorkspaceShell", () => ({
-  default: ({ children }) => <div data-testid="workspace-shell">{children}</div>
+  default: ({ children }) => <>{children}</>
 }));
 
 vi.mock("@tanstack/react-query", async (importOriginal) => {
@@ -81,8 +58,7 @@ vi.mock("../services/api", async (importOriginal) => {
   const actual = await importOriginal();
   return {
     ...actual,
-    updateProduct: vi.fn().mockResolvedValue({}),
-    createProduct: vi.fn().mockResolvedValue({})
+    updateProduct: vi.fn().mockResolvedValue({})
   };
 });
 
@@ -99,26 +75,18 @@ function renderAt(path) {
   );
 }
 
-const catalogUser = {
-  name: "Catalog Editor",
-  role: "standard_user",
-  permissions: { all: false },
-  permissionList: ["catalog.view", "catalog.edit"]
-};
+function userWithPermissions(name, permissionList) {
+  return {
+    name,
+    role: "standard_user",
+    permissions: { all: false },
+    permissionList
+  };
+}
 
-const ticketViewer = {
-  name: "Ticket Viewer",
-  role: "standard_user",
-  permissions: { all: false },
-  permissionList: ["tickets.view"]
-};
-
-const ticketManager = {
-  name: "Ticket Manager",
-  role: "standard_user",
-  permissions: { all: false },
-  permissionList: ["tickets.view", "tickets.create", "tickets.edit"]
-};
+const catalogUser = userWithPermissions("Catalog Editor", ["catalog.view", "catalog.edit"]);
+const ticketViewer = userWithPermissions("Ticket Viewer", ["tickets.view"]);
+const ticketManager = userWithPermissions("Ticket Manager", ["tickets.view", "tickets.create", "tickets.edit"]);
 
 const ticket = {
   id: 42,
@@ -132,17 +100,12 @@ const ticket = {
 
 beforeEach(() => {
   mockState.user = null;
-  mockState.queryData = Object.fromEntries(
-    Object.entries(emptyData).map(([key, value]) => [
-      key,
-      Array.isArray(value) ? [...value] : { ...value }
-    ])
-  );
+  mockState.queryData = {};
   vi.clearAllMocks();
 });
 
 describe("Catalog editing", () => {
-  it("opens the edit modal and submits the updated catalog item", async () => {
+  it("saves edits, closes the dialog, and confirms the update", async () => {
     mockState.user = catalogUser;
     mockState.queryData.products = [
       {
@@ -176,38 +139,42 @@ describe("Catalog editing", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => {
-      expect(updateProduct).toHaveBeenCalledWith({
-        id: 11,
-        data: expect.objectContaining({
-          name: "Updated Service",
-          price: "650",
-          description: "Updated scope"
-        })
-      });
+      expect(screen.getByText("Catalog item updated.")).toBeInTheDocument();
+    });
+    expect(screen.queryByRole("heading", { name: "Edit catalog item" })).not.toBeInTheDocument();
+    expect(updateProduct).toHaveBeenCalledWith({
+      id: 11,
+      data: expect.objectContaining({
+        name: "Updated Service",
+        price: "650",
+        description: "Updated scope"
+      })
     });
   });
 });
 
 describe("Ticket permission gating", () => {
-  it("hides create and resolve controls from a view-only user", () => {
+  it("shows a view-only user the ticket without create or resolve controls", () => {
     mockState.user = ticketViewer;
     mockState.queryData.tickets = [ticket];
 
     renderAt("/app/tickets");
 
     expect(screen.getByText("Cannot access billing")).toBeInTheDocument();
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /open ticket/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^resolve$/i })).not.toBeInTheDocument();
     expect(screen.getByTitle("View ticket")).toBeInTheDocument();
   });
 
-  it("shows create and resolve controls to a permitted ticket manager", () => {
+  it("lets a ticket manager open the create dialog and resolve an open ticket", () => {
     mockState.user = ticketManager;
     mockState.queryData.tickets = [ticket];
 
     renderAt("/app/tickets");
 
-    expect(screen.getByRole("button", { name: /open ticket/i })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /open ticket/i }));
+    expect(screen.getByRole("heading", { name: "Create Support Ticket" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^resolve$/i })).toBeInTheDocument();
     expect(screen.getByTitle("View ticket")).toBeInTheDocument();
   });

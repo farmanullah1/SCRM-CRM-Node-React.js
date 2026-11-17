@@ -1,7 +1,7 @@
 import test, { after, before } from "node:test";
 import assert from "node:assert/strict";
 import bcrypt from "bcryptjs";
-import { sequelize, User, Role } from "../src/db.js";
+import { sequelize, User, Role, ActivityLog } from "../src/db.js";
 
 const BASE = process.env.API_BASE || "http://localhost:5000";
 const STAMP = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
@@ -10,6 +10,8 @@ const ACTION = `QA_PAGINATION_${STAMP.replace(/[^a-zA-Z0-9_]/g, "_")}`;
 const PASSWORD = "Pagination!Pass2026";
 
 const created = { users: [], contacts: [], companies: [] };
+let adminId;
+let adminEmail;
 let adminToken;
 let standardToken;
 
@@ -47,7 +49,7 @@ before(async () => {
   assert.ok(adminRole, "admin role must exist");
   assert.ok(standardRole, "standard_user role must exist");
 
-  const password = await bcrypt.hash(PASSWORD, 10);
+  const password = await bcrypt.hash(PASSWORD, 4);
   const admin = await User.create({
     name: `QA Paging Admin ${STAMP}`,
     email: `qa-pagination-admin-${STAMP}@example.com`,
@@ -65,6 +67,8 @@ before(async () => {
     is_active: true
   });
   created.users.push(admin.id, standard.id);
+  adminId = admin.id;
+  adminEmail = admin.email;
   adminToken = await login(admin.email);
   standardToken = await login(standard.email);
 
@@ -98,9 +102,21 @@ before(async () => {
   }
 });
 
+async function waitForAuditExport() {
+  if (!adminId) return;
+  // The export route records its audit event after sending the CSV. Wait for
+  // that write so cleanup cannot race it, instead of sleeping a fixed delay.
+  for (let attempt = 0; attempt < 40; attempt += 1) {
+    const event = await ActivityLog.findOne({
+      where: { user_id: adminId, action: "AUDIT_EXPORTED" }
+    });
+    if (event) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+}
+
 after(async () => {
-  // The export route records its own audit event after sending the CSV.
-  await new Promise((resolve) => setTimeout(resolve, 250));
+  await waitForAuditExport();
   try {
     if (created.contacts.length) {
       await sequelize.query("DELETE FROM contacts WHERE id IN (?)", {
@@ -128,9 +144,6 @@ after(async () => {
     });
     await sequelize.query("DELETE FROM activity_logs WHERE target_type = 'Company' AND target_id IN (?)", {
       replacements: [created.companies.length ? created.companies : [-1]]
-    });
-    await sequelize.query("DELETE FROM users WHERE email LIKE ?", {
-      replacements: [`qa-pagination-%${STAMP}%`]
     });
   } finally {
     await sequelize.close();
@@ -173,6 +186,7 @@ test("companies pagination returns page metadata and bounded rows", async () => 
     token: adminToken
   });
   assert.equal(second.status, 200);
+  assert.equal(second.data.page, 2);
   assert.equal(second.data.companies.length, 1);
 });
 
@@ -191,6 +205,7 @@ test("activities pagination returns page metadata and bounded rows", async () =>
     token: adminToken
   });
   assert.equal(second.status, 200);
+  assert.equal(second.data.page, 2);
   assert.equal(second.data.activities.length, 1);
 });
 
@@ -201,6 +216,7 @@ test("admin can export audit CSV", async () => {
   assert.match(response.headers.get("content-disposition") || "", /attachment; filename="scrm-audit-/);
   const csv = String(response.data);
   assert.match(csv, /"Timestamp","Event ID","Actor","Actor email","Action"/);
+  assert.ok(csv.includes(adminEmail), "CSV must contain real audit actors");
   assert.ok(csv.split("\r\n").length >= 2, "CSV must include header and audit rows");
 });
 

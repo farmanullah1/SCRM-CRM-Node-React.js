@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix Frontend
+
+      - name: Run frontend test suite
+        run: npm test --prefix Frontend
+
+  backend:
+    name: Backend integration tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_PID: "Express"
+          MSSQL_SA_PASSWORD: "Scrm!CiPassw0rd2026"
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Scrm!CiPassw0rd2026' -C -Q 'SELECT 1' || /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'Scrm!CiPassw0rd2026' -C -Q 'SELECT 1'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 20
+          --health-start-period 30s
+
+    env:
+      NODE_ENV: test
+      PORT: 5000
+      API_BASE: http://127.0.0.1:5000
+      DB_NAME: SCRM_CI
+      DB_USER: sa
+      DB_PASSWORD: "Scrm!CiPassw0rd2026"
+      DB_SERVER: 127.0.0.1
+      DB_PORT: 1433
+      DB_ENCRYPT: "false"
+      DB_TRUST_SERVER_CERTIFICATE: "true"
+      JWT_SECRET: "ci-only-jwt-secret-not-used-in-production"
+      APP_URL: http://localhost:5173
+      BACKEND_URL: http://127.0.0.1:5000
+      WHATSAPP_ENABLED: "false"
+      PUPPETEER_SKIP_DOWNLOAD: "true"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install backend dependencies
+        run: npm ci --prefix Backend
+
+      - name: Wait for SQL Server
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 80); do
+            status="$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}missing{{end}}' '${{ job.services.mssql.id }}' 2>/dev/null || true)"
+            echo "SQL Server health: ${status:-unknown} (attempt ${attempt}/80)"
+            if [ "$status" = "healthy" ]; then
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "SQL Server did not become healthy."
+          docker logs '${{ job.services.mssql.id }}'
+          exit 1
+
+      - name: Start backend API
+        run: |
+          node Backend/src/server.js > backend-ci.log 2>&1 &
+          echo $! > backend-ci.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:5000/health >/dev/null; then
+              echo "Backend is healthy after ${attempt} attempt(s)."
+              exit 0
+            fi
+            if ! kill -0 "$(cat backend-ci.pid)" 2>/dev/null; then
+              echo "Backend process exited before becoming healthy."
+              cat backend-ci.log
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for the backend API."
+          cat backend-ci.log
+          exit 1
+
+      - name: Run pagination and audit integration tests
+        run: npm run test:pagination --prefix Backend
+
+      - name: Run payment integration tests
+        run: npm run test:payments --prefix Backend
+
+      - name: Show backend log on failure
+        if: failure()
+        run: cat backend-ci.log
+
+      - name: Stop backend API
+        if: always()
+        run: |
+          if [ -f backend-ci.pid ]; then
+            kill "$(cat backend-ci.pid)" 2>/dev/null || true
+          fi
