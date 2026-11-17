@@ -360,7 +360,7 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
               Use permission controls to decide who may send.
             </p>
             <p className="wa-note">
-              Current state: <strong>{stateLabel}</strong>
+              Connection: <strong>{status?.state || "STARTING"}</strong>
               {status?.hasQr ? " · QR ready" : " · QR starting"}
             </p>
             {status?.lastError && <p className="wa-note error">Last error: {status.lastError}</p>}

@@ -94,6 +94,7 @@ router.get("/users", requirePermission("users.view"), async (req, res) => {
           "avatar_url",
           "is_active",
           "two_factor_enabled",
+          "two_factor_method",
           "two_factor_secret",
           "google_id",
           "last_login_at",
