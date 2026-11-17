@@ -3,7 +3,7 @@
 <div align="center">
 
 ![SCRM Banner](https://img.shields.io/badge/SCRM-Enterprise_Sovereign_CRM-F0FF60?style=for-the-badge&labelColor=181818&color=F0FF60)
-![Node Version](https://img.shields.io/badge/Node.js-v20%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
+![Node Version](https://img.shields.io/badge/Node.js-v22%2B-339933?style=for-the-badge&logo=node.js&logoColor=white)
 ![React Version](https://img.shields.io/badge/React-v19-61DAFB?style=for-the-badge&logo=react&logoColor=black)
 ![Database](https://img.shields.io/badge/Database-MSSQL%20%7C%20Sequelize-CC292B?style=for-the-badge&logo=microsoft-sql-server&logoColor=white)
 ![Security Standard](https://img.shields.io/badge/Security-RBAC%20%26%20OWASP%20Hardened-blueviolet?style=for-the-badge&logo=shield)
@@ -30,7 +30,7 @@ SCRM is organized around six foundational operational pillars:
 
 | Pillar | Meaning | Product Responsibility & Implemented Capability |
 | :--- | :--- | :--- |
-| **Secure** | Security-first CRM | 12-round bcrypt hashing, optional email 2FA/TOTP verification, session revocation, automated daily database snapshots, and granular RBAC. |
+| **Secure** | Security-first CRM | 12-round bcrypt hashing, optional email OTP and authenticator-app TOTP 2FA, recovery codes, JWT/session revocation, automated daily database snapshots, and granular RBAC. |
 | **Supply** | Suppliers & catalog | Product and service catalog, supplier directories, inventory price lists, line-item quotations, and tax-calculated invoices. |
 | **Social** | Customer relationships & collaboration | Rich customer profiles, social links, activity audit feeds, internal notes, mentions, and unified contact-to-company relationships. |
 | **Software** | Extensible developer platform | High-performance REST API, scoped developer API keys, OpenAPI documentation, and outbound webhook dispatchers. |
@@ -82,7 +82,9 @@ SCRM is organized around six foundational operational pillars:
 ### 5. 💬 WhatsApp Workspace
 - **Linked-device session**: Administrators link one WhatsApp number by QR; the authenticated session persists on the server across restarts.
 - **CRM-aware messaging**: Send text or media to a saved contact or any international number, with a serialized queue and anti-spam delay.
-- **Conversation history**: Outbound and inbound messages are logged, matched to contacts by phone, and shown with delivery status in the WhatsApp workspace.
+- **Conversation history**: Outbound and inbound messages are logged, matched to contacts by their full normalized phone number, and shown with delivery status in the WhatsApp workspace.
+- **Inbound media**: Images, documents and audio/voice notes are downloaded safely, stored with UUID filenames under `Backend/uploads/whatsapp/`, and previewed inline in the conversation log.
+- **Media safety**: A 15 MB default limit (`WA_INBOUND_MEDIA_MAX_BYTES`), MIME allow-list, filename/path sanitization, traversal protection and authenticated `/api/whatsapp/media/:id` serving.
 - **Team controls**: `whatsapp.view` can be granted independently from `whatsapp.send` and `whatsapp.manage`; the QR/session controls are administrator-only.
 - **Inbound alerts**: New messages create in-app notifications and audit entries for the contact owner.
 
@@ -146,6 +148,7 @@ SCRM is engineered following strict security and compliance standards:
 4. **Brute-Force Rate Limiting**: `express-rate-limit` throttles auth endpoints (20 req / 15 min) and API routes (600 req / 15 min).
 5. **Token Rotation**: Short-lived access tokens combined with long-lived rotated refresh tokens (`/api/auth/refresh`).
 6. **Automated Daily Snapshots**: Server-side JSON snapshot creation running every 24 hours in `Backend/backups/`.
+7. **Private WhatsApp Media**: Inbound files are never served from public `/uploads`; downloads require authentication and `whatsapp.view` through a MIME-validated route.
 
 ### Role-Based Access Control (RBAC) Matrix
 
@@ -229,20 +232,21 @@ On application startup, [`Backend/src/dbSetup.js`](file:///c:/Users/farma/Deskto
 - **Styling**: Vanilla CSS3 Tokens + Micro-Interactions
 
 ### Backend
-- **Runtime**: Node.js v20+ / Express 5
+- **Runtime**: Node.js v22+ / Express 5
 - **Database**: Microsoft SQL Server / Express LocalDB
 - **ORM**: Sequelize v6 (`tedious` MSSQL driver)
 - **Security**: Helmet, CORS, Express-Rate-Limit, Bcrypt.js, JsonWebToken
-- **Utilities**: Nodemailer (Email dispatch), Multer (File attachments)
+- **Utilities**: Nodemailer (email dispatch), Multer (attachments), whatsapp-web.js (linked-device messaging), PDFKit (invoice PDFs), otplib (TOTP 2FA)
 
 ---
 
 ## 🚀 Getting Started
 
 ### 📋 Prerequisites
-- **Node.js** v18+ or v20+
+- **Node.js** v22+
 - **npm** v9+
 - **Microsoft SQL Server** (running locally on port 1433 or remote instance)
+- Optional: **Docker Desktop** with Linux containers for the full `db + backend + frontend` stack
 
 ---
 
@@ -309,7 +313,18 @@ npm run dev
 
 ### 🧪 4. Automated Verification Suite
 
-Run the built-in end-to-end integration test suite:
+Run the focused backend unit tests and the frontend test/build gates:
+
+```bash
+cd Backend
+npm run test:whatsapp   # 13 passing: phone matching + inbound media safety
+
+cd ../Frontend
+npm test                # 12 passing: access, dialog and WhatsApp panel states
+npm run build           # production SPA build
+```
+
+With the backend running and a configured database, the live API integration suite is also available:
 
 ```bash
 cd Backend
@@ -378,6 +393,18 @@ node tests/api.test.js
 | `POST` | `/api/emails/send` | Authenticated | Dispatch email & generate tracking pixel |
 | `GET` | `/api/emails/track/:pixelId` | **Public** | **Tracking pixel: logs open timestamp & serves 1x1 GIF** |
 
+### 💬 WhatsApp Workspace
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/whatsapp/status` | `whatsapp.view` | Session state, linked number and queue size |
+| `GET` | `/api/whatsapp/qr` | `whatsapp.manage` | Short-lived QR data URL for device linking |
+| `POST` | `/api/whatsapp/session/restart` | `whatsapp.manage` | Restart the linked-device client |
+| `POST` | `/api/whatsapp/session/logout` | `whatsapp.manage` | Unlink the current WhatsApp session |
+| `GET` | `/api/whatsapp/messages` | `whatsapp.view` | Conversation log with contact data and media availability |
+| `POST` | `/api/whatsapp/send` | `whatsapp.send` | Queue a text message |
+| `POST` | `/api/whatsapp/send-media` | `whatsapp.send` | Send media from a public URL or base64 payload |
+| `GET` | `/api/whatsapp/media/:id` | `whatsapp.view` | Authenticated inline/download of stored inbound media |
+
 ### 🔒 Enterprise Safety & Attachments
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
@@ -414,9 +441,8 @@ The authenticated application uses a persistent, collapsible sidebar with URL-ad
 tools. Sign-out lives in Settings and requires confirmation. Profile photos and cover images are
 uploaded to the API under `/uploads` and served by Express.
 
-See `docs/UI_UX_REPAIR_AUDIT.md` for the repair matrix, verification evidence and the list of
-unfinished specification items (notably TOTP/recovery codes, immediate JWT revocation, guided CSV
-mapping and full form regrouping).
+See `docs/FEATURE_GAP_MATRIX.md` for current capability status, and `docs/UI_UX_REPAIR_AUDIT.md` for
+the repair matrix and verification evidence.
 
 ---
 
@@ -439,6 +465,16 @@ See `docs/UI_UX_REPAIR_AUDIT.md` for the full change record and verification evi
 - Deals can be dragged between pipeline columns; the stage is persisted through the deals API, with the stage menu kept as a keyboard-friendly fallback.
 - `GET /api/companies/:id` now returns `{ company, contacts, deals, totals }`; the existing company list response is unchanged.
 
+## WhatsApp inbound media (November 2026)
+
+- Inbound images, documents, audio and voice notes are downloaded through `whatsapp-web.js` and stored locally under `Backend/uploads/whatsapp/`.
+- Storage uses UUID filenames, a 15 MB default limit, MIME allow-listing and sanitized display names; unsupported or oversized files fall back to a safe placeholder with a visible error.
+- Media is served only through authenticated `GET /api/whatsapp/media/:id` with `whatsapp.view`; public `/uploads` never exposes business media.
+- The conversation log renders inline images, an HTML audio player and document cards instead of a generic media placeholder.
+- Added `media_path` and `media_size` columns through the idempotent schema migration.
+
+See `docs/DATA_MODEL.md` for the updated `whatsapp_messages` fields.
+
 ## Line-item invoices and quotes (November 2026)
 
 - Invoices and quotes now contain line items (catalog item or custom description, quantity, unit price).
@@ -446,3 +482,33 @@ See `docs/UI_UX_REPAIR_AUDIT.md` for the full change record and verification evi
 - Status lifecycle: Draft → Sent → Paid, plus Overdue and Void; marking Paid records `paid_at`.
 - Invoice records show bill-to contact, dates, line items, totals and notes, with print, edit, send and mark-paid actions.
 - Additive migration columns: `subtotal`, `tax_rate`, `tax_amount`, `notes`, `issued_date`, `paid_at`.
+
+## Docker deployment (November 2026)
+
+- `Backend/Dockerfile` installs Chromium, emoji fonts and `gosu`, then runs `docker-entrypoint.sh`.
+- The entrypoint repairs ownership of the `uploads_data` and `wa_session` named volumes before dropping privileges to the non-root `scrm` user. This prevents Chromium/WhatsApp session and upload write failures on volumes Docker creates as root.
+- `.dockerignore` files keep `.env`, local `node_modules`, `dist`, uploads, backups and WhatsApp credentials out of both build contexts.
+- Compose adds backend health checks, waits for backend readiness before starting nginx, supports both SQL Server `sqlcmd` paths and allows 30 seconds for graceful WhatsApp shutdown.
+
+```bash
+docker compose up -d --build
+docker compose ps
+curl http://localhost:8080/health
+```
+
+See `DEPLOYMENT.md` for volume-writability checks, required variables and serverless limitations.
+
+## Vercel multi-service deployment (November 2026)
+
+- Root `vercel.json` deploys the Vite frontend and Express backend as one project with shared routing.
+- `/api/*`, `/uploads/*` and `/health` route to `backend`; every other path routes to `frontend`.
+- The browser calls same-origin `/api`; Vite development proxies `/api` to `localhost:5000`.
+- The Express entrypoint exports the app and skips the long-lived listener, WhatsApp startup and backup scheduler when `VERCEL` is set.
+
+See `DEPLOYMENT.md` for environment variables and the persistent-storage limitations of running WhatsApp and attachments on Vercel Functions.
+
+## Frontend test coverage (November 2026)
+
+- Vitest + Testing Library cover access guards, permission-aware sidebar rendering, the custom confirmation dialog and the WhatsApp page.
+- WhatsApp tests cover the disconnected QR state, connected compose form, view-only permission restrictions and a failed send with the API error shown to the user.
+- Current suite: **12 tests across 3 files**.

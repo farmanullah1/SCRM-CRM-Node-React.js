@@ -1,7 +1,7 @@
 # ⚡ SCRM ("Small CRM") — Up Until Now
 ### Master Architectural Blueprint, Design System Specifications, End-to-End User Journeys, Feature Directory & AI Expansion Guide
 
-> **Document Version:** 2.4.0 (Enterprise Release)  
+> **Document Version:** 2.5.0 (Enterprise Release — November 2026)
 > **Primary Audience:** Large Language Models (LLMs), AI Pair Programmers, Principal Software Architects, and Senior Full-Stack Engineers continuing development on this repository.  
 > **Target Repository:** `https://github.com/farmanullah1/SCRM-CRM-Node-React.js.git` (`main` branch)  
 > **Working Directory:** `Small CRM/`
@@ -15,7 +15,7 @@
 
 | Pillar | Meaning | Product Responsibility |
 | :--- | :--- | :--- |
-| **Secure** | Security-first CRM | 12-round bcrypt hashing, optional email 2FA/TOTP verification, session revocation, automated daily database snapshots, and granular RBAC. |
+| **Secure** | Security-first CRM | 12-round bcrypt hashing, optional email OTP and authenticator-app TOTP 2FA, recovery codes, session/JWT revocation, automated daily database snapshots, and granular RBAC. |
 | **Supply** | Suppliers & catalog | Product and service catalog, supplier directories, inventory price lists, line-item quotations, and tax-calculated invoices. |
 | **Social** | Customer relationships & collaboration | Rich customer profiles, social links, activity audit feeds, internal notes, mentions, and unified contact-to-company relationships. |
 | **Software** | Extensible developer platform | High-performance REST API, scoped developer API keys, OpenAPI documentation, and outbound webhook dispatchers. |
@@ -314,6 +314,17 @@ Once inside `/app`, the user is presented with the SCRM command center:
 
 ---
 
+### 3.15 WhatsApp Workspace & Inbound Media
+- **Linked-device session**: administrators link one WhatsApp number by QR; the authenticated session persists in the `wa_session` volume across restarts.
+- **Permissions split**: `whatsapp.view`, `whatsapp.send` and `whatsapp.manage` are separate grants. View-only users see conversations but cannot send or change the session.
+- **Inbound media**: images, documents, audio and voice notes are downloaded through `whatsapp-web.js` and stored under `Backend/uploads/whatsapp/` with UUID filenames.
+- **Storage safety**: a 15 MB default limit (`WA_INBOUND_MEDIA_MAX_BYTES`), MIME allow-list, path traversal defense, sanitized display names and cleanup on duplicate or failed log writes.
+- **Authenticated delivery**: `GET /api/whatsapp/media/:id` requires `whatsapp.view` and re-validates the MIME type. Business media is never exposed through public `/uploads`.
+- **Conversation previews**: images render inline, audio/voice notes use the browser audio player, and PDFs/documents render as file cards with size and open/download actions.
+- **Contact matching**: inbound numbers match contacts by their full normalized phone number, not a shared suffix.
+
+---
+
 ## 4. 🏗️ Complete Technical Architecture & Codebase Map
 
 ### 4.1 Monorepo Directory Structure
@@ -323,14 +334,21 @@ Small CRM/
 ├── package.json                   # Root orchestrator (concurrent dev scripts)
 ├── README.md                      # Detailed project documentation & setup
 ├── Up_Until_Now.md                # THIS COMPREHENSIVE ONBOARDING BLUEPRINT
+├── DEPLOYMENT.md                  # Docker/Vercel deployment and operations guide
+├── docker-compose.yml             # SQL Server + backend + nginx frontend stack
+├── vercel.json                    # Multi-service frontend/backend deployment
 │
 ├── Backend/                       # Express API Server (Port 5000)
+│   ├── Dockerfile                 # Node 22 + Chromium, gosu privilege drop
+│   ├── docker-entrypoint.sh       # Repairs volume ownership, then drops to scrm
+│   ├── .dockerignore              # Keeps secrets, local modules and data out of builds
 │   ├── .env                       # Database credentials, JWT secret, SMTP settings
 │   ├── package.json               # Backend dependencies (Sequelize, Tedious, Helmet, etc.)
 │   ├── backups/                   # Directory storing automated & manual DB JSON dumps
 │   ├── uploads/                   # Multipart attachment storage
 │   ├── tests/
-│   │   └── api.test.js            # Automated 11-step integration test suite
+│   │   ├── api.test.js            # Live API integration suite
+│   │   └── whatsappMedia.test.js  # Inbound media safety tests
 │   └── src/
 │       ├── server.js              # Express entrypoint, Helmet, CORS, Rate Limiters, Routers
 │       ├── db.js                  # Sequelize models, associations & MSSQL connection pool
@@ -340,19 +358,25 @@ Small CRM/
 │       │   └── security.js        # authLimiter, apiLimiter, sanitizeString, password validation
 │       ├── services/
 │       │   └── emailService.js    # Nodemailer transport, branded HTML templates & triggers
-│       └── routes/
-│           ├── auth.js            # Signup, login, 2FA OTP, forgot/reset password, profile, sessions
-│           ├── contacts.js        # Contacts CRUD, duplicate scanner, 1-click convert, CSV bulk/export
-│           ├── companies.js       # Companies CRUD
-│           ├── deals.js           # Deals pipeline CRUD, stages, velocity metrics
-│           ├── tasks.js           # Tasks CRUD, overdue checks, user assignment
-│           ├── activities.js      # Activity logging & chronological audit trail
-│           ├── emails.js          # Sent history, email dispatch, 1x1 tracking pixel
-│           ├── invoices.js        # Line-item quotes & invoices
-│           ├── tickets.js         # Customer support tickets
-│           ├── backup.js          # DB dump download, server snapshots & daily cron scheduler
-│           ├── attachments.js     # Multer file upload/download
-│           └── integrations.js    # Automations, calendar sync, Slack/Zapier webhooks
+│       ├── routes/
+│       │   ├── auth.js            # Signup, login, 2FA OTP, forgot/reset password, profile, sessions
+│       │   ├── contacts.js        # Contacts CRUD, duplicate scanner, 1-click convert, CSV bulk/export
+│       │   ├── companies.js       # Companies CRUD
+│       │   ├── deals.js           # Deals pipeline CRUD, stages, velocity metrics
+│       │   ├── tasks.js           # Tasks CRUD, overdue checks, user assignment
+│       │   ├── activities.js      # Activity logging & chronological audit trail
+│       │   ├── emails.js          # Sent history, email dispatch, 1x1 tracking pixel
+│       │   ├── invoices.js        # Line-item quotes & invoices
+│       │   ├── tickets.js         # Customer support tickets
+│       │   ├── backup.js          # DB dump download, server snapshots & daily cron scheduler
+│       │   ├── attachments.js     # Multer file upload/download
+│       │   ├── integrations.js    # Automations, calendar sync, Slack/Zapier webhooks
+│       │   └── whatsapp.js        # QR session, messages, sending and authenticated media
+│       └── whatsapp/
+│           ├── service.js         # whatsapp-web.js lifecycle, queue and inbound media
+│           ├── media.js           # MIME allow-list, bounded decode and UUID storage
+│           ├── phone.js           # Number normalization and chat-ID helpers
+│           └── contactMatcher.js  # Exact normalized phone matching
 │
 └── Frontend/                      # React 19 + Vite 8 SPA (Port 5173)
     ├── package.json               # TanStack Query, Axios, Lucide-React, React Router
@@ -370,7 +394,12 @@ Small CRM/
         │   ├── BrandLogo.jsx      # Reusable vector brand emblem
         │   ├── CustomCursor.jsx   # Dynamic expanding cursor with spring physics
         │   ├── HalftoneBackground.jsx # 75,000+ dot canvas with magnetic lens & click ripple wave
-        │   └── ProtectedRoute.jsx # Route guard redirecting unauthenticated users to /
+        │   ├── ProtectedRoute.jsx # Route guard redirecting unauthenticated users to /
+        │   └── WhatsAppPanel.jsx  # QR linking, compose, media previews and permissions
+        ├── test/
+        │   ├── permissions.test.jsx
+        │   ├── access-guard.test.js
+        │   └── whatsapp-panel.test.jsx
         ├── services/
         │   └── api.js             # Axios client with bearer interceptor & token refresh
         └── pages/
@@ -435,6 +464,7 @@ All tables run on **Microsoft SQL Server 2022** via **Sequelize ORM** with idemp
 10. **`file_attachments`:** `id` (PK), `entity_type`, `entity_id`, `file_name`, `file_path`, `file_type`, `file_size`, `uploaded_by`, `uploaded_at`
 11. **`invoices`:** `id` (PK), `userId` (FK), `contactId` (FK), `invoiceNumber`, `type` (Invoice, Quote), `amount`, `status` (Draft, Sent, Paid, Overdue, Cancelled), `dueDate`, `items`
 12. **`tickets`:** `id` (PK), `userId` (FK), `contactId` (FK), `ticketNumber`, `subject`, `description`, `priority`, `status` (Open, In Progress, Resolved, Closed)
+13. **`whatsapp_messages`:** `id` (PK), `user_id`, `contact_id`, `direction`, `phone`, `chat_id`, `body`, `message_type`, `media_mimetype`, `media_filename`, `media_path`, `media_size`, `status`, `external_id`, `error_message`, `createdAt`, `updatedAt` — inbound media is stored under `Backend/uploads/whatsapp/` and served only through the authenticated media route.
 
 ---
 
@@ -490,6 +520,14 @@ All tables run on **Microsoft SQL Server 2022** via **Sequelize ORM** with idemp
 | `GET` | `/api/backup/history` | Admin | List recent server snapshots |
 | `POST` | `/api/attachments/upload`| Authenticated | Upload document/contract via Multer |
 | `GET` | `/api/attachments/:type/:id`| Authenticated | List attachments for an entity |
+| `GET` | `/api/whatsapp/status` | `whatsapp.view` | Session state, linked number and queue size |
+| `GET` | `/api/whatsapp/qr` | `whatsapp.manage` | Short-lived QR data URL for device linking |
+| `POST` | `/api/whatsapp/session/restart` | `whatsapp.manage` | Restart the linked-device client |
+| `POST` | `/api/whatsapp/session/logout` | `whatsapp.manage` | Unlink the WhatsApp session |
+| `GET` | `/api/whatsapp/messages` | `whatsapp.view` | Conversation log with contact and media availability |
+| `POST` | `/api/whatsapp/send` | `whatsapp.send` | Queue a text message |
+| `POST` | `/api/whatsapp/send-media` | `whatsapp.send` | Send media from a URL or base64 payload |
+| `GET` | `/api/whatsapp/media/:id` | `whatsapp.view` | Authenticated inline/download of stored inbound media |
 
 ---
 
@@ -541,38 +579,25 @@ If you are an AI assistant receiving this codebase, follow these strict guardrai
 ## 6. 🚀 Verification Commands for Developers & AI Agents
 
 ```powershell
-# 1. Run Complete Automated Backend Test Suite (11/11 tests)
+# 1. Backend WhatsApp unit tests (13/13: phone matching + inbound media)
 cd "c:\Users\farma\Desktop\Small CRM\Backend"
-node tests/api.test.js
-# Expected Output:
-# ✓ Healthcheck passed: healthy SCRM Enterprise
-# ✓ User registered (Role enforced): user_... Assigned Role: standard_user
-# ✓ Standalone Lead created
-# ✓ Transactional Lead Conversion verified
-# ✓ Duplicate detector ran
-# ✓ Deal Pipeline Metrics verified
-# ✓ Active Sessions inspected
-# ✓ 2FA Toggle tested: Two-Factor Authentication is now ENABLED.
-# ✓ Session Revocation tested
-# ALL SCRM ENTERPRISE VERIFICATION TESTS PASSED (11/11)!
+npm run test:whatsapp
 
-# 2. Build Frontend for Production (Zero errors)
-cd "c:\Users\farma\Desktop\Small CRM\Frontend"
+# 2. Frontend tests (12/12) and production build
+cd "..\Frontend"
+npm test
 npm run build
-# Expected Output:
-# ✓ 2197 modules transformed.
-# ✓ built in ~1.39s (0 errors, 0 warnings)
 
-# 3. Start Both Servers for Local Development
-cd "c:\Users\farma\Desktop\Small CRM"
+# 3. Live API integration suite (requires the backend and SQL Server running)
+cd "..\Backend"
+node tests/api.test.js
+
+# 4. Start Both Servers for Local Development
+cd ".."
 npm run dev
 # Backend runs on: http://localhost:5000
 # Frontend runs on: http://localhost:5173
 ```
-
----
-
-*Document compiled, updated, and verified for SCRM (Small Customer Relationship Management) Enterprise Architecture.*
 
 ---
 
@@ -621,6 +646,52 @@ npm run dev
 9. **Companies Directory:** Company cards displaying associated contact counts, aggregate deal pipeline value sums, domain website links, and modal editor.
 
 ### 7.4 Verification & Production Readiness
-- **Backend Test Suite:** 13/13 integration tests passing cleanly (`node Backend/tests/api.test.js`).
-- **Frontend Production Build:** Built via Vite (`npm run build`) in $1.38\text{s}$ with 0 errors and 0 warnings.
+- **Backend WhatsApp tests:** 13/13 passing (`npm run test:whatsapp` in `Backend/`).
+- **Frontend tests:** 12/12 passing across access, dialog and WhatsApp panel suites.
+- **Frontend production build:** passed with Vite.
 - **Technology Stack Marketing Removal:** Cleaned away promotional framework badges from client-facing dashboards in favor of functional business metrics.
+
+---
+
+## 8. Delivery Update — November 17, 2026
+
+### 8.1 Inbound WhatsApp Media
+- Inbound images, documents, audio and voice notes are downloaded through `whatsapp-web.js` and stored under `Backend/uploads/whatsapp/`.
+- Files use UUID storage names, sanitized display names, a 15 MB default limit (`WA_INBOUND_MEDIA_MAX_BYTES`), and a strict MIME allow-list. HTML/SVG and unsupported types are rejected.
+- `whatsapp_messages.media_path` and `media_size` are added through the idempotent schema migration.
+- `GET /api/whatsapp/media/:id` requires authentication and `whatsapp.view`, re-validates the MIME type, and rejects traversal or missing files. Business media is never exposed through public `/uploads`.
+- The conversation log renders inline images, an audio player and document cards instead of a generic placeholder.
+- Failed or oversized media falls back to `[media unavailable]` with a visible error; duplicate or failed DB writes remove the stored file.
+- Inbound contact matching now requires the full normalized phone number, preventing shared-suffix cross-matches.
+
+### 8.2 Docker & Chromium Hardening
+- `Backend/docker-entrypoint.sh` repairs ownership of `uploads_data` and `wa_session` before dropping from root to the `scrm` user with `gosu`. This fixes write failures caused by empty named volumes being created as root.
+- Chromium and emoji fonts are installed in the image; the entrypoint verifies `WA_CHROME_PATH` is executable and fails with a clear log message.
+- `.dockerignore` files exclude `.env`, local `node_modules`, `dist`, uploads, backups and WhatsApp session data from build contexts.
+- Compose adds backend health checks, waits for backend readiness before starting nginx, supports both SQL Server `sqlcmd` paths, and allows 30 seconds for graceful shutdown.
+- A gitignored local `.env` is used for the Compose stack; secrets are generated locally and never committed.
+
+**Docker verification status:** the Compose YAML parses, the entrypoint passes `sh -n`, and Dockerfile static checks pass. The images were not built and containers were not started because Docker Desktop/WSL is not installed on the current host.
+
+### 8.3 Vercel Multi-Service Deployment
+- Root `vercel.json` deploys `backend` (Express) and `frontend` (Vite) as one Vercel project.
+- `/api/*`, `/uploads/*` and `/health` route to the backend; all other paths use the frontend SPA fallback.
+- The frontend calls same-origin `/api`; local Vite development proxies `/api` and `/uploads` to port 5000.
+- The Express entrypoint exports the app and skips the long-lived listener, WhatsApp startup and daily backup scheduler when `VERCEL` is set.
+- See `DEPLOYMENT.md` for environment variables and the persistent-storage limitations of Vercel Functions.
+
+### 8.4 Frontend Test Expansion
+- Added `Frontend/src/test/whatsapp-panel.test.jsx` using Vitest and Testing Library.
+- Covers the disconnected QR state, connected compose form, view-only permission restrictions, and failed-send error handling.
+- Tests mock `AuthContext` and the WhatsApp API, so they run without a backend.
+
+### 8.5 Current Quality Gates
+- Backend WhatsApp unit tests: **13/13 passing**.
+- Frontend tests: **12/12 passing**.
+- Frontend production build: **passing**.
+- Compose YAML parse and entrypoint shell syntax: **passing**.
+- Docker image build/run: **blocked on this host** (Docker/WSL not installed).
+
+---
+
+*Document compiled, updated, and verified for SCRM (Small Customer Relationship Management) Enterprise Architecture.*
