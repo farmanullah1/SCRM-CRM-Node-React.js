@@ -26,13 +26,14 @@ function cookieHeader(jar) {
   return [...jar.entries()].map(([name, value]) => `${name}=${value}`).join("; ");
 }
 
-async function request(path, { method = "GET", body, jar = new Map(), csrf = true } = {}) {
+async function request(path, { method = "GET", body, jar = new Map(), csrf = true, csrfToken } = {}) {
   const headers = {};
   const cookie = cookieHeader(jar);
   if (cookie) headers.Cookie = cookie;
   if (body !== undefined) headers["Content-Type"] = "application/json";
-  if (csrf && !["GET", "HEAD", "OPTIONS"].includes(method) && jar.has("scrm_csrf")) {
-    headers["X-CSRF-Token"] = jar.get("scrm_csrf");
+  if (csrf && !["GET", "HEAD", "OPTIONS"].includes(method)) {
+    const token = csrfToken || jar.get("scrm_csrf");
+    if (token) headers["X-CSRF-Token"] = token;
   }
 
   const response = await fetch(`${BASE}${path}`, {
@@ -110,8 +111,8 @@ test("cookie login, CSRF rejection, refresh rotation, and logout revocation", as
 
   const wrongCsrf = await request("/api/auth/logout", {
     method: "POST",
-    jar: new Map([...jar, ["scrm_csrf", "not-the-issued-token"]]),
-    csrf: false
+    jar,
+    csrfToken: "not-the-issued-token"
   });
   assert.equal(wrongCsrf.status, 403);
   assert.equal(wrongCsrf.data.code, "CSRF_TOKEN_INVALID");

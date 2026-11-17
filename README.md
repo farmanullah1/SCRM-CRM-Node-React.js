@@ -154,6 +154,8 @@ SCRM is engineered following strict security and compliance standards:
 7. **Automated Daily Snapshots**: Server-side JSON snapshot creation running every 24 hours in `Backend/backups/`.
 8. **Private WhatsApp Media**: Inbound files are never served from public `/uploads`; downloads require authentication and `whatsapp.view` through a MIME-validated route.
 
+Browser sessions use `scrm_access` and `scrm_refresh` HttpOnly cookies (15-minute access / 7-day refresh) and a readable `scrm_csrf` cookie echoed through `X-CSRF-Token`. Set `COOKIE_SAME_SITE=none` only when the SPA and API are on different sites over HTTPS. The SPA stores no tokens; Bearer tokens in JSON responses remain for server-to-server clients.
+
 ### Role-Based Access Control (RBAC) Matrix
 
 | Capability / Permission | Admin | Manager | Standard User |
@@ -290,6 +292,7 @@ JWT_SECRET=scrm_enterprise_production_jwt_secret_key_2026
 JWT_EXPIRES_IN=2h
 
 # HttpOnly browser session cookies (Secure is automatic in production)
+# Local HTTP development only; production defaults to Secure
 COOKIE_SECURE=false
 COOKIE_SAME_SITE=lax
 # COOKIE_DOMAIN=.example.com

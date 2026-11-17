@@ -44,6 +44,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const router = express.Router();
+router.use((_req, res, next) => {
+  res.set("Cache-Control", "private, no-store");
+  next();
+});
 const JWT_SECRET = process.env.JWT_SECRET || "default_jwt_secret_dev";
 const ACCESS_TOKEN_EXPIRY = "15m";
 const REFRESH_TOKEN_EXPIRY_DAYS = 7;
