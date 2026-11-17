@@ -71,6 +71,7 @@ export const User = sequelize.define(
     google_id: { type: DataTypes.STRING(255), allowNull: true },
     permission_overrides_json: { type: DataTypes.TEXT, allowNull: true },
     two_factor_enabled: { type: DataTypes.BOOLEAN, defaultValue: false },
+    two_factor_method: { type: DataTypes.STRING(20), allowNull: true },
     two_factor_code: { type: DataTypes.STRING(10), allowNull: true },
     two_factor_expires: { type: DataTypes.DATE, allowNull: true },
     two_factor_secret: { type: DataTypes.STRING(500), allowNull: true },

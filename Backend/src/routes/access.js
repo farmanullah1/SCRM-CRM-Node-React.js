@@ -119,7 +119,11 @@ router.get("/users", requirePermission("users.view"), async (req, res) => {
       avatar_url: user.avatar_url,
       is_active: user.is_active !== false,
       two_factor_enabled: Boolean(user.two_factor_enabled),
-      two_factor_method: user.two_factor_secret ? "totp" : user.two_factor_enabled ? "email_legacy" : null,
+      two_factor_method: user.two_factor_secret
+        ? "totp"
+        : user.two_factor_enabled
+          ? user.two_factor_method || "email"
+          : null,
       google_linked: Boolean(user.google_id),
       last_login_at: user.last_login_at,
       createdAt: user.createdAt,

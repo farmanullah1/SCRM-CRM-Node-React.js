@@ -28,6 +28,8 @@ import {
   consumeRecoveryCode
 } from "../services/twoFactor.js";
 import { resolvePermissions, PERMISSION_CATALOG } from "../permissions.js";
+import whatsapp from "../whatsapp/service.js";
+import { normalizePhone } from "../whatsapp/phone.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -106,7 +108,11 @@ function formatUserResponse(user) {
     role_id: user.role_id,
     isActive: user.is_active !== false,
     twoFactorEnabled: Boolean(user.two_factor_enabled),
-    twoFactorMethod: user.two_factor_secret ? "totp" : user.two_factor_enabled ? "email" : null,
+    twoFactorMethod: user.two_factor_secret
+      ? "totp"
+      : user.two_factor_enabled
+        ? user.two_factor_method || "email"
+        : null,
     googleLinked: Boolean(user.google_id),
     termsVersion: user.terms_version || null
   };
@@ -114,6 +120,66 @@ function formatUserResponse(user) {
 
 function hashToken(token) {
   return crypto.createHash("sha256").update(String(token)).digest("hex");
+}
+
+function createMfaToken(user) {
+  return jwt.sign(
+    { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
+    JWT_SECRET,
+    { expiresIn: "10m" }
+  );
+}
+
+async function deliverLoginCode(user, method) {
+  const code = crypto.randomInt(100000, 1000000).toString();
+  user.two_factor_code = code;
+  user.two_factor_expires = new Date(Date.now() + 10 * 60 * 1000);
+  user.two_factor_attempts = 0;
+
+  if (method === "whatsapp" && user.phone) {
+    try {
+      const number = normalizePhone(
+        user.phone,
+        (process.env.WA_DEFAULT_COUNTRY_CODE || process.env.DEFAULT_COUNTRY_CODE || "").replace(/\D/g, "")
+      );
+      await whatsapp.sendText(
+        number,
+        `SCRM security code: ${code}\n\nThis code expires in 10 minutes. Never share it with anyone.`
+      );
+      await user.save();
+      return {
+        method: "whatsapp",
+        message: "A verification code was sent to your WhatsApp number."
+      };
+    } catch (err) {
+      console.warn("[2FA] WhatsApp delivery failed, falling back to email:", err.message);
+    }
+  }
+
+  await send2FAVerificationEmail(user, code);
+  await user.save();
+  return {
+    method: "email",
+    message:
+      method === "whatsapp"
+        ? "WhatsApp delivery was unavailable, so a verification code was sent to your email."
+        : "A verification code was sent to your email."
+  };
+}
+
+async function issueLoginChallenge(user) {
+  if (user.two_factor_secret) {
+    user.two_factor_attempts = 0;
+    await user.save();
+    return {
+      method: "totp",
+      message: "Enter the 6-digit code from your authenticator app."
+    };
+  }
+
+  const preferred = user.two_factor_method === "whatsapp" ? "whatsapp" : "email";
+  const delivery = await deliverLoginCode(user, preferred);
+  return delivery;
 }
 
 function generateTokens(user) {
@@ -291,47 +357,14 @@ router.post("/login", authLimiter, async (req, res) => {
       return res.status(403).json({ error: "This account is suspended. Contact an administrator." });
     }
 
-    // Real authenticator-app TOTP challenge.
-    if (user.two_factor_enabled && user.two_factor_secret) {
-      user.two_factor_attempts = 0;
-      await user.save();
-      const tempToken = jwt.sign(
-        { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
-        JWT_SECRET,
-        { expiresIn: "10m" }
-      );
-      return res.json({
-        twoFactorRequired: true,
-        method: "totp",
-        tempToken,
-        email: user.email,
-        message: "Enter the 6-digit code from your authenticator app."
-      });
-    }
-
-    // Legacy email OTP remains available only for accounts that enabled the
-    // old flow and have not yet enrolled an authenticator app.
     if (user.two_factor_enabled) {
-      const otpCode = crypto.randomInt(100000, 1000000).toString();
-      user.two_factor_code = otpCode;
-      user.two_factor_expires = new Date(Date.now() + 10 * 60 * 1000);
-      user.two_factor_attempts = 0;
-      await user.save();
-
-      await send2FAVerificationEmail(user, otpCode);
-
-      const tempToken = jwt.sign(
-        { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
-        JWT_SECRET,
-        { expiresIn: "10m" }
-      );
-
+      const challenge = await issueLoginChallenge(user);
       return res.json({
         twoFactorRequired: true,
-        method: "email",
-        tempToken,
+        method: challenge.method,
+        tempToken: createMfaToken(user),
         email: user.email,
-        message: "A verification code was sent to your email."
+        message: challenge.message
       });
     }
 
@@ -522,19 +555,13 @@ router.post("/google", authLimiter, async (req, res) => {
     }
 
     if (user.two_factor_enabled) {
-      const tempToken = jwt.sign(
-        { userId: user.id, purpose: "mfa", ver: Number(user.token_version || 0) },
-        JWT_SECRET,
-        { expiresIn: "10m" }
-      );
+      const challenge = await issueLoginChallenge(user);
       return res.json({
         twoFactorRequired: true,
-        method: user.two_factor_secret ? "totp" : "email",
-        tempToken,
+        method: challenge.method,
+        tempToken: createMfaToken(user),
         email: user.email,
-        message: user.two_factor_secret
-          ? "Enter the 6-digit code from your authenticator app."
-          : "A verification code was sent to your email."
+        message: challenge.message
       });
     }
 

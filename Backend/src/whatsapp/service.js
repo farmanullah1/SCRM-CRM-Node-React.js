@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
+import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import pkg from "whatsapp-web.js";
@@ -109,6 +110,30 @@ class WhatsAppService extends EventEmitter {
     }
     this.numberCache.clear();
     await this.restart();
+  }
+
+  // Removes a corrupted or half-linked Chromium profile and starts a clean
+  // session. Use this when a QR scan never reaches READY or the browser is
+  // holding a stale profile lock.
+  async resetSession() {
+    if (!whatsappConfig.enabled) {
+      throw new WhatsAppError(503, "WHATSAPP_DISABLED", "WhatsApp integration is disabled.");
+    }
+    if (this.restarting) {
+      await this.restarting.catch(() => null);
+    }
+    await this.#destroyClient();
+    const sessionPath = path.join(whatsappConfig.sessionDir, `session-${whatsappConfig.clientId}`);
+    await fs.rm(sessionPath, { recursive: true, force: true, maxRetries: 3, retryDelay: 250 }).catch((err) => {
+      throw new WhatsAppError(500, "SESSION_RESET_FAILED", `Could not remove the WhatsApp session: ${err.message}`);
+    });
+    this.numberCache.clear();
+    this.qr = null;
+    this.readySince = null;
+    this.lastError = null;
+    this.lastDisconnectReason = null;
+    this.reconnectAttempts = 0;
+    return this.restart();
   }
 
   #createClient() {

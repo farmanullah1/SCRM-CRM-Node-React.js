@@ -76,7 +76,12 @@ export default function Login() {
       await complete2FA(tempToken, otpCode);
       navigate(returnTo, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.error || "Invalid verification code. Please check your email.");
+      setError(
+        err.response?.data?.error ||
+          (mfaMethod === "whatsapp"
+            ? "Invalid verification code. Check your WhatsApp messages."
+            : "Invalid verification code. Check your email.")
+      );
     } finally {
       setLoading(false);
     }
@@ -173,7 +178,9 @@ export default function Login() {
             {mode === "2fa"
               ? mfaMethod === "totp"
                 ? "Enter the current 6-digit code from your authenticator app."
-                : "Enter the 6-digit code sent to your registered email."
+                : mfaMethod === "whatsapp"
+                  ? "Enter the 6-digit code sent to your WhatsApp number."
+                  : "Enter the 6-digit code sent to your registered email."
               : mode === "recovery"
               ? "Enter one of the single-use recovery codes you saved when enabling two-step verification."
               : mode === "forgot"

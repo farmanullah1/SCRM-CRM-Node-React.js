@@ -1424,6 +1424,25 @@
 }
 
 /* Signup consent --------------------------------------------------------- */
+.auth-field-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.auth-field-grid--password { margin-bottom: 1.75rem; }
+.field-optional {
+  margin-left: 6px;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: #7f7f7f;
+}
+@media (max-width: 560px) {
+  .auth-field-grid { grid-template-columns: 1fr; }
+  .auth-circuit-card { padding: 2rem 1.25rem; }
+}
+
 .signup-terms {
   display: flex;
   align-items: flex-start;
@@ -1505,6 +1524,18 @@
   margin-top: 16px;
   max-width: 560px;
 }
+.mfa-channel-panel {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.025);
+}
+.mfa-channel-panel strong { font-size: 0.88rem; }
+.mfa-channel-panel .settings-card-copy { margin: 3px 0 0; }
+.mfa-channel-panel .form-group-circuit { margin: 0; max-width: 360px; }
 .security-form--danger {
   border-top: 1px solid var(--border);
   padding-top: 18px;
@@ -1976,6 +2007,7 @@
 .wa-qr-wrap img { display: block; border-radius: 6px; }
 .wa-qr-placeholder { display: flex; flex-direction: column; align-items: center; gap: 9px; color: #3a3a3a; text-align: center; padding: 18px; }
 .wa-qr-placeholder p { margin: 0; font-size: 11px; line-height: 1.5; }
+.wa-qr-help { color: #666 !important; font-size: 10px !important; max-width: 190px; }
 .wa-connect-copy h3 { margin: 0 0 8px; font-size: 16px; }
 .wa-connect-copy ol { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 6px; color: var(--text-muted); font-size: 12px; line-height: 1.55; }
 .wa-connect-copy strong { color: var(--text); }

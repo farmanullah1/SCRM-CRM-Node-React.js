@@ -152,6 +152,7 @@ export async function ensureDatabaseAndSchema() {
           [google_id] NVARCHAR(255) NULL,
           [permission_overrides_json] NVARCHAR(MAX) NULL,
           [two_factor_enabled] BIT DEFAULT 0,
+          [two_factor_method] NVARCHAR(20) NULL,
           [two_factor_code] NVARCHAR(10) NULL,
           [two_factor_expires] DATETIMEOFFSET NULL,
           [two_factor_secret] NVARCHAR(500) NULL,
@@ -183,6 +184,8 @@ export async function ensureDatabaseAndSchema() {
           ALTER TABLE [users] ADD [refresh_token] NVARCHAR(500) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_enabled')
           ALTER TABLE [users] ADD [two_factor_enabled] BIT DEFAULT 0;
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_method')
+          ALTER TABLE [users] ADD [two_factor_method] NVARCHAR(20) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_code')
           ALTER TABLE [users] ADD [two_factor_code] NVARCHAR(10) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'users' AND COLUMN_NAME = 'two_factor_expires')

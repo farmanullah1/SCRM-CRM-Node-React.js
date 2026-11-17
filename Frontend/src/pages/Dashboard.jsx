@@ -118,7 +118,7 @@ import {
   exportAuditLog,
   downloadBackup
 } from "../services/api";
-import "../App.css";
+
 
 const STAGES = ["New", "Contacted", "Qualified", "Proposal", "Won", "Lost"];
 

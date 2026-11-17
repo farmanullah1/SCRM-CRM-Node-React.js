@@ -9,6 +9,7 @@ import {
   Paperclip,
   QrCode,
   RefreshCw,
+  RotateCcw,
   Send,
   Smartphone
 } from "lucide-react";
@@ -18,6 +19,7 @@ import {
   getWhatsAppQr,
   getWhatsAppStatus,
   logoutWhatsApp,
+  resetWhatsAppSession,
   restartWhatsApp,
   sendWhatsAppMedia,
   sendWhatsAppMessage
@@ -129,6 +131,7 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
   const [sendError, setSendError] = React.useState("");
   const [file, setFile] = React.useState(null);
   const [filter, setFilter] = React.useState("");
+  const [resetArmed, setResetArmed] = React.useState(false);
 
   const {
     data: statusData,
@@ -137,7 +140,7 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
   } = useQuery({
     queryKey: ["whatsapp-status"],
     queryFn: getWhatsAppStatus,
-    refetchInterval: 10000
+    refetchInterval: 5000
   });
 
   const status = statusData?.status;
@@ -148,7 +151,7 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
     queryFn: getWhatsAppQr,
     enabled: canManage && !ready && status?.state !== "DISABLED",
     retry: false,
-    refetchInterval: ready ? false : 5000
+    refetchInterval: ready ? false : 3000
   });
 
   const { data: messageData, isLoading: loadingMessages } = useQuery({
@@ -186,8 +189,14 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
   });
 
   const controlMutation = useMutation({
-    mutationFn: (action) => (action === "logout" ? logoutWhatsApp() : restartWhatsApp()),
-    onSuccess: () => {
+    mutationFn: (action) => {
+      if (action === "logout") return logoutWhatsApp();
+      if (action === "reset") return resetWhatsAppSession();
+      return restartWhatsApp();
+    },
+    onSuccess: (data, action) => {
+      setResetArmed(false);
+      if (action === "reset") showToast?.(data?.message || "Session reset started.");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-status"] });
       queryClient.invalidateQueries({ queryKey: ["whatsapp-qr"] });
     },
@@ -271,6 +280,23 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
               >
                 <RefreshCw size={14} /> Restart
               </button>
+              {!ready && (
+                <button
+                  type="button"
+                  className="btn-ghost-dark small"
+                  onClick={() => {
+                    if (!resetArmed) {
+                      setResetArmed(true);
+                      showToast?.("Click Reset link again to clear the local session and generate a new QR.");
+                      return;
+                    }
+                    controlMutation.mutate("reset");
+                  }}
+                  disabled={controlMutation.isPending}
+                >
+                  <RotateCcw size={14} /> {resetArmed ? "Confirm reset" : "Reset link"}
+                </button>
+              )}
               {ready && (
                 <button
                   type="button"
@@ -301,10 +327,18 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
               ) : (
                 <div className="wa-qr-placeholder">
                   <QrCode size={46} />
-                  <p>{qrError?.response?.data?.error || "Waiting for the QR code…"}</p>
+                  <p>
+                    {qrError?.response?.data?.error ||
+                      (status?.state === "INITIALIZING"
+                        ? "Starting the WhatsApp browser…"
+                        : "Waiting for the QR code…")}
+                  </p>
                   <button type="button" className="btn-ghost-dark small" onClick={() => refetchQr()}>
                     <RefreshCw size={13} /> Retry
                   </button>
+                  <p className="wa-qr-help">
+                    No QR after a minute? Use <strong>Reset link</strong> above to clear a stale local session.
+                  </p>
                 </div>
               )
             ) : (
@@ -325,7 +359,14 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
               The session is stored on the server. Only one WhatsApp Web session can use this number at a time.
               Use permission controls to decide who may send.
             </p>
+            <p className="wa-note">
+              Current state: <strong>{stateLabel}</strong>
+              {status?.hasQr ? " · QR ready" : " · QR starting"}
+            </p>
             {status?.lastError && <p className="wa-note error">Last error: {status.lastError}</p>}
+            {resetArmed && (
+              <p className="wa-note error">Confirm reset will sign this CRM out of the linked WhatsApp session.</p>
+            )}
           </div>
         </section>
       )}

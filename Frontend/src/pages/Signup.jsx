@@ -150,9 +150,9 @@ export default function Signup() {
               />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div className="auth-field-grid">
             <div className="circuit-form-group">
-              <label className="circuit-label">Phone Number</label>
+              <label className="circuit-label">Phone Number <span className="field-optional">Optional</span></label>
               <input
                 type="tel"
                 autoComplete="tel"
@@ -164,7 +164,7 @@ export default function Signup() {
             </div>
 
             <div className="circuit-form-group">
-              <label className="circuit-label">Job Title / Role</label>
+              <label className="circuit-label">Job Title / Role <span className="field-optional">Optional</span></label>
               <input
                 type="text"
                 className="circuit-input"
@@ -187,9 +187,9 @@ export default function Signup() {
             />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+          <div className="auth-field-grid">
             <div className="circuit-form-group">
-              <label className="circuit-label">Department / team</label>
+              <label className="circuit-label">Department / team <span className="field-optional">Optional</span></label>
               <input
                 type="text"
                 className="circuit-input"
@@ -199,7 +199,7 @@ export default function Signup() {
               />
             </div>
             <div className="circuit-form-group">
-              <label className="circuit-label">Time zone</label>
+              <label className="circuit-label">Time zone <span className="field-optional">Optional</span></label>
               <input
                 type="text"
                 className="circuit-input"
@@ -221,7 +221,7 @@ export default function Signup() {
             <p className="field-hint">JPEG, PNG, WEBP or GIF up to 5 MB. You can add or change this later.</p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginBottom: "1.75rem" }}>
+          <div className="auth-field-grid auth-field-grid--password">
             <div className="circuit-form-group">
               <label className="circuit-label">Password *</label>
               <input

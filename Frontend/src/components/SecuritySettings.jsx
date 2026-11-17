@@ -17,6 +17,7 @@ import {
   get2FAStatus,
   linkGoogleAccount,
   regenerateRecoveryCodes,
+  set2FAChannel,
   setup2FA,
   unlinkGoogleAccount
 } from "../services/api";
@@ -138,6 +139,25 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
     }
   };
 
+  const chooseChannel = async (method) => {
+    setError("");
+    setInfo("");
+    setBusy(method);
+    try {
+      const data = await set2FAChannel({ method, currentPassword: password });
+      if (data.recoveryCodes?.length) setRecoveryCodes(data.recoveryCodes);
+      setPassword("");
+      await statusQuery.refetch();
+      await refreshUser?.();
+      setInfo(data.message || "Verification channel updated.");
+      showToast?.(method === "whatsapp" ? "WhatsApp verification enabled." : "Email verification enabled.");
+    } catch (err) {
+      setError(err.response?.data?.error || "Verification channel could not be updated.");
+    } finally {
+      setBusy("");
+    }
+  };
+
   const linkGoogle = async (credential) => {
     setError("");
     setInfo("");
@@ -171,8 +191,16 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
             <Smartphone size={18} aria-hidden="true" />
             <span id="totp-title">Authenticator app</span>
           </div>
-          <span className={`status-badge ${enabled && status?.method === "totp" ? "won" : "in-progress"}`}>
-            {statusQuery.isLoading ? "Checking…" : status?.method === "totp" ? "Enabled" : "Not enrolled"}
+          <span className={`status-badge ${enabled ? "won" : "in-progress"}`}>
+            {statusQuery.isLoading
+              ? "Checking…"
+              : status?.method === "totp"
+                ? "Authenticator"
+                : status?.method === "whatsapp"
+                  ? "WhatsApp"
+                  : status?.method === "email"
+                    ? "Email"
+                    : "Not enrolled"}
           </span>
         </div>
 
@@ -189,12 +217,55 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
           </div>
         )}
 
-        {status?.method === "email_legacy" && (
+        <div className="mfa-channel-panel">
+          <div>
+            <strong>Verification delivery</strong>
+            <p className="settings-card-copy">
+              Send sign-in codes to your email or WhatsApp number. Choosing either replaces authenticator-app
+              verification until you set the app up again.
+            </p>
+          </div>
+          <div className="form-group-circuit">
+            <label htmlFor="mfa-channel-password">Current password</label>
+            <input
+              id="mfa-channel-password"
+              type="password"
+              autoComplete="current-password"
+              placeholder="Required to change delivery"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </div>
+          <div className="inline-actions">
+            <button
+              type="button"
+              className="btn-ghost-dark"
+              disabled={!password || busy === "email" || status?.method === "email"}
+              onClick={() => chooseChannel("email")}
+            >
+              {busy === "email" ? <Loader2 size={15} className="spin" /> : null}
+              <span>{status?.method === "email" ? "Email enabled" : "Use email codes"}</span>
+            </button>
+            <button
+              type="button"
+              className="btn-ghost-dark"
+              disabled={!password || !user?.phone || busy === "whatsapp" || status?.method === "whatsapp"}
+              onClick={() => chooseChannel("whatsapp")}
+            >
+              {busy === "whatsapp" ? <Loader2 size={15} className="spin" /> : <Smartphone size={15} />}
+              <span>{status?.method === "whatsapp" ? "WhatsApp enabled" : "Use WhatsApp codes"}</span>
+            </button>
+          </div>
+          {!user?.phone && (
+            <p className="field-hint">Add a phone number in your profile before choosing WhatsApp delivery.</p>
+          )}
+        </div>
+
+        {status?.method === "email" && (
           <div className="settings-banner settings-banner--warning" role="status">
             <AlertCircle size={16} aria-hidden="true" />
             <span>
-              This account still uses the older email-code sign-in. Enrol an authenticator app below; the email
-              fallback remains only until you confirm the first authenticator code.
+              Email-code verification is active. Enrol an authenticator app below if you also want an offline code.
             </span>
           </div>
         )}
@@ -227,7 +298,7 @@ export default function SecuritySettings({ user, refreshUser, showToast }) {
           </div>
         )}
 
-        {!enabled || status?.method === "email_legacy" ? (
+        {status?.method !== "totp" ? (
           !setup ? (
             <form onSubmit={startSetup} className="security-form">
               <p className="settings-card-copy">

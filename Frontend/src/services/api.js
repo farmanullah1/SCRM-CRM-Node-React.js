@@ -75,6 +75,7 @@ export const setup2FA = async (data) => (await API.post("/auth/2fa/setup", data)
 export const enable2FA = async (data) => (await API.post("/auth/2fa/enable", data)).data;
 export const disable2FA = async (data) => (await API.post("/auth/2fa/disable", data)).data;
 export const regenerateRecoveryCodes = async (data) => (await API.post("/auth/2fa/recovery-codes", data)).data;
+export const set2FAChannel = async (data) => (await API.post("/auth/2fa/channel", data)).data;
 export const loginWithGoogle = async (data) => (await API.post("/auth/google", data)).data;
 export const linkGoogleAccount = async (data) => (await API.post("/auth/google/link", data)).data;
 export const unlinkGoogleAccount = async (data) => (await API.post("/auth/google/unlink", data)).data;
@@ -263,6 +264,7 @@ export const sendEmail = async (data) => (await API.post("/emails/send", data)).
 export const getWhatsAppStatus = async () => (await API.get("/whatsapp/status")).data;
 export const getWhatsAppQr = async () => (await API.get("/whatsapp/qr")).data;
 export const restartWhatsApp = async () => (await API.post("/whatsapp/session/restart")).data;
+export const resetWhatsAppSession = async () => (await API.post("/whatsapp/session/reset")).data;
 export const logoutWhatsApp = async () => (await API.post("/whatsapp/session/logout")).data;
 export const checkWhatsAppNumber = async (number) => (await API.get(`/whatsapp/check/${encodeURIComponent(number)}`)).data;
 export const getWhatsAppMessages = async (params = {}) => (await API.get("/whatsapp/messages", { params })).data;

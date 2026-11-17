@@ -55,7 +55,11 @@ function userPayload(user) {
     role_id: user.role_id,
     isActive: user.is_active !== false,
     twoFactorEnabled: Boolean(user.two_factor_enabled),
-    twoFactorMethod: user.two_factor_secret ? "totp" : user.two_factor_enabled ? "email" : null
+    twoFactorMethod: user.two_factor_secret
+      ? "totp"
+      : user.two_factor_enabled
+        ? user.two_factor_method || "email"
+        : null
   };
 }
 
@@ -95,11 +99,77 @@ router.get("/2fa/status", authenticateToken, async (req, res) => {
     }
     res.json({
       enabled: Boolean(user.two_factor_enabled),
-      method: user.two_factor_secret ? "totp" : user.two_factor_enabled ? "email_legacy" : null,
+      method: user.two_factor_secret
+        ? "totp"
+        : user.two_factor_enabled
+          ? user.two_factor_method || "email"
+          : null,
+      phone: user.phone || null,
       recoveryCodesRemaining: remainingRecoveryCodes
     });
   } catch (err) {
     res.status(500).json({ error: "Could not read security settings." });
+  }
+});
+
+// POST /api/auth/2fa/channel - choose email or WhatsApp delivery and enable it
+router.post("/2fa/channel", authenticateToken, async (req, res) => {
+  try {
+    const method = String(req.body?.method || "").toLowerCase();
+    const { currentPassword } = req.body;
+    if (!["email", "whatsapp"].includes(method)) {
+      return res.status(400).json({ error: "Choose email or WhatsApp verification." });
+    }
+    if (!currentPassword) {
+      return res.status(400).json({ error: "Enter your current password to change verification." });
+    }
+
+    const user = await User.findByPk(req.user.id);
+    if (!user) return res.status(404).json({ error: "User not found." });
+    if (!(await bcrypt.compare(currentPassword, user.password))) {
+      return res.status(401).json({ error: "Your current password is incorrect." });
+    }
+    if (method === "whatsapp" && !user.phone) {
+      return res.status(400).json({
+        error: "Add a phone number to your profile before enabling WhatsApp verification."
+      });
+    }
+
+    let recoveryCodes = null;
+    let hashedCodes = [];
+    try {
+      hashedCodes = JSON.parse(user.recovery_codes_json || "[]");
+    } catch {
+      hashedCodes = [];
+    }
+    if (!hashedCodes.length) {
+      const generated = generateRecoveryCodes();
+      recoveryCodes = generated.rawCodes;
+      hashedCodes = generated.hashedCodes;
+      user.recovery_codes_json = JSON.stringify(hashedCodes);
+    }
+
+    user.two_factor_enabled = true;
+    user.two_factor_method = method;
+    user.two_factor_secret = null;
+    user.two_factor_pending_secret = null;
+    user.two_factor_code = null;
+    user.two_factor_expires = null;
+    user.two_factor_attempts = 0;
+    await user.save();
+
+    await logAudit(user.id, "MFA_CHANNEL_ENABLED", "User", user.id, { method });
+    res.json({
+      message:
+        method === "whatsapp"
+          ? "Two-step verification now sends codes to your WhatsApp number."
+          : "Two-step verification now sends codes to your email.",
+      twoFactorEnabled: true,
+      method,
+      ...(recoveryCodes ? { recoveryCodes } : {})
+    });
+  } catch (err) {
+    res.status(500).json({ error: "Verification channel could not be updated." });
   }
 });
 
@@ -151,6 +221,7 @@ router.post("/2fa/enable", authenticateToken, async (req, res) => {
     user.two_factor_secret = encryptSecret(pendingSecret);
     user.two_factor_pending_secret = null;
     user.two_factor_enabled = true;
+    user.two_factor_method = "totp";
     user.two_factor_code = null;
     user.two_factor_expires = null;
     user.recovery_codes_json = JSON.stringify(hashedCodes);
@@ -180,6 +251,7 @@ router.post("/2fa/disable", authenticateToken, async (req, res) => {
     }
 
     user.two_factor_enabled = false;
+    user.two_factor_method = null;
     user.two_factor_secret = null;
     user.two_factor_pending_secret = null;
     user.two_factor_code = null;

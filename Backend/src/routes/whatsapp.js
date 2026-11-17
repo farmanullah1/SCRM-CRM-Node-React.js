@@ -242,6 +242,19 @@ router.post("/session/logout", requirePermission("whatsapp.manage"), async (req,
   }
 });
 
+// POST /api/whatsapp/session/reset — clears the local profile when linking gets stuck
+router.post("/session/reset", requirePermission("whatsapp.manage"), async (req, res) => {
+  try {
+    res.status(202).json({ message: "WhatsApp session reset started. A fresh QR code will appear shortly." });
+    whatsapp.resetSession().catch((err) => {
+      console.error("[WhatsApp] Session reset failed:", err.message);
+    });
+    await logAudit(req.user.id, "WHATSAPP_SESSION_RESET", "Integration", null, {});
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/whatsapp/check/:number
 router.get("/check/:number", requirePermission("whatsapp.view"), async (req, res) => {
   try {
