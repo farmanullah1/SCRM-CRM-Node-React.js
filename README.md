@@ -125,7 +125,7 @@ SCRM is engineered following strict security and compliance standards:
                                      │
                                      ▼
                   ┌────────────────────────────────────────┐
-                  │     Bearer JWT & Token Rotation        │
+                  │ HttpOnly Session + CSRF Protection     │
                   └──────────────────┬─────────────────────┘
                                      │
                                      ▼
@@ -149,9 +149,10 @@ SCRM is engineered following strict security and compliance standards:
 2. **High-Salt Password Hashing**: Enforced bcrypt hashing with 12 salt rounds (`bcrypt.genSalt(12)`).
 3. **Input Sanitization**: Strips dangerous HTML tags and prevents Cross-Site Scripting (XSS).
 4. **Brute-Force Rate Limiting**: `express-rate-limit` throttles auth endpoints (20 req / 15 min) and API routes (600 req / 15 min).
-5. **Token Rotation**: Short-lived access tokens combined with long-lived rotated refresh tokens (`/api/auth/refresh`).
-6. **Automated Daily Snapshots**: Server-side JSON snapshot creation running every 24 hours in `Backend/backups/`.
-7. **Private WhatsApp Media**: Inbound files are never served from public `/uploads`; downloads require authentication and `whatsapp.view` through a MIME-validated route.
+5. **HttpOnly Sessions & CSRF**: Access and refresh tokens live in `HttpOnly`, `SameSite` cookies, never in browser storage. State-changing cookie requests require a matching double-submit `X-CSRF-Token`, and refresh tokens rotate on every use (`/api/auth/refresh`).
+6. **Immediate Revocation**: Logout bumps the account token version and clears the stored refresh hash, invalidating every outstanding access cookie immediately. Bearer tokens remain available for non-browser API clients.
+7. **Automated Daily Snapshots**: Server-side JSON snapshot creation running every 24 hours in `Backend/backups/`.
+8. **Private WhatsApp Media**: Inbound files are never served from public `/uploads`; downloads require authentication and `whatsapp.view` through a MIME-validated route.
 
 ### Role-Based Access Control (RBAC) Matrix
 
@@ -288,6 +289,11 @@ DB_TRUST_SERVER_CERTIFICATE=true
 JWT_SECRET=scrm_enterprise_production_jwt_secret_key_2026
 JWT_EXPIRES_IN=2h
 
+# HttpOnly browser session cookies (Secure is automatic in production)
+COOKIE_SECURE=false
+COOKIE_SAME_SITE=lax
+# COOKIE_DOMAIN=.example.com
+
 # Optional SMTP for Email Dispatch
 SMTP_HOST=smtp.mailgun.org
 SMTP_PORT=587
@@ -332,9 +338,10 @@ cd Backend
 npm run test:whatsapp   # 13 passing: phone matching + inbound media safety
 npm run test:pagination # 5 passing: pagination, saved views and audit export
 npm run test:payments   # 6 passing: hosted checkout, signatures, partial payments, permissions
+npm run test:auth       # 1 end-to-end cookie login, refresh rotation, CSRF and logout test
 
 cd ../Frontend
-npm test                # 15 passing: access, dialogs, catalog, and WhatsApp panel states
+npm test                # 16 passing: access, sessions, dialogs, catalog, and WhatsApp states
 npm run build           # production SPA build
 ```
 
@@ -350,7 +357,7 @@ node tests/api.test.js
 GitHub Actions runs `.github/workflows/ci.yml` on pushes to `main` and on pull requests:
 
 - **Frontend tests** installs `Frontend` dependencies and runs the Vitest suite.
-- **Backend integration tests** starts a SQL Server 2022 service container, waits for it to become healthy, starts the Express API against a CI-only database (`SCRM_CI`), waits for `/health`, then runs `npm run test:pagination` (pagination, saved views and audit export) and `npm run test:payments`.
+- **Backend integration tests** starts a SQL Server 2022 service container, waits for it to become healthy, starts the Express API against a CI-only database (`SCRM_CI`), waits for `/health`, then runs `npm run test:pagination` (pagination, saved views and audit export), `npm run test:payments`, and `npm run test:auth` (cookie login, CSRF, refresh rotation and logout).
 
 The CI values are disposable test credentials and do not require repository secrets. To reproduce the backend job locally, provide any reachable SQL Server and run the backend with `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, and `WHATSAPP_ENABLED=false`, then run the two test scripts.
 
@@ -362,13 +369,15 @@ The CI values are disposable test credentials and do not require repository secr
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/signup` | Public | Register user account with 12-round bcrypt hash & trigger Welcome Email |
-| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT or trigger 2FA OTP challenge |
+| `GET` | `/api/auth/csrf` | Public | Issue the readable CSRF cookie used for session-authenticated writes |
+| `POST` | `/api/auth/login` | Public | Authenticate user, set HttpOnly session cookies, or trigger 2FA |
 | `POST` | `/api/auth/2fa/verify` | Public | Verify 6-digit OTP code sent to user email |
 | `POST` | `/api/auth/2fa/toggle` | Authenticated | Enable or disable Two-Factor Authentication |
 | `POST` | `/api/auth/forgot-password`| Public | Request password reset token via email |
 | `POST` | `/api/auth/reset-password` | Public | Complete password reset using verified token |
 | `PUT` | `/api/auth/profile` | Authenticated | Update user name or change password with security alert |
-| `POST` | `/api/auth/refresh` | Public | Rotate refresh token & issue new access token |
+| `POST` | `/api/auth/refresh` | Public | Rotate both session cookies using the refresh cookie |
+| `POST` | `/api/auth/logout` | Session cookie | Revoke refresh/access tokens immediately and clear cookies |
 | `GET` | `/api/auth/me` | Authenticated | Retrieve current user profile, 2FA status & permissions |
 | `GET` | `/api/auth/users` | Authenticated | List team users for task & deal assignments |
 | `GET` | `/api/auth/roles` | Authenticated | Inspect system RBAC role definitions |

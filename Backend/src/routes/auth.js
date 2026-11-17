@@ -327,7 +327,7 @@ router.post("/signup", authLimiter, async (req, res) => {
     });
 
     const { accessToken, refreshToken } = await issueTokens(user);
-    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
+    setSessionCookies(res, { accessToken, refreshToken });
 
     await logAudit(user.id, "USER_SIGNUP", "User", user.id, {
       email: user.email,
@@ -387,7 +387,7 @@ router.post("/login", authLimiter, async (req, res) => {
     }
 
     const { accessToken, refreshToken } = await issueTokens(user);
-    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
+    setSessionCookies(res, { accessToken, refreshToken });
 
     await logAudit(user.id, "LOGIN_SUCCESS", "Auth", user.id, { email });
 
@@ -438,7 +438,7 @@ router.post("/2fa/verify", authLimiter, async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
     user.refresh_token = hashToken(refreshToken);
     await user.save();
-    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
+    setSessionCookies(res, { accessToken, refreshToken });
 
     await logAudit(user.id, "2FA_VERIFICATION_SUCCESS", "Auth", user.id, { email: user.email });
 
@@ -497,7 +497,7 @@ router.post("/2fa/recovery", authLimiter, async (req, res) => {
     const { accessToken, refreshToken } = generateTokens(user);
     user.refresh_token = hashToken(refreshToken);
     await user.save();
-    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
+    setSessionCookies(res, { accessToken, refreshToken });
 
     await logAudit(user.id, "2FA_RECOVERY_CODE_USED", "Auth", user.id, {
       remainingCodesCount: hashedList.length
@@ -587,7 +587,7 @@ router.post("/google", authLimiter, async (req, res) => {
     }
 
     const { accessToken, refreshToken } = await issueTokens(user);
-    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
+    setSessionCookies(res, { accessToken, refreshToken });
     await logAudit(user.id, "LOGIN_SUCCESS_GOOGLE", "Auth", user.id, { email: user.email });
     res.json({
       message: "Google sign-in successful.",
@@ -696,7 +696,11 @@ router.post("/reset-password", authLimiter, async (req, res) => {
     user.password = await bcrypt.hash(newPassword, salt);
     user.reset_password_token = null;
     user.reset_password_expires = null;
+    // A password reset is a recovery action: end every existing session.
+    user.refresh_token = null;
+    user.token_version = Number(user.token_version || 0) + 1;
     await user.save();
+    clearSessionCookies(res);
 
     await logAudit(user.id, "PASSWORD_RESET_COMPLETED", "Auth", user.id, { email });
 
@@ -760,10 +764,20 @@ router.put("/profile", authenticateToken, async (req, res) => {
       }
       const salt = await bcrypt.genSalt(12);
       user.password = await bcrypt.hash(newPassword, salt);
+      // Revoke every other access/refresh token, then re-issue this browser's
+      // session so the user who changed the password stays signed in.
+      user.refresh_token = null;
+      user.token_version = Number(user.token_version || 0) + 1;
       modifiedDetails.push("Password modified");
     }
 
     await user.save();
+
+    let rotatedTokens = null;
+    if (newPassword) {
+      rotatedTokens = await issueTokens(user);
+      setSessionCookies(res, rotatedTokens);
+    }
 
     await logAudit(user.id, "PROFILE_UPDATED", "User", user.id, { modified: modifiedDetails });
 
@@ -775,6 +789,9 @@ router.put("/profile", authenticateToken, async (req, res) => {
 
     res.json({
       message: "Profile updated successfully.",
+      ...(rotatedTokens
+        ? { token: rotatedTokens.accessToken, refreshToken: rotatedTokens.refreshToken }
+        : {}),
       user: formatUserResponse(user),
       permissions: req.user.permissions
     });
@@ -1092,7 +1109,7 @@ router.post("/setup-admin", authLimiter, async (req, res) => {
     const tokens = generateTokens(newAdmin);
     newAdmin.refresh_token = hashToken(tokens.refreshToken);
     await newAdmin.save();
-    setSessionCookies(res, tokens, readCookie(req, CSRF_COOKIE));
+    setSessionCookies(res, tokens);
 
     await logAudit(newAdmin.id, "INITIAL_ADMIN_PROVISIONED", "User", newAdmin.id, { email: newAdmin.email });
 

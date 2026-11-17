@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { User } from "../db.js";
 import { authenticateToken, logAudit } from "../middleware/auth.js";
 import { authLimiter } from "../middleware/security.js";
-import { CSRF_COOKIE, readCookie, setSessionCookies } from "../auth/sessionCookies.js";
+import { setSessionCookies } from "../auth/sessionCookies.js";
 import {
   encryptSecret,
   decryptSecret,
@@ -72,7 +72,7 @@ async function completeLogin(user, req, res, action) {
   user.two_factor_code = null;
   user.two_factor_expires = null;
   await user.save();
-  setSessionCookies(res, tokens, readCookie(req, CSRF_COOKIE));
+  setSessionCookies(res, tokens);
   await logAudit(user.id, action, "Auth", user.id, {
     email: user.email,
     ip: req.ip,

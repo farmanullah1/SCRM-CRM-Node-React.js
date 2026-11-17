@@ -96,7 +96,10 @@ export async function authenticateToken(req, res, next) {
 
     next();
   } catch (err) {
-    return res.status(403).json({ error: "Invalid or expired token. Please log in again." });
+    return res.status(401).json({
+      error: "Invalid or expired token. Please log in again.",
+      code: "ACCESS_TOKEN_INVALID"
+    });
   }
 }
 

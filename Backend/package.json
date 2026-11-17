@@ -11,6 +11,7 @@
     "test:whatsapp": "node --test tests/whatsapp.test.js tests/whatsappMedia.test.js",
     "test:pagination": "node --test tests/paginationAudit.test.js",
     "test:payments": "node --test tests/payments.test.js",
+    "test:auth": "node --test tests/authCookies.test.js",
     "test:e2e": "node tests/live-e2e.mjs"
   },
   "dependencies": {

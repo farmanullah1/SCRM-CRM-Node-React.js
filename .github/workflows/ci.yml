@@ -128,6 +128,9 @@ jobs:
       - name: Run payment integration tests
         run: npm run test:payments --prefix Backend
 
+      - name: Run cookie session and CSRF tests
+        run: npm run test:auth --prefix Backend
+
       - name: Show backend log on failure
         if: failure()
         run: cat backend-ci.log
