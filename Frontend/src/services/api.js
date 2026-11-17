@@ -266,6 +266,7 @@ export const restartWhatsApp = async () => (await API.post("/whatsapp/session/re
 export const logoutWhatsApp = async () => (await API.post("/whatsapp/session/logout")).data;
 export const checkWhatsAppNumber = async (number) => (await API.get(`/whatsapp/check/${encodeURIComponent(number)}`)).data;
 export const getWhatsAppMessages = async (params = {}) => (await API.get("/whatsapp/messages", { params })).data;
+export const getWhatsAppMediaBlob = async (id) => (await API.get(`/whatsapp/media/${id}`, { responseType: "blob" })).data;
 export const sendWhatsAppMessage = async (data) => (await API.post("/whatsapp/send", data)).data;
 export const sendWhatsAppMedia = async (data) => (await API.post("/whatsapp/send-media", data)).data;
 

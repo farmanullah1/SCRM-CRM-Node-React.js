@@ -371,6 +371,8 @@ export const WhatsAppMessage = sequelize.define(
     message_type: { type: DataTypes.STRING(40), defaultValue: "chat" },
     media_mimetype: { type: DataTypes.STRING(120), allowNull: true },
     media_filename: { type: DataTypes.STRING(255), allowNull: true },
+    media_path: { type: DataTypes.STRING(500), allowNull: true },
+    media_size: { type: DataTypes.BIGINT, allowNull: true },
     status: { type: DataTypes.STRING(40), defaultValue: "Sent" },
     external_id: { type: DataTypes.STRING(255), allowNull: true },
     error_message: { type: DataTypes.STRING(1000), allowNull: true }

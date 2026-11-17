@@ -40,7 +40,7 @@
 | `email_logs` | `id`, `user_id`, `contact_id`, `template_name`, `recipient_email`, `subject`, `body`, `tracking_pixel_id`, `thread_id`, `in_reply_to`, `direction`, `is_opened`, `opened_at`, `status` | Threads are grouped by `thread_id`; `in_reply_to` stores the parent message ID when supplied. |
 | `tickets` | `id`, `userId`, `contactId`, `companyId`, `ticketNumber`, `subject`, `description`, `priority`, `status` | Links to contact, company, and creator. |
 | `notifications` | `id`, `userId`, `type`, `title`, `body`, `link`, `is_read` | Per-user in-app notifications; cascades on user delete. |
-| `whatsapp_messages` | `id`, `user_id`, `contact_id`, `direction`, `phone`, `chat_id`, `body`, `message_type`, `media_mimetype`, `media_filename`, `status`, `external_id`, `error_message` | Local log for the WhatsApp Web adapter. |
+| `whatsapp_messages` | `id`, `user_id`, `contact_id`, `direction`, `phone`, `chat_id`, `body`, `message_type`, `media_mimetype`, `media_filename`, `media_path`, `media_size`, `status`, `external_id`, `error_message` | Local log for the WhatsApp Web adapter. Inbound media is stored under `Backend/uploads/whatsapp/` and served only through the authenticated `/api/whatsapp/media/:id` route. |
 
 ## Files and developer platform
 

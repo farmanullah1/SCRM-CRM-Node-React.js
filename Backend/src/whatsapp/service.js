@@ -1,13 +1,19 @@
 import { execFile } from "node:child_process";
 import { EventEmitter } from "node:events";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import pkg from "whatsapp-web.js";
 import QRCode from "qrcode";
 import { whatsappConfig } from "./config.js";
 import SendQueue from "./queue.js";
 import { WhatsAppError, withTimeout } from "./errors.js";
 import { normalizePhone, isChatId } from "./phone.js";
+import { saveInboundMedia } from "./media.js";
 
 const { Client, LocalAuth, MessageMedia } = pkg;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const UPLOADS_ROOT = path.resolve(__dirname, "../../uploads");
+const INBOUND_MEDIA_TYPES = new Set(["image", "document", "audio", "ptt", "sticker"]);
 
 const log = (...args) => console.log("[WhatsApp]", ...args);
 const warn = (...args) => console.warn("[WhatsApp]", ...args);
@@ -182,7 +188,7 @@ class WhatsAppService extends EventEmitter {
       if (msg.from === "status@broadcast") return;
       if (!whatsappConfig.captureGroups && msg.from?.endsWith("@g.us")) return;
       if (!whatsappConfig.captureNewsletters && msg.from?.endsWith("@newsletter")) return;
-      this.emit("message.received", serializeMessage(msg));
+      this.#handleInboundMessage(msg).catch((err) => error("Inbound message handling failed:", err.message));
     });
 
     client.on("message_ack", (msg, ack) => {
@@ -190,6 +196,49 @@ class WhatsAppService extends EventEmitter {
     });
 
     this.client = client;
+  }
+
+  async #handleInboundMessage(msg) {
+    const payload = serializeMessage(msg);
+    if (msg.hasMedia) {
+      try {
+        payload.media = await this.#downloadInboundMedia(msg);
+      } catch (err) {
+        payload.media_error = err.message || "Media could not be downloaded.";
+        warn(`Inbound media from ${payload.from} was not stored:`, err.message);
+      }
+    }
+    this.emit("message.received", payload);
+  }
+
+  async #downloadInboundMedia(msg) {
+    if (!INBOUND_MEDIA_TYPES.has(String(msg.type || "").toLowerCase())) {
+      throw new WhatsAppError(415, "UNSUPPORTED_MEDIA_TYPE", "Only images, documents and audio are captured.");
+    }
+
+    // Reject obviously oversized media before asking the browser to download it.
+    const advertisedSize = Number(msg._data?.size || 0);
+    if (advertisedSize > whatsappConfig.inboundMediaMaxBytes) {
+      throw new WhatsAppError(413, "MEDIA_TOO_LARGE", "The inbound media file is too large to store.");
+    }
+
+    const media = await withTimeout(
+      msg.downloadMedia(),
+      whatsappConfig.sendTimeoutMs,
+      "Inbound media download"
+    );
+    if (!media?.data) {
+      throw new WhatsAppError(422, "MEDIA_UNAVAILABLE", "WhatsApp did not return the media data.");
+    }
+
+    return saveInboundMedia({
+      data: media.data,
+      mimetype: media.mimetype || msg._data?.mimetype,
+      filename: media.filename || msg._data?.filename,
+      messageId: messageId(msg),
+      uploadsRoot: UPLOADS_ROOT,
+      maxBytes: whatsappConfig.inboundMediaMaxBytes
+    });
   }
 
   async #initialize() {
@@ -439,6 +488,8 @@ function serializeMessage(msg) {
     type: msg.type,
     body: msg.body,
     hasMedia: msg.hasMedia,
+    mimetype: msg._data?.mimetype ?? null,
+    filename: msg._data?.filename ?? null,
     timestamp: msg.timestamp,
     notifyName: msg._data?.notifyName ?? null
   };

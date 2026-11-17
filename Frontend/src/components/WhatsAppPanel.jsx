@@ -2,6 +2,8 @@ import React from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   CheckCheck,
+  Download,
+  FileText,
   LogOut,
   MessageCircle,
   Paperclip,
@@ -11,6 +13,7 @@ import {
   Smartphone
 } from "lucide-react";
 import {
+  getWhatsAppMediaBlob,
   getWhatsAppMessages,
   getWhatsAppQr,
   getWhatsAppStatus,
@@ -41,6 +44,77 @@ const timeAgo = (value) => {
     minute: "2-digit"
   });
 };
+
+const formatBytes = (value) => {
+  const bytes = Number(value || 0);
+  if (!bytes) return "";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+function WhatsAppMediaPreview({ message }) {
+  const [url, setUrl] = React.useState("");
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    if (!message.media_url) return undefined;
+    let active = true;
+    let objectUrl = "";
+
+    getWhatsAppMediaBlob(message.id)
+      .then((blob) => {
+        if (!active) return;
+        objectUrl = URL.createObjectURL(blob);
+        setUrl(objectUrl);
+        setError("");
+      })
+      .catch(() => {
+        if (active) setError("This attachment could not be loaded.");
+      });
+
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [message.id, message.media_url]);
+
+  if (error) return <p className="wa-media-error">{error}</p>;
+  if (!url) return <div className="wa-media-loading">Loading attachment…</div>;
+
+  const mimetype = String(message.media_mimetype || "").toLowerCase();
+  if (mimetype.startsWith("image/")) {
+    return (
+      <img
+        className="wa-message-image"
+        src={url}
+        alt={message.media_filename || "WhatsApp image"}
+        loading="lazy"
+      />
+    );
+  }
+  if (mimetype.startsWith("audio/")) {
+    return <audio className="wa-message-audio" controls src={url} preload="metadata" />;
+  }
+
+  const isPdf = mimetype === "application/pdf";
+  return (
+    <a
+      className="wa-message-file"
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      download={isPdf ? undefined : message.media_filename || "whatsapp-attachment"}
+    >
+      <FileText size={17} aria-hidden="true" />
+      <span className="wa-message-file-copy">
+        <strong>{message.media_filename || "Document"}</strong>
+        <small>{isPdf ? "Open PDF" : "Download"}{message.media_size ? ` · ${formatBytes(message.media_size)}` : ""}</small>
+      </span>
+      <Download size={14} aria-hidden="true" />
+    </a>
+  );
+}
 
 export default function WhatsAppPanel({ contacts = [], showToast }) {
   const { user } = useAuth();
@@ -371,7 +445,13 @@ export default function WhatsAppPanel({ contacts = [], showToast }) {
                   <strong>{item.contact?.name || item.phone || "Unknown number"}</strong>
                   <span>{timeAgo(item.createdAt)}</span>
                 </div>
-                <p>{item.body || (item.media_filename ? `Attachment: ${item.media_filename}` : "Media message")}</p>
+                {item.media_url && <WhatsAppMediaPreview message={item} />}
+                {(!item.media_url || item.body) && (
+                  <p>{item.body || (item.media_filename ? `Attachment: ${item.media_filename}` : "Media message")}</p>
+                )}
+                {item.error_message && item.direction === "Inbound" && (
+                  <p className="wa-media-error">{item.error_message}</p>
+                )}
                 <div className="wa-message-footer">
                   <span>{item.direction === "Outbound" ? "Sent" : "Received"}</span>
                   {item.direction === "Outbound" && (

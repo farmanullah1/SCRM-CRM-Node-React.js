@@ -1,5 +1,8 @@
 import express from "express";
 import dns from "node:dns/promises";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { Op } from "sequelize";
 import { Contact, WhatsAppMessage, ActivityLog } from "../db.js";
 import { authenticateToken, requirePermission, logAudit } from "../middleware/auth.js";
@@ -10,6 +13,11 @@ import { whatsappConfig } from "../whatsapp/config.js";
 import { normalizePhone, isChatId } from "../whatsapp/phone.js";
 import { matchContactByPhone, phoneMatchCandidates } from "../whatsapp/contactMatcher.js";
 import { WhatsAppError } from "../whatsapp/errors.js";
+import { removeInboundMedia, resolveMediaInfo } from "../whatsapp/media.js";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const WHATSAPP_MEDIA_ROOT = path.resolve(__dirname, "../../uploads/whatsapp");
+const UPLOADS_ROOT = path.resolve(__dirname, "../../uploads");
 
 const router = express.Router();
 router.use(authenticateToken);
@@ -37,25 +45,47 @@ async function findContactByChatId(chatId) {
 async function handleIncomingMessage(payload) {
   if (!payload?.id) return;
   const existing = await WhatsAppMessage.findOne({ where: { external_id: payload.id } });
-  if (existing) return;
+  if (existing) {
+    await removeInboundMedia(payload.media?.media_path, UPLOADS_ROOT).catch(() => null);
+    return;
+  }
 
   const contact = payload.isGroup ? null : await findContactByChatId(payload.from);
   const ownerId = contact?.owner_id || contact?.userId || null;
   const phone = payload.isGroup ? null : phoneFromChatId(payload.from);
+  const media = payload.media || {};
+  const mediaLabel = {
+    image: "photo",
+    sticker: "sticker",
+    audio: "voice message",
+    ptt: "voice message",
+    document: "document"
+  }[payload.type] || "media";
+  const body = sanitizeString(payload.body) || (media.media_path ? "" : payload.hasMedia ? "[media unavailable]" : "");
+  const mediaError = payload.media_error ? String(payload.media_error).slice(0, 1000) : null;
 
-  const message = await WhatsAppMessage.create({
-    user_id: ownerId,
-    contact_id: contact?.id ?? null,
-    direction: "Inbound",
-    phone,
-    chat_id: payload.from,
-    body: payload.body || (payload.hasMedia ? "[media message]" : ""),
-    message_type: payload.type || "chat",
-    media_mimetype: null,
-    media_filename: null,
-    status: "Received",
-    external_id: payload.id
-  });
+  let message;
+  try {
+    message = await WhatsAppMessage.create({
+      user_id: ownerId,
+      contact_id: contact?.id ?? null,
+      direction: "Inbound",
+      phone,
+      chat_id: payload.from,
+      body,
+      message_type: payload.type || "chat",
+      media_mimetype: media.media_mimetype || payload.mimetype || null,
+      media_filename: media.media_filename || payload.filename || null,
+      media_path: media.media_path || null,
+      media_size: media.media_size || null,
+      status: "Received",
+      external_id: payload.id,
+      error_message: mediaError
+    });
+  } catch (err) {
+    await removeInboundMedia(media.media_path, UPLOADS_ROOT).catch(() => null);
+    throw err;
+  }
 
   await ActivityLog.create({
     user_id: ownerId,
@@ -65,16 +95,17 @@ async function handleIncomingMessage(payload) {
     details_json: JSON.stringify({
       phone,
       from: payload.from,
-      preview: String(payload.body || "").slice(0, 180)
+      preview: String(payload.body || media.media_filename || `[${mediaLabel}]`).slice(0, 180)
     })
   }).catch(() => null);
 
-  if (ownerId && payload.body) {
+  const notificationBody = sanitizeString(payload.body) || (media.media_path ? `New ${mediaLabel}` : "");
+  if (ownerId && notificationBody) {
     await createNotification({
       userId: ownerId,
       type: "whatsapp",
       title: `WhatsApp from ${contact?.name || payload.notifyName || phone || "unknown"}`,
-      body: String(payload.body).slice(0, 500),
+      body: notificationBody.slice(0, 500),
       link: "/app/whatsapp"
     });
   }
@@ -248,14 +279,59 @@ router.get("/messages", requirePermission("whatsapp.view"), async (req, res) => 
 
     res.set("Cache-Control", "private, no-store");
     res.json({
-      messages: messages.map((message) => ({
-        ...message.toJSON(),
-        contact: contactMap.get(message.contact_id) || null
-      })),
+      messages: messages.map((message) => {
+        const data = message.toJSON();
+        delete data.media_path;
+        return {
+          ...data,
+          media_url: message.media_path ? `/api/whatsapp/media/${message.id}` : null,
+          contact: contactMap.get(message.contact_id) || null
+        };
+      }),
       total: await WhatsAppMessage.count({ where })
     });
   } catch (err) {
     res.status(500).json({ error: "WhatsApp messages could not be loaded." });
+  }
+});
+
+// GET /api/whatsapp/media/:id — authenticated inline media for the conversation log.
+router.get("/media/:id", requirePermission("whatsapp.view"), async (req, res) => {
+  try {
+    const message = await WhatsAppMessage.findByPk(req.params.id);
+    if (!message?.media_path) {
+      return res.status(404).json({ error: "No media is stored for that message." });
+    }
+
+    const storedName = path.basename(message.media_path);
+    const absolutePath = path.join(WHATSAPP_MEDIA_ROOT, storedName);
+    if (
+      !absolutePath.startsWith(`${WHATSAPP_MEDIA_ROOT}${path.sep}`) ||
+      !fs.existsSync(absolutePath) ||
+      !fs.statSync(absolutePath).isFile()
+    ) {
+      return res.status(404).json({ error: "The stored media file could not be found." });
+    }
+
+    const filename = message.media_filename || storedName;
+    const mediaInfo = resolveMediaInfo(message.media_mimetype, filename);
+    if (!mediaInfo) {
+      return res.status(415).json({ error: "That media type cannot be previewed safely." });
+    }
+
+    const mimetype = mediaInfo.mime;
+    const inline = mimetype.startsWith("image/") || mimetype.startsWith("audio/") || mimetype === "application/pdf";
+
+    res.set("Cache-Control", "private, max-age=300");
+    res.set("Content-Type", mimetype);
+    res.set(
+      "Content-Disposition",
+      `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(filename)}`
+    );
+    res.sendFile(absolutePath);
+  } catch (err) {
+    console.error("[WhatsApp] Media read failed:", err.message);
+    if (!res.headersSent) res.status(500).json({ error: "The media file could not be loaded." });
   }
 });
 

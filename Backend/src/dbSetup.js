@@ -705,6 +705,10 @@ export async function ensureDatabaseAndSchema() {
         CREATE INDEX [IX_whatsapp_messages_contact] ON [whatsapp_messages] ([contact_id], [id] DESC);
         CREATE INDEX [IX_whatsapp_messages_external] ON [whatsapp_messages] ([external_id]);
       END
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'whatsapp_messages' AND COLUMN_NAME = 'media_path')
+        ALTER TABLE [whatsapp_messages] ADD [media_path] NVARCHAR(500) NULL;
+      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'whatsapp_messages' AND COLUMN_NAME = 'media_size')
+        ALTER TABLE [whatsapp_messages] ADD [media_size] BIGINT NULL;
     `);
 
     console.log("[Database Init] Idempotent schema migration completed successfully!");

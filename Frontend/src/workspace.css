@@ -2006,6 +2006,15 @@
 .wa-message-meta strong { font-size: 11px; }
 .wa-message-meta span { font-size: 9px; color: var(--text-muted); white-space: nowrap; }
 .wa-message p { margin: 5px 0 0; font-size: 12px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.wa-message-image { display: block; width: auto; max-width: 100%; max-height: 280px; margin-top: 8px; border: 1px solid var(--border); border-radius: 9px; object-fit: contain; background: #050505; }
+.wa-message-audio { display: block; width: min(100%, 360px); margin-top: 8px; }
+.wa-message-file { display: flex; align-items: center; gap: 9px; margin-top: 8px; padding: 9px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--text); text-decoration: none; transition: border-color .18s ease, transform .18s ease; }
+.wa-message-file:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.wa-message-file-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; gap: 2px; }
+.wa-message-file-copy strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.wa-message-file-copy small { color: var(--text-muted); font-size: 9px; }
+.wa-media-loading { margin-top: 8px; color: var(--text-muted); font-size: 10px; }
+.wa-media-error { margin: 8px 0 0; color: #ff8f8f; font-size: 10px; }
 .wa-message-footer { display: flex; justify-content: space-between; gap: 8px; margin-top: 6px; font-size: 9px; color: var(--text-muted); }
 .wa-delivery { display: inline-flex; align-items: center; gap: 3px; }
 .wa-delivery.read, .wa-delivery.delivered { color: #25d366; }
