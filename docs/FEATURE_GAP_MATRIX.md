@@ -33,7 +33,7 @@
 | ImageKit media | Available | Signed auth endpoint, direct upload, local fallback. Live avatar upload returned an ImageKit URL. | Test avatar was deleted during cleanup; no ImageKit CDN purge step. |
 | Accessible drag-and-drop alternative | Available | Pipeline stage select/menu remains the keyboard alternative to pointer drag. | Drag itself is still pointer-oriented. |
 | Catalog, Outbox and Tickets UX | Available | Electric Obsidian cards, filters, empty/error states and responsive tables. | Further visual polish is possible. |
-| Automated frontend tests | Available | Vitest + Testing Library; 8 tests for sidebar permissions, confirmation dialog and section guard. | No browser E2E suite or backend integration suite in CI. |
+| Automated frontend tests | Available | Vitest + Testing Library (16 tests) plus a seeded Playwright browser flow (8 checks: cookie login, reload, CSRF mutation, silent refresh, logout, TOTP 2FA). | Browser flow requires both dev servers and a local Chromium install. |
 | Organization / tenant isolation | Partial | Tables exist (`organizations`, `organization_members`); business rows are not organization-scoped. | Required before multi-tenant use. |
 | Custom objects, approval workflows, e-signature, campaigns, SMS/VoIP | Missing | Not implemented. | Out of current scope. |
 | AI summaries, churn prediction, enrichment | Missing | Not implemented. | Out of current scope. |
@@ -41,7 +41,9 @@
 ## Quality gates observed
 
 - Frontend production build: passed; `index` chunk 362 KB / 116 KB gzip, Dashboard 190 KB / 41 KB gzip after route splitting.
-- Frontend tests: 8/8 passing.
+- Frontend tests: 16/16 passing.
+- Browser cookie/CSRF/refresh/logout/2FA check: 8/8 passing.
+- Backend auth, pagination/audit, payments and WhatsApp suites: passing.
 - Backend syntax checks: passed for touched routes.
 - No `window.confirm` on delete paths.
 - QA verification records removed before commit.

@@ -342,6 +342,7 @@ npm run test:whatsapp   # 13 passing: phone matching + inbound media safety
 npm run test:pagination # 5 passing: pagination, saved views and audit export
 npm run test:payments   # 6 passing: hosted checkout, signatures, partial payments, permissions
 npm run test:auth       # 1 end-to-end cookie login, refresh rotation, CSRF and logout test
+npm run test:browser:auth # real Chromium: sign-in, reload, CSRF mutation, silent refresh, logout, 2FA
 
 cd ../Frontend
 npm test                # 16 passing: access, sessions, dialogs, catalog, and WhatsApp states
@@ -360,9 +361,11 @@ node tests/api.test.js
 GitHub Actions runs `.github/workflows/ci.yml` on pushes to `main` and on pull requests:
 
 - **Frontend tests** installs `Frontend` dependencies and runs the Vitest suite.
-- **Backend integration tests** starts a SQL Server 2022 service container, waits for it to become healthy, starts the Express API against a CI-only database (`SCRM_CI`), waits for `/health`, then runs `npm run test:pagination` (pagination, saved views and audit export), `npm run test:payments`, and `npm run test:auth` (cookie login, CSRF, refresh rotation and logout).
+- **Backend integration tests** starts a SQL Server 2022 service container, waits for it to become healthy, starts the Express API against a CI-only database (`SCRM_CI`), waits for `/health`, then runs `npm run test:pagination` (pagination, saved views and audit export), `npm run test:payments`, `npm run test:auth` (cookie login, CSRF, refresh rotation and logout), and `npm run test:browser:auth` (real Chromium sign-in, reload persistence, CSRF-protected company creation, silent refresh, logout, and TOTP 2FA).
 
-The CI values are disposable test credentials and do not require repository secrets. To reproduce the backend job locally, provide any reachable SQL Server and run the backend with `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, and `WHATSAPP_ENABLED=false`, then run the two test scripts.
+The browser check needs both dev servers. Start them with `npm run dev`, install the browser once with `cd Backend && npx playwright install chromium`, then run `npm run test:browser:auth --prefix Backend`. It seeds and deletes its own users and company; it never reuses production data.
+
+The CI values are disposable test credentials and do not require repository secrets. To reproduce the backend job locally, provide any reachable SQL Server and run the backend with `DB_SERVER`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`, `JWT_SECRET`, and `WHATSAPP_ENABLED=false`, then run the pagination/audit, payment, and cookie-session test scripts.
 
 ---
 

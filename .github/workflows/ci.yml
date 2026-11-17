@@ -131,13 +131,47 @@ jobs:
       - name: Run cookie session and CSRF tests
         run: npm run test:auth --prefix Backend
 
+      - name: Install frontend dependencies
+        run: npm ci --prefix Frontend
+
+      - name: Install Playwright Chromium
+        run: cd Backend && npx playwright install --with-deps chromium
+
+      - name: Start frontend dev server
+        run: |
+          npm run dev --prefix Frontend -- --host 127.0.0.1 --port 5173 > frontend-ci.log 2>&1 &
+          echo $! > frontend-ci.pid
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent --show-error http://127.0.0.1:5173/ >/dev/null; then
+              echo "Frontend is ready after ${attempt} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for the frontend dev server."
+          cat frontend-ci.log
+          exit 1
+
+      - name: Run browser cookie, CSRF, refresh, logout and 2FA flow
+        run: npm run test:browser:auth --prefix Backend
+        env:
+          E2E_FRONTEND: http://127.0.0.1:5173
+          E2E_API: http://127.0.0.1:5000
+
       - name: Show backend log on failure
         if: failure()
         run: cat backend-ci.log
 
-      - name: Stop backend API
+      - name: Stop servers
         if: always()
         run: |
           if [ -f backend-ci.pid ]; then
             kill "$(cat backend-ci.pid)" 2>/dev/null || true
           fi
+          if [ -f frontend-ci.pid ]; then
+            kill "$(cat frontend-ci.pid)" 2>/dev/null || true
+          fi
+
+      - name: Show frontend log on failure
+        if: failure()
+        run: cat frontend-ci.log || true
