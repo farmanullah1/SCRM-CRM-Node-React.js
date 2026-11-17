@@ -3,6 +3,7 @@ import dotenv from "dotenv";
 import { User, Role, ActivityLog } from "../db.js";
 import { hasPermission, resolvePermissions } from "../permissions.js";
 import { applyPermissionOverrides } from "../services/accessScope.js";
+import { ACCESS_COOKIE, readCookie } from "../auth/sessionCookies.js";
 
 dotenv.config();
 
@@ -25,7 +26,9 @@ function legacyPermissionFlags(effective) {
 
 export async function authenticateToken(req, res, next) {
   const authHeader = req.headers.authorization;
-  const token = authHeader && authHeader.split(" ")[1];
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  const cookieToken = readCookie(req, ACCESS_COOKIE);
+  const token = bearerToken || cookieToken;
 
   if (!token) {
     return res.status(401).json({ error: "Access denied. Authentication token required." });
@@ -79,6 +82,7 @@ export async function authenticateToken(req, res, next) {
     const basePermissions = resolvePermissions(roleRecord?.permissions_json, user.role);
     const effective = applyPermissionOverrides(basePermissions, user.permission_overrides_json);
 
+    req.authSource = bearerToken ? "bearer" : "cookie";
     req.user = {
       id: user.id,
       name: user.name,

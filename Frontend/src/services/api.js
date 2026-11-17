@@ -14,15 +14,67 @@ export const assetUrl = (value) => {
 
 const API = axios.create({
   baseURL: API_BASE_URL,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json"
   }
 });
 
+const SAFE_METHODS = new Set(["get", "head", "options"]);
+const CSRF_COOKIE = "scrm_csrf";
+const CSRF_HEADER = "X-CSRF-Token";
+const SESSION_ENDPOINTS = /\/auth\/(login|signup|refresh|logout|2fa|google|forgot-password|reset-password|csrf|setup-admin)/;
+
+function readCookie(name) {
+  if (typeof document === "undefined") return null;
+  const prefix = `${name}=`;
+  for (const part of document.cookie.split(";")) {
+    const value = part.trim();
+    if (value.startsWith(prefix)) return decodeURIComponent(value.slice(prefix.length));
+  }
+  return null;
+}
+
+function clearLocalSession() {
+  localStorage.removeItem("crm_token");
+  localStorage.removeItem("crm_refresh_token");
+  localStorage.removeItem("crm_user");
+}
+
+async function ensureCsrfToken() {
+  const existing = readCookie(CSRF_COOKIE);
+  if (existing) return existing;
+  const response = await axios.get(`${API_BASE_URL}/auth/csrf`, { withCredentials: true });
+  return readCookie(CSRF_COOKIE) || response.data?.csrfToken || null;
+}
+
+let refreshPromise = null;
+
+async function refreshSession() {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const csrfToken = await ensureCsrfToken().catch(() => null);
+      await axios.post(
+        `${API_BASE_URL}/auth/refresh`,
+        {},
+        {
+          withCredentials: true,
+          headers: csrfToken ? { [CSRF_HEADER]: csrfToken } : {}
+        }
+      );
+    })().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
 API.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("crm_token");
-    if (token) config.headers.Authorization = `Bearer ${token}`;
+  async (config) => {
+    if (!SAFE_METHODS.has(String(config.method || "get").toLowerCase())) {
+      const csrfToken = await ensureCsrfToken().catch(() => null);
+      if (csrfToken) config.headers[CSRF_HEADER] = csrfToken;
+    }
     return config;
   },
   (error) => Promise.reject(error)
@@ -32,33 +84,25 @@ API.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    if (error.response && error.response.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      const refreshToken = localStorage.getItem("crm_refresh_token");
-      if (refreshToken) {
-        try {
-          const res = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
-          if (res.data.token) {
-            localStorage.setItem("crm_token", res.data.token);
-            if (res.data.refreshToken) {
-              localStorage.setItem("crm_refresh_token", res.data.refreshToken);
-            }
-            originalRequest.headers.Authorization = `Bearer ${res.data.token}`;
-            return API(originalRequest);
-          }
-        } catch (refreshErr) {
-          localStorage.removeItem("crm_token");
-          localStorage.removeItem("crm_refresh_token");
-          localStorage.removeItem("crm_user");
-          if (!window.location.pathname.includes("/login")) {
-            window.location.href = "/login";
-          }
-        }
-      } else {
-        localStorage.removeItem("crm_token");
-        localStorage.removeItem("crm_user");
-        if (!window.location.pathname.includes("/login")) {
-          window.location.href = "/login";
+    if (
+      !originalRequest ||
+      error.response?.status !== 401 ||
+      originalRequest._retry ||
+      SESSION_ENDPOINTS.test(originalRequest.url || "")
+    ) {
+      return Promise.reject(error);
+    }
+
+    originalRequest._retry = true;
+    try {
+      await refreshSession();
+      return API(originalRequest);
+    } catch {
+      clearLocalSession();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("scrm:session-expired"));
+        if (window.location.pathname.startsWith("/app")) {
+          window.location.assign("/login");
         }
       }
     }

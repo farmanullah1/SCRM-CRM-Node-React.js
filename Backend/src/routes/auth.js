@@ -30,6 +30,15 @@ import {
 import { resolvePermissions, PERMISSION_CATALOG } from "../permissions.js";
 import whatsapp from "../whatsapp/service.js";
 import { normalizePhone } from "../whatsapp/phone.js";
+import {
+  ACCESS_COOKIE,
+  REFRESH_COOKIE,
+  CSRF_COOKIE,
+  clearSessionCookies,
+  ensureCsrfCookie,
+  readCookie,
+  setSessionCookies
+} from "../auth/sessionCookies.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -42,6 +51,14 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || process.env.VITE_GOOGLE
 const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null;
 const DUMMY_PASSWORD_HASH = "$2b$12$8vT7vXl0VQ0nU8rD9J5zQeK4oM2qBw7rY1sW3cN6fH9kL0pR5tU2q";
 const TERMS_VERSION = "2026-11";
+
+// Public endpoint used by the SPA before its first state-changing request.
+// The token is intentionally readable by JavaScript; the session cookies are not.
+router.get("/csrf", (req, res) => {
+  const csrfToken = ensureCsrfCookie(req, res);
+  res.set("Cache-Control", "private, no-store");
+  res.json({ csrfToken });
+});
 
 // Multer Storage Configuration for Avatar and Cover Photos
 const avatarStorage = multer.diskStorage({
@@ -310,6 +327,7 @@ router.post("/signup", authLimiter, async (req, res) => {
     });
 
     const { accessToken, refreshToken } = await issueTokens(user);
+    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
 
     await logAudit(user.id, "USER_SIGNUP", "User", user.id, {
       email: user.email,
@@ -369,6 +387,7 @@ router.post("/login", authLimiter, async (req, res) => {
     }
 
     const { accessToken, refreshToken } = await issueTokens(user);
+    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
 
     await logAudit(user.id, "LOGIN_SUCCESS", "Auth", user.id, { email });
 
@@ -417,8 +436,9 @@ router.post("/2fa/verify", authLimiter, async (req, res) => {
     user.two_factor_expires = null;
 
     const { accessToken, refreshToken } = generateTokens(user);
-    user.refresh_token = refreshToken;
+    user.refresh_token = hashToken(refreshToken);
     await user.save();
+    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
 
     await logAudit(user.id, "2FA_VERIFICATION_SUCCESS", "Auth", user.id, { email: user.email });
 
@@ -475,8 +495,9 @@ router.post("/2fa/recovery", authLimiter, async (req, res) => {
     user.two_factor_expires = null;
 
     const { accessToken, refreshToken } = generateTokens(user);
-    user.refresh_token = refreshToken;
+    user.refresh_token = hashToken(refreshToken);
     await user.save();
+    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
 
     await logAudit(user.id, "2FA_RECOVERY_CODE_USED", "Auth", user.id, {
       remainingCodesCount: hashedList.length
@@ -566,6 +587,7 @@ router.post("/google", authLimiter, async (req, res) => {
     }
 
     const { accessToken, refreshToken } = await issueTokens(user);
+    setSessionCookies(res, { accessToken, refreshToken }, readCookie(req, CSRF_COOKIE));
     await logAudit(user.id, "LOGIN_SUCCESS_GOOGLE", "Auth", user.id, { email: user.email });
     res.json({
       message: "Google sign-in successful.",
@@ -916,28 +938,33 @@ router.post("/smtp/test", authenticateToken, requireRole(["admin"]), async (req,
   }
 });
 
-// POST /api/auth/refresh - Refresh access token with token rotation
+// POST /api/auth/refresh - Rotate cookies (or body tokens for API clients)
 router.post("/refresh", async (req, res) => {
   try {
-    const { refreshToken } = req.body;
+    const refreshToken = readCookie(req, REFRESH_COOKIE) || req.body?.refreshToken;
     if (!refreshToken) {
-      return res.status(400).json({ error: "Refresh token is required." });
+      clearSessionCookies(res);
+      return res.status(401).json({ error: "Refresh token is required." });
     }
 
     const hashed = hashToken(refreshToken);
     const user = await User.findOne({ where: { refresh_token: hashed } });
     if (!user || user.is_active === false) {
-      return res.status(403).json({ error: "Invalid or expired refresh token." });
+      clearSessionCookies(res);
+      return res.status(401).json({ error: "Invalid or expired refresh token." });
     }
 
-    // Rotate both tokens. The previous refresh token is immediately invalid.
+    // Rotate both cookies. The previous refresh token is immediately invalid.
     const tokens = await issueTokens(user);
+    setSessionCookies(res, tokens, readCookie(req, CSRF_COOKIE));
+    res.set("Cache-Control", "private, no-store");
     res.json({
       token: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       user: formatUserResponse(user)
     });
   } catch (err) {
+    clearSessionCookies(res);
     res.status(500).json({ error: "Token refresh failed." });
   }
 });
@@ -1063,8 +1090,9 @@ router.post("/setup-admin", authLimiter, async (req, res) => {
     });
 
     const tokens = generateTokens(newAdmin);
-    newAdmin.refresh_token = tokens.refreshToken;
+    newAdmin.refresh_token = hashToken(tokens.refreshToken);
     await newAdmin.save();
+    setSessionCookies(res, tokens, readCookie(req, CSRF_COOKIE));
 
     await logAudit(newAdmin.id, "INITIAL_ADMIN_PROVISIONED", "User", newAdmin.id, { email: newAdmin.email });
 
@@ -1086,14 +1114,34 @@ router.post("/setup-admin", authLimiter, async (req, res) => {
   }
 });
 
-// POST /api/auth/logout - Session revocation and token invalidation
-router.post("/logout", authenticateToken, async (req, res) => {
+// POST /api/auth/logout - Revoke the session even when the access token expired
+router.post("/logout", async (req, res) => {
   try {
-    const user = await User.findByPk(req.user.id);
+    let user = null;
+    const refreshToken = readCookie(req, REFRESH_COOKIE) || req.body?.refreshToken;
+    if (refreshToken) {
+      user = await User.findOne({ where: { refresh_token: hashToken(refreshToken) } });
+    }
+
+    if (!user) {
+      const bearer = String(req.headers.authorization || "").startsWith("Bearer ")
+        ? req.headers.authorization.slice(7)
+        : null;
+      const accessToken = bearer || readCookie(req, ACCESS_COOKIE);
+      if (accessToken) {
+        try {
+          const decoded = jwt.verify(accessToken, JWT_SECRET);
+          user = await User.findByPk(decoded.id);
+        } catch {
+          user = null;
+        }
+      }
+    }
+
     if (user) {
       user.refresh_token = null;
-      // Bumping the version invalidates the current access token and every
-      // other still-unexpired access token for this account immediately.
+      // Bumping the version invalidates every still-unexpired access token for
+      // this account immediately, including tokens held by other devices.
       user.token_version = Number(user.token_version || 0) + 1;
       await user.save();
       await logAudit(user.id, "USER_LOGOUT", "Auth", user.id, {
@@ -1101,7 +1149,13 @@ router.post("/logout", authenticateToken, async (req, res) => {
         allAccessTokensRevoked: true
       });
     }
-    res.json({ message: "Session successfully terminated and revoked." });
+
+    clearSessionCookies(res);
+    res.set("Cache-Control", "private, no-store");
+    res.json({
+      message: "Session successfully terminated and revoked.",
+      revoked: Boolean(user)
+    });
   } catch (err) {
     res.status(500).json({ error: "Logout failed", details: err.message });
   }
