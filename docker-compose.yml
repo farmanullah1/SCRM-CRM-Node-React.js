@@ -8,7 +8,7 @@ services:
     volumes:
       - mssql_data:/var/opt/mssql
     healthcheck:
-      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
+      test: ["CMD-SHELL", "SQLCMD=/opt/mssql-tools18/bin/sqlcmd; [ -x \"$$SQLCMD\" ] || SQLCMD=/opt/mssql-tools/bin/sqlcmd; \"$$SQLCMD\" -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -C -Q 'SELECT 1' || exit 1"]
       interval: 15s
       timeout: 10s
       retries: 12
@@ -58,9 +58,16 @@ services:
       - uploads_data:/app/uploads
       - wa_session:/app/.wwebjs_auth
     shm_size: "1gb"
+    stop_grace_period: 30s
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:5000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
     restart: unless-stopped
 
   frontend:
@@ -72,7 +79,8 @@ services:
     ports:
       - "${HTTP_PORT:-8080}:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

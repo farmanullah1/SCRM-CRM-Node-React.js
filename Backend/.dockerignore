@@ -1,8 +1,13 @@
 node_modules
+npm-debug.log*
 .env
 .env.*
+!.env.example
 uploads
+backups
 .wwebjs_auth
 .wwebjs_cache
 tests
 *.log
+Dockerfile
+.dockerignore

@@ -2,7 +2,7 @@
 
 The repository now includes a deployable Express + SQL Server target:
 
-- `Backend/Dockerfile` — Node 22 Alpine, non-root, health check.
+- `Backend/Dockerfile` — Node 22 Debian slim with Chromium and emoji fonts; starts as root only long enough to fix named-volume ownership, then drops to the non-root `scrm` user.
 - `Frontend/Dockerfile` — Vite build served by nginx, `/api` and `/uploads` reverse-proxied.
 - `docker-compose.yml` — SQL Server 2022, backend and frontend with persistent volumes.
 - `.env.production.example` — every value you must provide; never commit the real `.env`.
@@ -27,6 +27,25 @@ Set these Vercel environment variables for Production and Preview:
 Use `vercel dev -L` to run both services locally. The configuration allows Vercel's own deployment/branch hostnames for CORS, so Preview deployments work without manually adding every preview URL.
 
 **Serverless limitations:** Vercel Functions have no persistent local filesystem or long-lived background process. WhatsApp Web pairing, the daily backup scheduler, and business attachments stored in `Backend/uploads` require a persistent host such as the Docker Compose target below. Profile images use ImageKit and work on Vercel. For full WhatsApp, attachment and scheduled-backup behavior, keep the backend on the Docker target and use Vercel only for the frontend, or move attachments and automation to managed storage/queues first.
+
+## Docker notes
+
+Docker Desktop with Linux containers must be installed and running before building. Without a `.env`, Compose substitutes blank values for the SQL Server password and JWT secret, which prevents startup; create the local `.env` described below first.
+
+The backend entrypoint repairs ownership of the `uploads_data` and `wa_session` named volumes before starting Node. If a volume was previously created by a root container, this fixes the common `EACCES`/read-only Chromium-profile failure without deleting the WhatsApp session. The container also verifies `WA_CHROME_PATH` is executable and fails with a clear log line instead of repeatedly crashing the WhatsApp client.
+
+Useful checks:
+
+```bash
+docker compose config
+docker compose build --no-cache backend frontend
+docker compose up -d
+docker compose ps
+docker compose logs -f backend
+docker compose logs -f frontend
+```
+
+`GET http://localhost:8080/health` should return `200`, and `docker compose exec backend gosu scrm sh -c 'test -w /app/.wwebjs_auth && test -w /app/uploads && echo writable'` should print `writable`.
 
 ## First deployment
 
