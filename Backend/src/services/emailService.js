@@ -167,6 +167,7 @@ export async function sendEmail({
       recipient_email: to,
       subject,
       body: text || html.replace(/<[^>]+>/g, " "),
+      body_html: html,
       tracking_pixel_id: trackingPixelId,
       thread_id: threadId,
       in_reply_to: inReplyTo,

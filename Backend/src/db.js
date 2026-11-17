@@ -258,6 +258,7 @@ export const EmailLog = sequelize.define(
     recipient_email: { type: DataTypes.STRING(255), allowNull: false },
     subject: { type: DataTypes.STRING(255), allowNull: false },
     body: { type: DataTypes.TEXT, allowNull: false },
+    body_html: { type: DataTypes.TEXT, allowNull: true },
     tracking_pixel_id: { type: DataTypes.STRING(100), allowNull: true },
     thread_id: { type: DataTypes.STRING(160), allowNull: true },
     in_reply_to: { type: DataTypes.STRING(160), allowNull: true },

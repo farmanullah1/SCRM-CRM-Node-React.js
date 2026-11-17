@@ -8,7 +8,8 @@
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
     "postinstall": "node scripts/patch-wwebjs.cjs",
-    "test:whatsapp": "node --test tests/whatsapp.test.js tests/whatsappMedia.test.js"
+    "test:whatsapp": "node --test tests/whatsapp.test.js tests/whatsappMedia.test.js",
+    "test:e2e": "node tests/live-e2e.mjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

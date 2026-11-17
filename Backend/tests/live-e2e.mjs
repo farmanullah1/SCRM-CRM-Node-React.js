@@ -165,7 +165,8 @@ try {
     const recovery = expect(200, await req("/api/auth/2fa/recovery", { method: "POST", body: { tempToken: recoveryChallenge.tempToken, recoveryCode: enabled.recoveryCodes[0] } }), "recovery verify");
     assert.ok(recovery.token);
     adminToken = recovery.token;
-    assert.match(recovery.message, /7 recovery code/);
+    const statusAfterRecovery = expect(200, await req("/api/auth/2fa/status", { token: recovery.token }), "2fa status");
+    assert.equal(statusAfterRecovery.recoveryCodesRemaining, 7);
 
     expect(200, await req("/api/auth/2fa/disable", { method: "POST", token: adminToken, body: { currentPassword: PASSWORD } }), "2fa disable");
     return "QR + authenticator login + one-time recovery code + disable";
@@ -251,7 +252,7 @@ try {
     const contact = expect(201, await req("/api/contacts", {
       method: "POST", token: adminToken,
       body: { first_name: "QA", last_name: `E2E ${STAMP}`, email: `qa-e2e-contact-${STAMP}@example.com`, phone: "+15550007777", company: `QA E2E Company ${STAMP}`, company_id: companyId }
-    }), "contact create").contact;
+    }), "contact create");
     contactId = contact.id;
     created.contacts.push(contactId);
     return `company ${companyId}, contact ${contactId}`;
@@ -359,9 +360,9 @@ try {
     const log = logId ? await req("/api/emails", { token: adminToken }) : null;
     const row = log?.data?.find?.((entry) => entry.id === logId);
     if (row) {
-      assert.match(row.body, /SCRM/);
-      assert.match(row.body, /QA E2E branded email/);
-      assert.match(row.body, /track\/pixel/);
+      assert.match(row.body_html, /SCRM/);
+      assert.match(row.body_html, /QA E2E branded email/);
+      assert.match(row.body_html, /api\/emails\/track\//);
     }
     return `provider status ${response.data.status}; branded HTML and tracking pixel logged`;
   });
@@ -416,6 +417,7 @@ try {
       await sequelize.query("DELETE FROM activity_logs WHERE user_id = ?", { replacements: [userId] });
       await sequelize.query("DELETE FROM users WHERE id = ?", { replacements: [userId] });
     }
+    await sequelize.query("DELETE FROM notifications WHERE body LIKE ?", { replacements: [`%QA E2E Lead ${STAMP}%`] });
     await sequelize.query("DELETE FROM web_leads WHERE email LIKE ?", { replacements: [`qa-e2e-%${STAMP}%`] });
     await sequelize.query("DELETE FROM users WHERE email LIKE ?", { replacements: [`qa-e2e-%${STAMP}%`] });
   } catch (cleanupError) {

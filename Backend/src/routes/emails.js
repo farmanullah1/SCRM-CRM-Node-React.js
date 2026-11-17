@@ -125,6 +125,7 @@ router.post("/send", requirePermission("emails.send"), async (req, res) => {
 
     recipientEmail = sanitizeString(recipientEmail)?.toLowerCase();
     subject = sanitizeString(subject);
+    body = sanitizeString(body);
 
     if (!recipientEmail || !subject || !body) {
       return res.status(400).json({ error: "Recipient email, subject, and body are required." });

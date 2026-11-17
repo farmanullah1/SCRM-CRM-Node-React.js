@@ -5006,9 +5006,21 @@ export default function Dashboard() {
                   </span>
                 )}
               </div>
+              {selectedOutboxEmail.body_html && (
+                <div style={{ marginTop: "10px" }}>
+                  <label style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase" }}>Rendered Email</label>
+                  <iframe
+                    title="Rendered email preview"
+                    srcDoc={selectedOutboxEmail.body_html}
+                    sandbox=""
+                    referrerPolicy="no-referrer"
+                    style={{ width: "100%", height: "260px", marginTop: "4px", border: "1px solid var(--border-hairline)", borderRadius: "6px", background: "#121212" }}
+                  />
+                </div>
+              )}
               <div style={{ marginTop: "10px" }}>
-                <label style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase" }}>Dispatched Body</label>
-                <div style={{ padding: "12px", background: "#181818", border: "1px solid var(--border-hairline)", borderRadius: "6px", whiteSpace: "pre-wrap", marginTop: "4px", fontSize: "12px", maxHeight: "200px", overflowY: "auto", fontFamily: "var(--font-mono)" }}>
+                <label style={{ fontSize: "11px", color: "var(--text-muted)", textTransform: "uppercase" }}>Plain-text Body</label>
+                <div style={{ padding: "12px", background: "#181818", border: "1px solid var(--border-hairline)", borderRadius: "6px", whiteSpace: "pre-wrap", marginTop: "4px", fontSize: "12px", maxHeight: "160px", overflowY: "auto", fontFamily: "var(--font-mono)" }}>
                   {selectedOutboxEmail.body || "(No plain-text body preview stored)"}
                 </div>
               </div>

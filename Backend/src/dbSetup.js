@@ -462,6 +462,7 @@ export async function ensureDatabaseAndSchema() {
           [recipient_email] NVARCHAR(255) NOT NULL,
           [subject] NVARCHAR(255) NOT NULL,
           [body] NVARCHAR(MAX) NOT NULL,
+          [body_html] NVARCHAR(MAX) NULL,
           [tracking_pixel_id] NVARCHAR(100) NULL,
           [is_opened] BIT DEFAULT 0,
           [opened_at] DATETIMEOFFSET NULL,
@@ -477,8 +478,10 @@ export async function ensureDatabaseAndSchema() {
         ALTER TABLE [email_logs] ADD [thread_id] NVARCHAR(160) NULL;
       IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'in_reply_to')
         ALTER TABLE [email_logs] ADD [in_reply_to] NVARCHAR(160) NULL;
-      IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'direction')
-        ALTER TABLE [email_logs] ADD [direction] NVARCHAR(20) DEFAULT 'Outbound';
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'direction')
+          ALTER TABLE [email_logs] ADD [direction] NVARCHAR(20) DEFAULT 'Outbound';
+        IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'body_html')
+          ALTER TABLE [email_logs] ADD [body_html] NVARCHAR(MAX) NULL;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'is_opened')
           ALTER TABLE [email_logs] ADD [is_opened] BIT DEFAULT 0;
         IF NOT EXISTS (SELECT * FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'email_logs' AND COLUMN_NAME = 'opened_at')
